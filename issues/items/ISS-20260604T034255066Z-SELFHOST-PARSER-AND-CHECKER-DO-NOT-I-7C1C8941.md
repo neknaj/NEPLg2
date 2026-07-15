@@ -625,3 +625,9 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 レビュー後はangle tokenの例外をdeclaration header内という位置だけで許可せず、宣言keyword境界に直結し`.Ident`から始まるbalanced binder全体が存在する場合だけ許可するよう狭めた。nested `Hasher<.K>`と複数boundを含むfn / struct / enum / trait / impl binderはtoken evidenceとして通し、semantic検証は後段へ残す。`<i32>`、signature後の`<.T>`、片側だけのangleは引き続きexact legacy diagnostic spanで拒否する。enum declaration spanはunchecked再構成せず、header spanとbody envelope spanをchecked joinし、origin不一致を`BodyOriginMismatch`として閉じる。
 
 actual source-backed Match gateは候補ごとのTypeArena / checked tree forkを含むproduction selectorを通り、成功transactionが0件なら`OverloadNoCandidate`、1件なら選択成功、2件なら`OverloadAmbiguous`になる5 modeを実行した。generic first armで一方だけ成功する場合に加え、両候補のresultを不一致または一致へ揃えた0件・2件も同じVFS / parser / exported enum origin経路で確認した。
+
+### 2026-07-16 enum generic binder identity prerequisite
+
+- enum surface definition は検査済みgeneric binderで先頭parameterの`.Ident` pairを始める`Dot` token ordinalとparameter countをvariant rangeとは別に保持する。
+- definition-local parameter ordinal accessorはsame-session token ownerの`.Ident` pairとdeclaration containmentを検査し、source spellingからparameter順序を再構成しない。
+- これはpayload projection/substitutionでApplied type argumentと宣言binderを結ぶ前提であり、payload型投影、binder environment、owned bind evidence、diagnostic/pending constraintを含むTypeCtx transactionは後続sliceに残る。セルフホストコンパイラ全体は未完成である。

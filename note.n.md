@@ -168290,3 +168290,11 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - enum declaration rangeはheader/bodyのfile originを`source_span_join_result`で検証してから保存し、不一致をtyped `BodyOriginMismatch`へ写像する。doctestは宣言先頭、headerより後ろの終端、first/last variant containmentを検査する。
 - actual source-backed Match fixtureはproduction candidate transactionについて成功0件・1件・2件を実行し、それぞれ`OverloadNoCandidate`、unique commit、`OverloadAmbiguous`を確認する。parser実テスト3/3とfocused actual Match 1/1は通過済みである。
 - unsafe-helper source policyは実装本体への許容を増やさず、このbranchで追加したTypeArena fork / inference Match専用fixtureの`unwrap_ok`だけを既存actual Match fixtureと同じfile単位allowanceへ登録した。
+
+## 2026-07-16 enum generic binder identity prerequisite
+
+- Rust Match checkerのfresh expected typeはTypeCtxへcommitされる一方、現selfhost actual gateの成功rootは既に`Generic<i32>`として具体化されているため、別の推論binding tableを追加しなかった。
+- enum definitionへ先頭generic parameterの`.Ident` pairを始める`Dot` token ordinalとcountを保存し、definition-local ordinalからsame-sessionの`.Ident`宣言spanを取得するfail-closed accessorを追加した。parameter順序をsource spellingから再構成しない。
+- このauthorityはvariant payload型投影とApplied type argument substitutionの前提である。payload projection、binder environment、owned bind evidence、diagnostic/pending constraintを含むTypeCtx transaction、checked Match / HIR / Resource輸送は未完成であり、このcheckpointをセルフホストコンパイラ完成とは扱わない。`plan.md`は変更していない。
+- review指摘に従いnon-genericの数値sentinelを`Option i32`へ置き換え、parameter token indexの乗算・加算を演算前に上限検査した。Dot/Ident双方のsame-file declaration containmentと単調順序も再検査し、負ordinal、non-generic、複数definitionを実行gateへ追加した。
+- enum surface contract、focused doctest 5/5、parser syntax boundary、Match checked scrutinee contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13を通過した。stdlib unsafe-helper policyは今回未変更のGUI `stroke_source_contour.nepl` 2箇所の`unwrap`を報告し、main開始点でも存在するscope外baselineとして記録した。

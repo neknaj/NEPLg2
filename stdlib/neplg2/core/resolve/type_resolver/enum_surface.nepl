@@ -541,10 +541,10 @@ impl Copy for SelfhostResolvedEnumMemberLookupError:
 
 //: SelfhostResolvedEnumDefinition: session 内の dense enum definition record
 //:
-//: [目的/もくてき]: nominal ID、declaration span、ordered variant table 上の range を結びます。
-//: [契約/けいやく]: `variant_start..variant_start+variant_count` は同じ session の variants 内にあります。
+//: [目的/もくてき]: nominal ID、declaration span、ordered generic parameter token range、ordered variant table rangeを結びます。
+//: [契約/けいやく]: generic parameterが無い場合だけ`parameter_first_token`はNoneで、variant rangeは同じsessionのvariants内にあります。
 //: [計算量/けいさんりょう]: record の copy は O(1) です。
-//: [authority boundary]: nominal ID は同じ session constructor table、range は同じ append operation 由来です。
+//: [authority boundary]: nominal IDは同じsession constructor table、parameter tokenは同じparser token owner、variant rangeは同じappend operation由来です。
 //: [owner boundary]: Copy recordであり、buffer ownerはsessionが保持します。
 //: [type boundary]: session-local definition recordであり、ResolvedEnumMemberIdやstable artifact keyではありません。
 pub struct SelfhostResolvedEnumDefinition:
@@ -552,6 +552,8 @@ pub struct SelfhostResolvedEnumDefinition:
     nominal_id %SelfhostNamedTypeId
     declaration_span %SelfhostSourceSpan
     name_span %SelfhostSourceSpan
+    parameter_first_token %Option i32
+    parameter_count %i32
     variant_start %i32
     variant_count %i32
 
@@ -1063,8 +1065,8 @@ fn selfhost_resolved_enum_surface_append_local_loop %impure fn Vec SelfhostResol
                     v::free global
                     Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::VariantNameMissing source_span_empty_unchecked 0 0
 
-fn selfhost_resolved_enum_surface_finish_definition %impure fn str impure fn Vec SelfhostToken impure fn SelfhostTypeConstructorTable impure fn Vec SelfhostResolvedEnumDefinition impure fn Vec SelfhostResolvedEnumVariantHeader impure fn bool impure fn SelfhostNamedTypeId impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn i32 impure fn i32 Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \source\tokens\constructors\definitions\variants\attach_existing\nominal_id\declaration_span\name_span\variant_start\variant_count:
-    let definition %SelfhostResolvedEnumDefinition SelfhostResolvedEnumDefinition SelfhostResolvedNominalDeclarationKind::Enum nominal_id declaration_span name_span variant_start variant_count
+fn selfhost_resolved_enum_surface_finish_definition %impure fn str impure fn Vec SelfhostToken impure fn SelfhostTypeConstructorTable impure fn Vec SelfhostResolvedEnumDefinition impure fn Vec SelfhostResolvedEnumVariantHeader impure fn bool impure fn SelfhostNamedTypeId impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn Option i32 impure fn i32 impure fn i32 impure fn i32 Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \source\tokens\constructors\definitions\variants\attach_existing\nominal_id\declaration_span\name_span\parameter_first_token\parameter_count\variant_start\variant_count:
+    let definition %SelfhostResolvedEnumDefinition SelfhostResolvedEnumDefinition SelfhostResolvedNominalDeclarationKind::Enum nominal_id declaration_span name_span parameter_first_token parameter_count variant_start variant_count
     match v::push definitions definition:
         Result::Ok next_definitions:
             Result::Ok SelfhostResolvedEnumSession source tokens constructors next_definitions variants attach_existing
@@ -1081,7 +1083,7 @@ fn selfhost_resolved_enum_surface_finish_definition %impure fn str impure fn Vec
 //: [authority boundary]: constructor kind と nominal ID は same-session checked add result、variant range は append 前後の長さが authority です。
 //: [owner boundary]: session と local_variants を消費し、失敗時は到達済みの全 owner を閉じます。
 //: [error variant]: allocation failure と constructor table failure を typed kind で分離します。
-fn selfhost_resolved_enum_surface_finish %impure fn SelfhostResolvedEnumSession impure fn str impure fn i32 impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn Vec SelfhostResolvedEnumVariantHeader Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \session\name\arity\declaration_span\name_span\local_variants:
+fn selfhost_resolved_enum_surface_finish %impure fn SelfhostResolvedEnumSession impure fn str impure fn i32 impure fn Option i32 impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn Vec SelfhostResolvedEnumVariantHeader Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \session\name\arity\parameter_first_token\declaration_span\name_span\local_variants:
     let source %str field::get session "source"
     let tokens %Vec SelfhostToken field::get session "tokens"
     let constructors %SelfhostTypeConstructorTable field::get session "constructors"
@@ -1123,13 +1125,13 @@ fn selfhost_resolved_enum_surface_finish %impure fn SelfhostResolvedEnumSession 
                                             selfhost_type_constructor_table_free constructors
                                             Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::ExistingConstructorOriginMismatch name_span
                                         else:
-                                            selfhost_resolved_enum_surface_finish_definition source tokens constructors definitions next_variants attach_existing constructor.nominal_id declaration_span name_span variant_start variant_count
+                                            selfhost_resolved_enum_surface_finish_definition source tokens constructors definitions next_variants attach_existing constructor.nominal_id declaration_span name_span parameter_first_token arity variant_start variant_count
                 else:
                     match selfhost_type_constructor_table_add_checked constructors name arity name_span:
                         Result::Ok added:
                             let nominal_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &added
                             let next_constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
-                            selfhost_resolved_enum_surface_finish_definition source tokens next_constructors definitions next_variants attach_existing nominal_id declaration_span name_span variant_start variant_count
+                            selfhost_resolved_enum_surface_finish_definition source tokens next_constructors definitions next_variants attach_existing nominal_id declaration_span name_span parameter_first_token arity variant_start variant_count
                         Result::Err e:
                             v::free definitions
                             v::free next_variants
@@ -1187,6 +1189,7 @@ fn selfhost_resolved_enum_surface_materialize_header_result %impure fn SelfhostR
                                 Result::Ok keyword_idx:
                                     match selfhost_resolved_enum_surface_header_arity tokens header head keyword_idx:
                                         Result::Ok arity:
+                                            let parameter_first_token %Option i32 if eq arity 0 none some add keyword_idx 3
                                             if:
                                                 or or or not source_span_is_valid head.span lt head.span.start 0 gt head.span.end string_access::len source or not selfhost_resolved_enum_surface_utf8_boundary source head.span.start not selfhost_resolved_enum_surface_utf8_boundary source head.span.end
                                                 then:
@@ -1199,7 +1202,7 @@ fn selfhost_resolved_enum_surface_materialize_header_result %impure fn SelfhostR
                                                                 Result::Ok variants:
                                                                     let body_span %SelfhostSourceSpan selfhost_resolved_enum_surface_range_span body.envelope
                                                                     match source_span_join_result header.header_span body_span:
-                                                                        Result::Ok declaration_span: selfhost_resolved_enum_surface_finish session name arity declaration_span head.span variants
+                                                                        Result::Ok declaration_span: selfhost_resolved_enum_surface_finish session name arity parameter_first_token declaration_span head.span variants
                                                                         Result::Err _e:
                                                                             v::free variants
                                                                             selfhost_resolved_enum_session_free session
@@ -1421,6 +1424,45 @@ pub fn selfhost_resolved_enum_session_token_len %fn &SelfhostResolvedEnumSession
 pub fn selfhost_resolved_enum_session_token_get %fn &SelfhostResolvedEnumSession fn i32 Option SelfhostToken \session\idx:
     let tokens %&Vec SelfhostToken field::get_ref session "tokens"
     v::get tokens idx
+
+//: selfhost_resolved_enum_session_definition_parameter_name_span: definition-local generic parameter ordinalの宣言名spanを返す
+//:
+//: [契約/けいやく]: enum surfaceが検査した`.Ident` comma列のtoken ordinalだけを使い、source spellingからparameter順序を再構成しません。
+//: [authority boundary]: definitionのparameter rangeと同じsession token bufferのDot/Ident pairが一致する場合だけSomeを返します。
+//: [error boundary]: non-generic definition、負ordinal、範囲外ordinal、overflow、token kind/range不整合はNoneとしてfail-closedにします。
+//: [計算量/けいさんりょう]: O(1)です。
+pub fn selfhost_resolved_enum_session_definition_parameter_name_span %fn &SelfhostResolvedEnumSession fn i32 fn i32 Option SelfhostSourceSpan \session\definition_idx\parameter_ordinal:
+    match selfhost_resolved_enum_session_definition_get session definition_idx:
+        Option::None: none
+        Option::Some definition:
+            if or lt parameter_ordinal 0 ge parameter_ordinal definition.parameter_count:
+                then: none
+                else match definition.parameter_first_token:
+                    Option::None: none
+                    Option::Some first_token:
+                        if gt parameter_ordinal 715827882:
+                            then: none
+                            else:
+                                let offset %i32 mul parameter_ordinal 3
+                                if or lt first_token 0 gt first_token sub sub 2147483647 offset 1:
+                                    then: none
+                                    else:
+                                        let dot_idx %i32 add first_token offset
+                                        match selfhost_resolved_enum_session_token_get session dot_idx:
+                                            Option::None: none
+                                            Option::Some dot_token:
+                                                match dot_token.kind:
+                                                    TokenKind::Dot:
+                                                        match selfhost_resolved_enum_session_token_get session add dot_idx 1:
+                                                            Option::Some name_token:
+                                                                match name_token.kind:
+                                                                    TokenKind::Ident:
+                                                                        let dot_inside %bool selfhost_resolved_enum_surface_span_inside definition.declaration_span dot_token.span
+                                                                        let name_inside %bool selfhost_resolved_enum_surface_span_inside definition.declaration_span name_token.span
+                                                                        if and and dot_inside name_inside le dot_token.span.end name_token.span.start (some name_token.span) none
+                                                                    _: none
+                                                            Option::None: none
+                                                    _: none
 
 //: selfhost_resolved_enum_session_variant_len: ordered variant総数を返す
 //:

@@ -29,9 +29,57 @@
 //:|                         Result::Ok session:
 //:|                             let status %i32 match selfhost_resolved_enum_session_definition_get &session 0:
 //:|                                 Option::None: 1
-//:|                                 Option::Some definition: if selfhost_named_type_id_eq definition.nominal_id expected 0 1
+//:|                                 Option::Some definition:
+//:|                                     let first_ok %bool match selfhost_resolved_enum_session_definition_parameter_name_span &session 0 0:
+//:|                                         Option::Some span: and and eq span.file_id 9 eq span.start 13 eq span.end 14
+//:|                                         Option::None: false
+//:|                                     let second_ok %bool match selfhost_resolved_enum_session_definition_parameter_name_span &session 0 1:
+//:|                                         Option::Some span: and and eq span.file_id 9 eq span.start 17 eq span.end 18
+//:|                                         Option::None: false
+//:|                                     let range_ok %bool match definition.parameter_first_token:
+//:|                                         Option::Some first_token: eq first_token 3
+//:|                                         Option::None: false
+//:|                                     let bounds_ok %bool and and eq definition.parameter_count 2 range_ok and first_ok second_ok
+//:|                                     let invalid_ok %bool match selfhost_resolved_enum_session_definition_parameter_name_span &session 0 2:
+//:|                                         Option::None: true
+//:|                                         Option::Some _span: false
+//:|                                     let negative_ok %bool match selfhost_resolved_enum_session_definition_parameter_name_span &session 0 sub 0 1:
+//:|                                         Option::None: true
+//:|                                         Option::Some _span: false
+//:|                                     if and and and selfhost_named_type_id_eq definition.nominal_id expected bounds_ok invalid_ok negative_ok 0 1
 //:|                             selfhost_resolved_enum_session_free session
 //:|                             status
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/resolve/type_resolver/constructor" as *
+//:| #import "neplg2/core/resolve/type_resolver/enum_surface" as *
+//:| fn main %impure fn void i32 \void:
+//:|     let source "enum Plain:\n    A\nenum Pair<.X, .Y>:\n    P %.X\n"
+//:|     match selfhost_type_constructor_table_new:
+//:|         Result::Err _e: 1
+//:|         Result::Ok table:
+//:|             match selfhost_resolved_enum_module_session_materialize_with_file_id_result table source 6:
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok session:
+//:|                     let plain_ok %bool match selfhost_resolved_enum_session_definition_parameter_name_span &session 0 0:
+//:|                         Option::None: true
+//:|                         Option::Some _span: false
+//:|                     let first_ok %bool match selfhost_resolved_enum_session_definition_parameter_name_span &session 1 0:
+//:|                         Option::Some span: and and eq span.file_id 6 eq span.start 29 eq span.end 30
+//:|                         Option::None: false
+//:|                     let second_ok %bool match selfhost_resolved_enum_session_definition_parameter_name_span &session 1 1:
+//:|                         Option::Some span: and and eq span.file_id 6 eq span.start 33 eq span.end 34
+//:|                         Option::None: false
+//:|                     let status %i32 if and and eq selfhost_resolved_enum_session_definition_len &session 2 plain_ok and first_ok second_ok 0 1
+//:|                     selfhost_resolved_enum_session_free session
+//:|                     status
 //: ```
 //:
 //: neplg2:test

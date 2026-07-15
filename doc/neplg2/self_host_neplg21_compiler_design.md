@@ -3841,3 +3841,9 @@ module parser は通常式に残る旧 angle 構文を拒否する一方、enum 
 enum surface の declaration range は header と body envelope を unchecked に連結せず、同一file originかつ単調なspanとしてchecked joinする。variant member lookupはこの宣言全体rangeへのcontainmentを検証し、header/body origin不一致をtyped errorとして拒否する。
 
 resolved enum definition の `declaration_span` は header span ではなく、header 先頭から parser-owned body envelope 終端までの宣言全体 range である。variant name span はこの宣言全体 range に含まれることを member lookup が検証する。header range と宣言全体 range を混同したり、variant spellingから範囲を推測したりしない。
+
+### Enum generic binder identity
+
+resolved enum definition は generic parameter の個数に加え、検査済み header token buffer 内で先頭parameterの`.Ident` pairを始める`Dot` token ordinalを保持する。parameter ordinal から宣言名 span を得る accessor は同じ session の token ownerだけを読み、ordinal 範囲、`Dot` / `Ident` の並び、宣言全体 span への包含を再検査する。source spelling の比較や parameter 名の再探索で宣言順を復元しない。
+
+これは payload syntax を型へ投影するときに `Applied` の type argument ordinal と宣言 binder ordinal を結ぶための前提 authority である。現 checkpoint は payload syntax range の型投影、binder environment、substitution、Match bind の owned checked evidence、TypeCtx の diagnostic / pending constraint transactionをまだ生成しない。したがって generic Match payload とセルフホストコンパイラ全体は未完成である。
