@@ -139,7 +139,13 @@
 //:                                             let declaration_span_ok %bool:
 //:                                                 match selfhost_resolved_enum_session_definition_get &enum_session 0:
 //:                                                     Option::Some definition:
-//:                                                         and and eq definition.declaration_span.file_id item.span.file_id eq definition.declaration_span.start item.span.start eq definition.declaration_span.end item.span.end
+//:                                                         match selfhost_resolved_enum_session_variant_get &enum_session 0:
+//:                                                             Option::Some first_variant:
+//:                                                                 match selfhost_resolved_enum_session_variant_get &enum_session 2:
+//:                                                                     Option::Some last_variant:
+//:                                                                         and and and and and eq definition.declaration_span.file_id item.span.file_id eq definition.declaration_span.start item.span.start gt definition.declaration_span.end item.span.end le definition.declaration_span.start first_variant.name_span.start le last_variant.name_span.end definition.declaration_span.end
+//:                                                                     Option::None: false
+//:                                                             Option::None: false
 //:                                                     Option::None:
 //:                                                         false
 //:                                             let member_ids_ok %bool:
@@ -1192,8 +1198,12 @@ fn selfhost_resolved_enum_surface_materialize_header_result %impure fn SelfhostR
                                                             match selfhost_resolved_enum_surface_scan_variants source tokens body.envelope:
                                                                 Result::Ok variants:
                                                                     let body_span %SelfhostSourceSpan selfhost_resolved_enum_surface_range_span body.envelope
-                                                                    let declaration_span %SelfhostSourceSpan source_span_new_unchecked header.header_span.file_id header.header_span.start body_span.end
-                                                                    selfhost_resolved_enum_surface_finish session name arity declaration_span head.span variants
+                                                                    match source_span_join_result header.header_span body_span:
+                                                                        Result::Ok declaration_span: selfhost_resolved_enum_surface_finish session name arity declaration_span head.span variants
+                                                                        Result::Err _e:
+                                                                            v::free variants
+                                                                            selfhost_resolved_enum_session_free session
+                                                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::BodyOriginMismatch body_span
                                                                 Result::Err e:
                                                                     selfhost_resolved_enum_session_free session
                                                                     Result::Err e

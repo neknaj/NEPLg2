@@ -12,5 +12,5 @@ ret: 0
 #import "neplg2/core/check/expr/stage1_match_actual_direct_fixture" as *
 
 fn main %impure fn void i32 \void:
-    if selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 1 0 1
+    if selfhost_check_expr_stage1_fixture_match_actual_arm_retry 0 1
 ```

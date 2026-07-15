@@ -202,9 +202,17 @@ fn main %impure fn void i32 \void:
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
 stdout: mlstr:
-    ##: Checked [ok,ok]
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
     ##: [0] ok
     ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
 ```neplg2
 #entry main
 #target std
@@ -242,13 +250,37 @@ fn expect_parse_err_code_span %impure fn Result SelfhostModuleAst SelfhostDiagno
             selfhost_module_ast_free ast
             Result::Err "expected parser diagnostic"
 
+fn expect_parse_ok %impure fn Result SelfhostModuleAst SelfhostDiagnostic Result unit str \r:
+    match r:
+        Result::Ok ast:
+            selfhost_module_ast_free ast
+            Result::Ok unit
+        Result::Err _diag:
+            Result::Err "expected parser success"
+
 fn main %impure fn void i32 \void:
     let checks0 checks_new
     let legacy_angle %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "fn add <(i32,i32)->i32> (a,b):\n    add a b\n"
     let checks1 checks_push checks0 expect_parse_err_code_span legacy_angle "parser.syntax.legacy_token" 7 8
     let legacy_grouping %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "fn main %fn void i32 \\void:\n    (add 1 2)\n"
     let checks2 checks_push checks1 expect_parse_err_code_span legacy_grouping "parser.syntax.legacy_token" 32 33
-    let shown checks_print_report checks2
+    let bounded_fn %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "fn clone_add <.T: Clone & HashKey> %fn .T .T \\x:\n    x\n"
+    let checks3 checks_push checks2 expect_parse_ok bounded_fn
+    let bounded_struct %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "struct Box<.T: Clone>:\n    value .T\n"
+    let checks4 checks_push checks3 expect_parse_ok bounded_struct
+    let bounded_enum %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "enum Choice<.T: Clone>:\n    Item .T\n"
+    let checks5 checks_push checks4 expect_parse_ok bounded_enum
+    let bounded_trait %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "trait Hasher<.K: HashKey>:\n    fn hash %fn .K i32\n"
+    let checks6 checks_push checks5 expect_parse_ok bounded_trait
+    let bounded_impl %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "impl <.K: HashKey, .H: Hasher<.K>> HashKey for .H:\n    fn hash %fn .K i32 \\key:\n        0\n"
+    let checks7 checks_push checks6 expect_parse_ok bounded_impl
+    let misplaced_binder %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "fn add %fn i32 i32 <.T>:\n"
+    let checks8 checks_push checks7 expect_parse_err_code_span misplaced_binder "parser.syntax.legacy_token" 19 20
+    let unmatched_open %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "fn add <.T:\n"
+    let checks9 checks_push checks8 expect_parse_err_code_span unmatched_open "parser.syntax.legacy_token" 7 8
+    let unmatched_close %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "fn add >:\n"
+    let checks10 checks_push checks9 expect_parse_err_code_span unmatched_close "parser.syntax.legacy_token" 7 8
+    let shown checks_print_report checks10
     checks_exit_code shown
 ```
 

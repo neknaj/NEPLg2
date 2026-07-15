@@ -168283,3 +168283,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - `SelfhostParserTokenAction::LegacySyntax` は通常式では従来どおり typed legacy diagnostic になる。declaration generic binder の angle token だけは statement-bound declaration keywordへ後方照合して parser loop と header end scanを通す。
 - enum definition の range authority を header-only span から header + body envelope の宣言全体 spanへ修正した。これにより same-session member lookup の variant containment invariant が実際のparser body evidenceと一致した。
 - fixture の child source と constructor span を全modeで同じsource originへ戻し、generic actual Match focused gateは1/1 passした。途中のstage分類用分岐/importは除去済みである。
+
+2026-07-16 selfhost generic Match transaction review follow-up
+
+- generic angle例外は宣言位置だけではなく、宣言keyword境界へ直結し`.Ident`から始まるbalanced binder全体を前後から検証する。nested trait applicationと複数boundを含むfn / struct / enum / trait / implは通し、通常angle、concrete型angle、signature後のbinder、unmatched angleはlegacy syntaxとして拒否するparser testを追加した。
+- enum declaration rangeはheader/bodyのfile originを`source_span_join_result`で検証してから保存し、不一致をtyped `BodyOriginMismatch`へ写像する。doctestは宣言先頭、headerより後ろの終端、first/last variant containmentを検査する。
+- actual source-backed Match fixtureはproduction candidate transactionについて成功0件・1件・2件を実行し、それぞれ`OverloadNoCandidate`、unique commit、`OverloadAmbiguous`を確認する。parser実テスト3/3とfocused actual Match 1/1は通過済みである。
+- unsafe-helper source policyは実装本体への許容を増やさず、このbranchで追加したTypeArena fork / inference Match専用fixtureの`unwrap_ok`だけを既存actual Match fixtureと同じfile単位allowanceへ登録した。

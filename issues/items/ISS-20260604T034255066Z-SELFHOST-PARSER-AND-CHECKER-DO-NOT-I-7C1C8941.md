@@ -621,3 +621,7 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - module parser の legacy-angle rejection を declaration generic binder にまで適用していたため、`enum Generic<.T>:` が public export / enum surface 経路で失われていた。通常式の旧 angle syntax は拒否したまま、declaration header 内の `<` / `>` だけを contextual に通し、header end に含めるようにした。
 - enum surface は body envelope から variant を生成しながら definition の `declaration_span` に header span だけを保存していた。member lookup が variant span を header 内に要求する矛盾を、header 先頭から body envelope 終端までの宣言全体 span を保存することで解消した。
 - constructor seed と VFS source の origin identity を保つため、actual Match fixture は全 mode で同一 child source を使用する。generic first arm の `Generic<fresh>` expectation から `Generic<i32>` candidate を選択し、`Other` candidate を拒否する actual runtime gate は pass した。
+
+レビュー後はangle tokenの例外をdeclaration header内という位置だけで許可せず、宣言keyword境界に直結し`.Ident`から始まるbalanced binder全体が存在する場合だけ許可するよう狭めた。nested `Hasher<.K>`と複数boundを含むfn / struct / enum / trait / impl binderはtoken evidenceとして通し、semantic検証は後段へ残す。`<i32>`、signature後の`<.T>`、片側だけのangleは引き続きexact legacy diagnostic spanで拒否する。enum declaration spanはunchecked再構成せず、header spanとbody envelope spanをchecked joinし、origin不一致を`BodyOriginMismatch`として閉じる。
+
+actual source-backed Match gateは候補ごとのTypeArena / checked tree forkを含むproduction selectorを通り、成功transactionが0件なら`OverloadNoCandidate`、1件なら選択成功、2件なら`OverloadAmbiguous`になる5 modeを実行した。generic first armで一方だけ成功する場合に加え、両候補のresultを不一致または一致へ揃えた0件・2件も同じVFS / parser / exported enum origin経路で確認した。

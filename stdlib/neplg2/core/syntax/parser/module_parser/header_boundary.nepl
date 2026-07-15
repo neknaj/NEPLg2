@@ -107,25 +107,70 @@ pub fn selfhost_parser_declaration_header_start %fn &Vec SelfhostToken fn i32 fn
         SelfhostModuleDeclarationVisibility::Private:
             token.span.start
 
-fn selfhost_parser_angle_header_start_loop %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
+fn selfhost_parser_generic_angle_anchor %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
     if:
-        lt idx 0
+        lt idx 1
         then: false
         else:
-            match v::get tokens idx:
+            match v::get tokens sub idx 1:
                 Option::None: false
+                Option::Some previous:
+                    match selfhost_parser_token_role_declaration_head_kind selfhost_parser_token_role previous.kind:
+                        Option::Some _head_kind:
+                            if:
+                                lt idx 2
+                                then: false
+                                else: selfhost_parser_declaration_keyword_is_header_start tokens sub idx 2
+                        Option::None:
+                            match previous.kind:
+                                TokenKind::KwImpl: selfhost_parser_declaration_keyword_is_header_start tokens sub idx 1
+                                _: false
+
+fn selfhost_parser_generic_angle_close_exists_loop %fn &Vec SelfhostToken fn i32 fn i32 bool \tokens\idx\depth:
+    match v::get tokens idx:
+        Option::None: false
+        Option::Some token:
+            match token.kind:
+                TokenKind::LAngle: selfhost_parser_generic_angle_close_exists_loop tokens add idx 1 add depth 1
+                TokenKind::RAngle:
+                    if eq depth 0 true selfhost_parser_generic_angle_close_exists_loop tokens add idx 1 sub depth 1
+                TokenKind::Newline: false
+                TokenKind::Indent: false
+                TokenKind::Dedent: false
+                TokenKind::Eof: false
+                _: selfhost_parser_generic_angle_close_exists_loop tokens add idx 1 depth
+
+fn selfhost_parser_generic_angle_outer_open_loop %fn &Vec SelfhostToken fn i32 fn i32 Option i32 \tokens\idx\depth:
+    if:
+        lt idx 0
+        then: Option::None
+        else:
+            match v::get tokens idx:
+                Option::None: Option::None
                 Option::Some token:
                     match token.kind:
-                        TokenKind::Newline: false
-                        TokenKind::Indent: false
-                        TokenKind::Dedent: false
-                        TokenKind::Eof: false
-                        TokenKind::KwEnum: selfhost_parser_declaration_keyword_is_header_start tokens idx
-                        TokenKind::KwStruct: selfhost_parser_declaration_keyword_is_header_start tokens idx
-                        TokenKind::KwTrait: selfhost_parser_declaration_keyword_is_header_start tokens idx
-                        TokenKind::KwImpl: selfhost_parser_declaration_keyword_is_header_start tokens idx
-                        TokenKind::KwFn: selfhost_parser_declaration_keyword_is_header_start tokens idx
-                        _: selfhost_parser_angle_header_start_loop tokens sub idx 1
+                        TokenKind::RAngle: selfhost_parser_generic_angle_outer_open_loop tokens sub idx 1 add depth 1
+                        TokenKind::LAngle:
+                            if:
+                                gt depth 0
+                                then: selfhost_parser_generic_angle_outer_open_loop tokens sub idx 1 sub depth 1
+                                else if selfhost_parser_generic_angle_anchor tokens idx Option::Some idx selfhost_parser_generic_angle_outer_open_loop tokens sub idx 1 depth
+                        TokenKind::Newline: Option::None
+                        TokenKind::Indent: Option::None
+                        TokenKind::Dedent: Option::None
+                        TokenKind::Eof: Option::None
+                        _: selfhost_parser_generic_angle_outer_open_loop tokens sub idx 1 depth
+
+fn selfhost_parser_generic_angle_in_declaration %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
+    match selfhost_parser_generic_angle_outer_open_loop tokens idx 0:
+        Option::None: false
+        Option::Some open_idx:
+            match v::get tokens add open_idx 1:
+                Option::Some first:
+                    match first.kind:
+                        TokenKind::Dot: selfhost_parser_generic_angle_close_exists_loop tokens add open_idx 1 0
+                        _: false
+                Option::None: false
 
 //: selfhost_parser_legacy_angle_is_declaration_header: angle token が declaration generic header 内か[返/かえ]す
 //:
@@ -135,6 +180,6 @@ pub fn selfhost_parser_legacy_angle_is_declaration_header %fn &Vec SelfhostToken
         Option::None: false
         Option::Some token:
             match token.kind:
-                TokenKind::LAngle: selfhost_parser_angle_header_start_loop tokens sub idx 1
-                TokenKind::RAngle: selfhost_parser_angle_header_start_loop tokens sub idx 1
+                TokenKind::LAngle: selfhost_parser_generic_angle_in_declaration tokens idx
+                TokenKind::RAngle: selfhost_parser_generic_angle_in_declaration tokens sub idx 1
                 _: false

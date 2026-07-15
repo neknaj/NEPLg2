@@ -285,13 +285,14 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn
     let generic_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena3 generic_id generic_args
     let generic_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &generic_alloc
     let arena4 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena generic_alloc
-    let first_result_type %SelfhostTypeId if eq mode 1 generic_type choice_type
+    let first_result_type %SelfhostTypeId if or eq mode 1 eq mode 4 generic_type choice_type
     let choice_params %Vec SelfhostTypeId unwrap_ok v::new
     let choice_fn_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena4 choice_params first_result_type
     let choice_fn %SelfhostTypeId selfhost_type_arena_alloc_type_id &choice_fn_alloc
     let arena5 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena choice_fn_alloc
     let other_params %Vec SelfhostTypeId unwrap_ok v::new
-    let other_fn_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena5 other_params other_type
+    let other_result_type %SelfhostTypeId if eq mode 4 generic_type other_type
+    let other_fn_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena5 other_params other_result_type
     let other_fn %SelfhostTypeId selfhost_type_arena_alloc_type_id &other_fn_alloc
     let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena other_fn_alloc
     let scope0 %SelfhostNameScope unwrap_ok selfhost_name_scope_new
@@ -314,7 +315,7 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn
         then: "#import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match make:\n        child::Choice::First:\n            0\n"
         else:
             if:
-                eq mode 1
+                or eq mode 1 ge mode 3
                 then: "#import \"Child\" as child\nfn generic_first %fn void i32 \\void:\n    match make:\n        child::Generic::Item value:\n            0\n        child::Other::Only:\n            1\n"
                 else: "#import \"Child\" as child\nfn nondirect_first %fn void i32 \\void:\n    match make:\n        Choice::First:\n            0\n        child::Other::Only:\n            1\n"
     let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
@@ -353,7 +354,10 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn
                         SelfhostMatchCheckedActualMemberError::Scrutinee scrutinee_error:
                             match scrutinee_error:
                                 SelfhostMatchCheckedScrutineeError::ExpressionCheck expression_error:
-                                    selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadAmbiguous
+                                    if:
+                                        eq mode 3
+                                        then: selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadNoCandidate
+                                        else: selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadAmbiguous
                                 _: false
                         _: false
         Result::Ok context:
@@ -376,4 +380,6 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry %impure fn void
     let positive %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 0
     let generic_retry %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 1
     let nondirect_first_stays_ambiguous %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 2
-    and positive and generic_retry nondirect_first_stays_ambiguous
+    let no_candidate %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 3
+    let two_candidates %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 4
+    and and and and positive generic_retry nondirect_first_stays_ambiguous no_candidate two_candidates

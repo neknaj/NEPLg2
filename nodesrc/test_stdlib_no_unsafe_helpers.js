@@ -37,6 +37,16 @@ const allowances = [
         relPath: 'stdlib/neplg2/core/check/expr/stage1_match_actual_direct_fixture.nepl',
         line: /\bunwrap_ok\b/,
     },
+    {
+        id: 'selfhost-type-arena-fork-fixture-result-unwraps',
+        relPath: 'stdlib/neplg2/core/ty/ty/arena_fork_fixture.nepl',
+        line: /\bunwrap_ok\b/,
+    },
+    {
+        id: 'selfhost-inference-match-fixture-result-unwraps',
+        relPath: 'stdlib/neplg2/core/ty/ty/inference_match_fixture.nepl',
+        line: /\bunwrap_ok\b/,
+    },
 ];
 
 function relFromRoot(filePath) {
