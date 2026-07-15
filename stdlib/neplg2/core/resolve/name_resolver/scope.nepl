@@ -1,4 +1,52 @@
 #indent 4
+
+//: # name_resolver/scope
+//: binding順序とDefIdを保持した独立scope ownerを作ります。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//: fn main %impure fn void i32 \void:
+//:|     match selfhost_name_scope_new void:
+//:|         Result::Err _e: 1
+//:|         Result::Ok scope0:
+//:|             let outer selfhost_name_binding_pending "outer" SelfhostDefKind::Local source_span_empty_unchecked 0 0
+//:|             match selfhost_name_scope_add_binding scope0 outer:
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok added:
+//:|                     let parent selfhost_name_scope_add_result_into_scope added
+//:|                     match selfhost_name_scope_fork &parent:
+//:|                         Result::Err _e:
+//:|                             selfhost_name_scope_free parent
+//:|                             1
+//:|                         Result::Ok child0:
+//:|                             let local selfhost_name_binding_pending "value" SelfhostDefKind::Local source_span_empty_unchecked 0 0
+//:|                             match selfhost_name_scope_add_binding child0 local:
+//:|                                 Result::Err _e:
+//:|                                     selfhost_name_scope_free parent
+//:|                                     1
+//:|                                 Result::Ok local_added:
+//:|                                     let local_id selfhost_name_scope_add_result_def_id &local_added
+//:|                                     let child selfhost_name_scope_add_result_into_scope local_added
+//:|                                     let inherited_ok %bool match selfhost_name_scope_find &child "outer":
+//:|                                         Option::Some binding: selfhost_name_binding_def_id_eq binding selfhost_def_id_new 0
+//:|                                         Option::None: false
+//:|                                     let local_ok %bool match selfhost_name_scope_find &child "value":
+//:|                                         Option::Some binding: and selfhost_name_binding_def_id_eq binding local_id selfhost_def_id_eq local_id selfhost_def_id_new 1
+//:|                                         Option::None: false
+//:|                                     let parent_ok %bool match selfhost_name_scope_find &parent "value":
+//:|                                         Option::None: true
+//:|                                         Option::Some _binding: false
+//:|                                     let length_ok %bool and eq selfhost_name_scope_len &parent 1 eq selfhost_name_scope_len &child 2
+//:|                                     selfhost_name_scope_free child
+//:|                                     selfhost_name_scope_free parent
+//:|                                     if and and and length_ok inherited_ok local_ok parent_ok 0 1
+//: ```
 #import "alloc/collections/vec" as v
 #import "alloc/string/search" as string_search
 #import "core/field" as field
@@ -88,6 +136,28 @@ pub fn selfhost_name_scope_get %fn &SelfhostNameScope fn SelfhostDefId Option Se
         else:
             let bindings %&Vec SelfhostNameBinding field::get_ref scope "bindings"
             v::get bindings def_id.index
+
+fn selfhost_name_scope_fork_loop %impure fn &SelfhostNameScope impure fn Vec SelfhostNameBinding impure fn i32 impure fn i32 Result SelfhostNameScope StdErrorKind \scope\bindings\idx\count:
+    if ge idx count:
+        then: Result::Ok SelfhostNameScope bindings
+        else match selfhost_name_scope_get scope selfhost_def_id_new idx:
+            Option::None:
+                v::free bindings
+                Result::Err StdErrorKind::IndexOutOfBounds
+            Option::Some binding:
+                match v::push bindings binding:
+                    Result::Err e:
+                        let error %StdErrorKind field::get e "error"
+                        v::free v::vec_push_error_vec e
+                        Result::Err error
+                    Result::Ok next: selfhost_name_scope_fork_loop scope next add idx 1 count
+
+//: selfhost_name_scope_fork: DefId順序を保持したarm-local scope ownerを作る
+pub fn selfhost_name_scope_fork %impure fn &SelfhostNameScope Result SelfhostNameScope StdErrorKind \scope:
+    let result %Result Vec SelfhostNameBinding StdErrorKind v::new
+    match result:
+        Result::Err e: Result::Err e
+        Result::Ok bindings: selfhost_name_scope_fork_loop scope bindings 0 selfhost_name_scope_len scope
 
 //: selfhost_name_scope_find_loop: 指定名の binding を末尾から[探/さが]す
 //:

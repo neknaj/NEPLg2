@@ -638,3 +638,8 @@ actual source-backed Match gateは候補ごとのTypeArena / checked tree fork�
 - actual Applied scrutineeのargument ordinalをbinder depth 0 / parameter ordinalへ結び、既存substitution traversalでconcrete payload TypeIdを生成する。inference retry tableやsource spellingはmapping authorityにしない。
 - exported originのarena/session ownerをprojection後arenaで再構築し、actual Match armのoptional bindを`Owned` concrete TypeId evidenceへ接続する。bind名はMatch context解放前にUTF-8 byte列としてcopy-ownedし、payloadなしbindはtyped errorにする。nominal definitionはexactly oneを要求し、重複をtypedに拒否する。
 - borrowed bind、body scope/HIR/Resource、diagnostic/pending constraint transaction、網羅性とarm body joinは未完成である。
+
+### 2026-07-16 arm-local environment fork prerequisite
+
+- parent `NameScope` と `ValueTypeEvidenceTable` を変更せず、binding順序・DefId・型対応を保った独立ownerへforkする。
+- fork後のlocal追加がparentや別armへ漏れないことをruntimeで検査する。module-private fixtureはscopeが発行したDefIdをevidenceへ同じく追加するが、raw name/type/spanを受けるためproduction capabilityにはしない。Owned bind名のowned symbol化、checked bind evidenceからの実接続、arm body checkは後続sliceで接続する。

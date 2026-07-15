@@ -1,6 +1,52 @@
 #indent 4
 
 //: # check/expr/value_evidence
+//: arm-local checker用にDefId→TypeId対応を独立ownerへforkします。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/expr/value_evidence" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "neplg2/core/ty/ty" as *
+//: fn main %impure fn void i32 \void:
+//:|     match selfhost_value_type_evidence_table_new void:
+//:|         Result::Err _e: 1
+//:|         Result::Ok parent0:
+//:|             let outer selfhost_value_type_evidence_new (selfhost_def_id_new 0) (selfhost_type_id_new 3) source_span_empty_unchecked 0 0
+//:|             match selfhost_value_type_evidence_table_add parent0 outer:
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok parent:
+//:|                     match selfhost_value_type_evidence_table_fork &parent:
+//:|                         Result::Err _e:
+//:|                             selfhost_value_type_evidence_table_free parent
+//:|                             1
+//:|                         Result::Ok child0:
+//:|                             let local selfhost_value_type_evidence_new (selfhost_def_id_new 1) (selfhost_type_id_new 7) source_span_empty_unchecked 0 0
+//:|                             match selfhost_value_type_evidence_table_add child0 local:
+//:|                                 Result::Err _e:
+//:|                                     selfhost_value_type_evidence_table_free parent
+//:|                                     1
+//:|                                 Result::Ok child:
+//:|                                     let parent_isolated %bool match selfhost_value_type_evidence_table_find &parent selfhost_def_id_new 1:
+//:|                                         Option::None: true
+//:|                                         Option::Some _e: false
+//:|                                     let child_kept %bool match selfhost_value_type_evidence_table_find &child selfhost_def_id_new 0:
+//:|                                         Option::Some evidence: selfhost_type_id_eq evidence.value_type selfhost_type_id_new 3
+//:|                                         Option::None: false
+//:|                                     let child_local %bool match selfhost_value_type_evidence_table_find &child selfhost_def_id_new 1:
+//:|                                         Option::Some evidence: selfhost_type_id_eq evidence.value_type selfhost_type_id_new 7
+//:|                                         Option::None: false
+//:|                                     selfhost_value_type_evidence_table_free child
+//:|                                     selfhost_value_type_evidence_table_free parent
+//:|                                     if and and parent_isolated child_kept child_local 0 1
+//: ```
+
+//: # check/expr/value_evidence
 //: 名前解決済みの値定義に、式検査で使う型証拠を結び付ける module です。
 //:
 //: [目的/もくてき]:
@@ -69,6 +115,28 @@ pub fn selfhost_value_type_evidence_table_new %impure fn void Result SelfhostVal
 //: selfhost_value_type_evidence_table_free: 値型証拠 table の buffer を[解放/かいほう]する
 pub fn selfhost_value_type_evidence_table_free %impure fn SelfhostValueTypeEvidenceTable unit \table:
     v::free field::get table "entries"
+
+fn selfhost_value_type_evidence_table_fork_loop %impure fn &SelfhostValueTypeEvidenceTable impure fn Vec SelfhostValueTypeEvidence impure fn i32 impure fn i32 Result SelfhostValueTypeEvidenceTable StdErrorKind \table\entries\idx\count:
+    if ge idx count:
+        then: Result::Ok SelfhostValueTypeEvidenceTable entries
+        else match v::get field::get_ref table "entries" idx:
+            Option::None:
+                v::free entries
+                Result::Err StdErrorKind::IndexOutOfBounds
+            Option::Some evidence:
+                match v::push entries evidence:
+                    Result::Err e:
+                        let error %StdErrorKind field::get e "error"
+                        v::free v::vec_push_error_vec e
+                        Result::Err error
+                    Result::Ok next: selfhost_value_type_evidence_table_fork_loop table next add idx 1 count
+
+//: selfhost_value_type_evidence_table_fork: parentのDefId型対応を保持したarm-local table ownerを作る
+pub fn selfhost_value_type_evidence_table_fork %impure fn &SelfhostValueTypeEvidenceTable Result SelfhostValueTypeEvidenceTable StdErrorKind \table:
+    let result %Result Vec SelfhostValueTypeEvidence StdErrorKind v::new
+    match result:
+        Result::Err e: Result::Err e
+        Result::Ok entries: selfhost_value_type_evidence_table_fork_loop table entries 0 v::len field::get_ref table "entries"
 
 //: selfhost_value_type_evidence_table_add: 値型証拠 record を table に[追加/ついか]する
 //:

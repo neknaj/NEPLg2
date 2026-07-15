@@ -1,0 +1,134 @@
+#indent 4
+
+//: # check/expr/match_arm_environment
+//: Owned mode用のarm-local scope/evidence構築をmodule-private fixtureで検証します。
+//:
+//: [契約/けいやく]:
+//: - parent scope/evidenceはborrowするだけで変更しません。
+//: - local identityはarm ordinalとchild内DefIdの組であり、environment owner内の比較にだけ使います。Match外のstable identityとして輸送しません。
+//: - raw name/type/spanを受けるbuilderはfixture用にmodule-privateとし、production connectorのcapabilityにしません。Borrowed bindをOwnedへfallbackしません。
+//: - nameはfixture callerのstorageをborrowします。production接続はchecked bindのcopy-owned bytesをenvironment ownerへ移すまで公開しません。
+//: - scope追加またはevidence追加に失敗した場合、到達済みchild ownerを全て閉じます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/core/check/expr/match_arm_environment" as *
+//: fn main %impure fn void i32 \void:
+//:     selfhost_match_arm_environment_stage0 void
+//: ```
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/check/expr/value_evidence" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/ty" as *
+
+struct SelfhostMatchArmLocalId:
+    arm_ordinal %i32
+    def_id %SelfhostDefId
+
+impl Clone for SelfhostMatchArmLocalId:
+    fn clone %fn &SelfhostMatchArmLocalId SelfhostMatchArmLocalId \self: *self
+
+impl Copy for SelfhostMatchArmLocalId:
+    fn copy_mark %fn SelfhostMatchArmLocalId SelfhostMatchArmLocalId \self: self
+
+struct SelfhostMatchArmEnvironment:
+    scope %SelfhostNameScope
+    value_types %SelfhostValueTypeEvidenceTable
+    local_id %SelfhostMatchArmLocalId
+
+enum SelfhostMatchArmEnvironmentErrorKind:
+    InvalidArmOrdinal
+    ScopeFork %StdErrorKind
+    EvidenceFork %StdErrorKind
+    ScopeAdd %StdErrorKind
+    EvidenceAdd %StdErrorKind
+
+impl Clone for SelfhostMatchArmEnvironmentErrorKind:
+    fn clone %fn &SelfhostMatchArmEnvironmentErrorKind SelfhostMatchArmEnvironmentErrorKind \self: *self
+
+impl Copy for SelfhostMatchArmEnvironmentErrorKind:
+    fn copy_mark %fn SelfhostMatchArmEnvironmentErrorKind SelfhostMatchArmEnvironmentErrorKind \self: self
+
+fn selfhost_match_arm_environment_free %impure fn SelfhostMatchArmEnvironment unit \environment:
+    selfhost_name_scope_free field::get environment "scope"
+    selfhost_value_type_evidence_table_free field::get environment "value_types"
+
+fn selfhost_match_arm_environment_scope %fn &SelfhostMatchArmEnvironment &SelfhostNameScope \environment:
+    field::get_ref environment "scope"
+
+fn selfhost_match_arm_environment_value_types %fn &SelfhostMatchArmEnvironment &SelfhostValueTypeEvidenceTable \environment:
+    field::get_ref environment "value_types"
+
+fn selfhost_match_arm_environment_local_id %fn &SelfhostMatchArmEnvironment SelfhostMatchArmLocalId \environment:
+    *field::get_ref environment "local_id"
+
+fn selfhost_match_arm_local_id_eq %fn SelfhostMatchArmLocalId fn SelfhostMatchArmLocalId bool \a\b:
+    and eq a.arm_ordinal b.arm_ordinal selfhost_def_id_eq a.def_id b.def_id
+
+//: selfhost_match_arm_environment_owned_mode_fixture_result: Owned mode fixtureを独立arm environmentへ追加する
+fn selfhost_match_arm_environment_owned_mode_fixture_result %impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn i32 impure fn str impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMatchArmEnvironment SelfhostMatchArmEnvironmentErrorKind \parent_scope\parent_values\arm_ordinal\name\bind_type\span:
+    if lt arm_ordinal 0:
+        then: Result::Err SelfhostMatchArmEnvironmentErrorKind::InvalidArmOrdinal
+        else match selfhost_name_scope_fork parent_scope:
+            Result::Err e: Result::Err SelfhostMatchArmEnvironmentErrorKind::ScopeFork e
+            Result::Ok scope0:
+                match selfhost_value_type_evidence_table_fork parent_values:
+                    Result::Err e:
+                        selfhost_name_scope_free scope0
+                        Result::Err SelfhostMatchArmEnvironmentErrorKind::EvidenceFork e
+                    Result::Ok values0:
+                        let binding %SelfhostNameBinding selfhost_name_binding_pending name SelfhostDefKind::Local span
+                        match selfhost_name_scope_add_binding scope0 binding:
+                            Result::Err e:
+                                selfhost_value_type_evidence_table_free values0
+                                Result::Err SelfhostMatchArmEnvironmentErrorKind::ScopeAdd e
+                            Result::Ok added:
+                                let def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &added
+                                let scope %SelfhostNameScope selfhost_name_scope_add_result_into_scope added
+                                let evidence %SelfhostValueTypeEvidence selfhost_value_type_evidence_new def_id bind_type span
+                                match selfhost_value_type_evidence_table_add values0 evidence:
+                                    Result::Err e:
+                                        selfhost_name_scope_free scope
+                                        Result::Err SelfhostMatchArmEnvironmentErrorKind::EvidenceAdd e
+                                    Result::Ok values:
+                                        Result::Ok SelfhostMatchArmEnvironment scope values (SelfhostMatchArmLocalId arm_ordinal def_id)
+
+pub fn selfhost_match_arm_environment_stage0 %impure fn void i32 \void:
+    match selfhost_name_scope_new void:
+        Result::Err _e: 1
+        Result::Ok parent_scope:
+            match selfhost_value_type_evidence_table_new void:
+                Result::Err _e:
+                    selfhost_name_scope_free parent_scope
+                    1
+                Result::Ok parent_values:
+                    let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
+                    match selfhost_match_arm_environment_owned_mode_fixture_result &parent_scope &parent_values 2 "value" (selfhost_type_id_new 7) span:
+                        Result::Err _e:
+                            selfhost_value_type_evidence_table_free parent_values
+                            selfhost_name_scope_free parent_scope
+                            1
+                        Result::Ok environment:
+                            let local %SelfhostMatchArmLocalId selfhost_match_arm_environment_local_id &environment
+                            let scope_ok %bool match selfhost_name_scope_find selfhost_match_arm_environment_scope &environment "value":
+                                Option::Some binding: selfhost_name_binding_def_id_eq binding local.def_id
+                                Option::None: false
+                            let type_ok %bool match selfhost_value_type_evidence_table_find selfhost_match_arm_environment_value_types &environment local.def_id:
+                                Option::Some evidence: selfhost_type_id_eq evidence.value_type selfhost_type_id_new 7
+                                Option::None: false
+                            let parent_ok %bool match selfhost_name_scope_find &parent_scope "value":
+                                Option::None: true
+                                Option::Some _binding: false
+                            let identity_ok %bool and eq local.arm_ordinal 2 selfhost_def_id_eq local.def_id selfhost_def_id_new 0
+                            selfhost_match_arm_environment_free environment
+                            selfhost_value_type_evidence_table_free parent_values
+                            selfhost_name_scope_free parent_scope
+                            if and and scope_ok type_ok parent_ok identity_ok 0 1
