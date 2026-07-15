@@ -168200,7 +168200,6 @@ MERGE_APPROVED
 - Bareはopen/len/read/closeを同一handleへ結合し、Headlessはborrowed canonical pathとowned bytesを使う。semantic ownership gateでfixture用の別owned pathが解放不能になる設計を避け、request側のpath ownerだけをresourceへ移す。
 - semantic fixture、Bare injected-host runtime harness、source-policy、`trunk build`、playground editor CLI 13/13を通過した。
 - 個別sliceであり、font rendering engineとGUI library全体は未完成。
-
 # 2026-07-15 Selfhost actual Match ascription runtime gate
 
 ## 方針
@@ -168241,3 +168240,4 @@ MERGE_APPROVED
 - pipe focused doctest #3は`NEPL_TEST_CASE_TIMEOUT_MS=300000`で1/1通過した。Match checked scrutinee contract、stdlib unsafe helper policy、expression call reduction contract、line-count policy、issues check、`git diff --check`も通過した。
 - 初回差分reviewは外部candidate vectorにも2件目を追加するとscope/signature再収集の退行を識別できない点をMajorとして指摘した。外部vectorを1件に固定して再実行後、差分reviewと全体整合reviewはいずれもBlocker/Major/Lowなしで統合承認した。
 - `PATH=/tmp:$PATH CARGO_TARGET_DIR=/tmp/nepl-trunk-target NO_COLOR=false trunk build`は成功した。続くPlayground editor CLI JSONは13/13通過し、`failedCount`は0だった。
+- 2026-07-15 F5nxm registered offset geometry projection: F5nxl join後の一件を既存F5kx数値algorithmへ渡すcycle-free Copy境界を追加した。review指摘に従い既存provenance guardをLineTo / QuadraticTo別に通し、topology、source curve、normal/tangent source、offset端点を下流用projectionへ保持した。registered ownerはF5nxl join ownerだけをnested authorityとし、terminal-before-budget、budget不変、geometry failure時の進行済みowner+rejected value、single freeを維持する。独立registered fixtureはmetric/path index `0/1, 1/3, 2/7`、Line座標、Quadratic両endpoint tangent source、terminalを同じauthority chainで検査し1/1通過した。Web source-policy、`git diff --check`、`trunk build`、playground editor CLI JSON 13/13も通過した。documentation contractはclean `7aade36d0`でも既存baselineよりdoc gapが多く失敗する既知状態であり、F5nxm新規宣言には日本語docとdoctest labelを付与済み。F5nxm sliceは統合可能だが、registered side edge / coverage / raster / presentation、フォントレンダリングエンジン、GUIライブラリ全体は未完成である。

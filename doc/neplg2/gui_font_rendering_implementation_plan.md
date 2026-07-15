@@ -6656,6 +6656,14 @@ owner / state契約:
 - F5nxlのcompile性能gateは、relation-only leafで無条件にEqZero closureを導出せず、condition / offset / scale / constant sourceからrelationで接続された候補だけを評価する。direct scalar value、explicit relation、direct-zeroとEqZero condition、offset relationの証明順序は維持し、Eq offset集合はsort / dedup後の共通値と不一致値の有無でCartesian積と同じtruthを求める。
 - 2026-07-15 gateではfocused compiler回帰23件、`cargo check -p nepl-core`、Web contract、trunk build、独立Line / Quadratic registered actual-join fixture、通常registered-face fixture、diff reviewを通過した。独立fixtureはtyped mismatchからownerを回収し、metric index `0,1,2`とpath command index `1,3,7`、actual座標、stroke width、terminal、single freeをproduction chainで検査する。これによりF5nxlを完了とし、後続phaseへ進む。フォントレンダリングエンジンとGUIライブラリ全体の完了ではない。
 
+### Phase F5nxm: registered actual metric offset geometry projection
+
+- F5nxl join ownerを消費するbounded ownerを追加し、Joined recordだけを既存F5kx数値authorityへ渡す。
+- cycleを避けるためF5kx側はregistered型をimportせず、Copy provenance / actual metric projectionを受け取る。
+- topology、source curve、normal、offset端点を下流用Copy projectionへ保持し、provenance guardとLine / Quadratic geometry builderを再利用する。
+- terminal-before-budget、geometry failure後の進行済みowner+rejected value回収、single free、3-record runtimeをgateにする。
+- F5nxm完了後もregistered side edge / closure / coverage / raster / presentationは後続phaseとし、全体完成とは扱わない。
+
 ### Phase F5nxa: registered indexed path action owner
 
 目的:

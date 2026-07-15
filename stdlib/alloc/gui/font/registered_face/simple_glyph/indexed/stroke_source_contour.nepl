@@ -656,3 +656,179 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_test_
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_test_force_metric_index_mismatch %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError \owner:
     GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner: F5nxl join authority を保持する一件ずつの offset geometry 射影 owner
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner:
+    join %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind: F5nxm offset geometry 射影で用いる状態分類です。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind:
+    Completed
+    StepBudgetExhausted
+    Projected
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind \value: value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep: F5nxm offset geometry 射影で用いる所有データ契約です。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind
+    geometry %Option GuiSfntSimpleGlyphRenderOffsetGeometryProjection
+    joined %Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind: F5nxm offset geometry 射影で用いる状態分類です。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind:
+    JoinFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind
+    GeometryFailed %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind \value: value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError: F5nxm offset geometry 射影で用いる所有データ契約です。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind
+    rejected %Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_start: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner \join:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner join
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_next_metric_index: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_next_metric_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner i32 \owner:
+    let join %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner field::get_ref owner "join"
+    gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index join
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_status: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind \step: *field::get_ref step "status"
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_geometry: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_geometry %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep Option GuiSfntSimpleGlyphRenderOffsetGeometryProjection \step: *field::get_ref step "geometry"
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_joined: 射影元の検証済みCopy joined valueを返します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_joined %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined \step: *field::get_ref step "joined"
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_owner: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner \step: field::get step "owner"
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_kind: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind \error: *field::get_ref error "kind"
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_rejected: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_rejected %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined \error: *field::get_ref error "rejected"
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_owner: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner \error: field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_provenance: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_provenance %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance \provenance:
+    let metric_index gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_metric_index provenance
+    let command gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_command provenance
+    let value gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_value &command
+    let span gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_span &command
+    gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance metric_index (gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value) (gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index &value) (gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value) (gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index &value) (gui_sfnt_simple_glyph_contour_span_start_point_index &span) (gui_sfnt_simple_glyph_contour_span_end_point_index &span) (gui_sfnt_simple_glyph_contour_span_point_count &span)
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError \owner\budget:
+    let join %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner field::get owner "join"
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step join budget:
+        Result::Err lower:
+            let kind gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_kind &lower
+            let returned gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_owner lower
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner returned) (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind::JoinFailed kind) none
+        Result::Ok joined_step:
+            let status gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_status &joined_step
+            let joined gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_joined &joined_step
+            let returned gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_owner joined_step
+            let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner returned
+            match status:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::Completed:
+                    Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep next_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::Completed none none
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::StepBudgetExhausted:
+                    Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep next_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted none none
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::Joined:
+                    match joined:
+                        Option::None:
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError next_owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind::JoinFailed GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::ProvenanceReadFailed GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind::IndexOutOfRange) none
+                        Option::Some value:
+                            let provenance gui_font_registered_face_simple_glyph_indexed_stroke_metric_joined_provenance &value
+                            let actual gui_font_registered_face_simple_glyph_indexed_stroke_metric_joined_actual &value
+                            let projection gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_provenance &provenance
+                            let width_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner field::get_ref &next_owner "join"
+                            let width gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_stroke_width width_ref
+                            match gui_sfnt_simple_glyph_render_stroke_offset_projection_geometry &projection &actual width:
+                                Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError next_owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind::GeometryFailed kind) some value
+                                Result::Ok geometry: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep next_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::Projected some geometry some value
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_free field::get owner "join"
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_free: F5nxm offset geometry 射影で用いる関数です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free field::get error "owner"
+
+#test
+//: projection_test_force_geometry_failure: 進行済みownerとrejected join valueの回収契約をproduction error型で検査します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_test_force_geometry_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError \owner\rejected:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind::GeometryFailed GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProvenanceContourSpanInvalid) some rejected
+
+//: projection_test_force_join_failure: lower join failureのowner回収をproduction error型で検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_test_force_join_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError \owner:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind::JoinFailed GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch) none
+
+//: projection_test_geometry_matches: runtime fixture が公開 Copy geometry の代表値を照合します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_test_geometry_matches %fn &GuiSfntSimpleGlyphRenderOffsetGeometryProjection fn i32 bool \geometry\metric_index:
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line:
+            let expected_command %i32 if eq metric_index 0 then 1 else 7
+            let expected_left_y %f32 if eq metric_index 0 then 4.0 else -4.0
+            let expected_right_y %f32 if eq metric_index 0 then -4.0 else 4.0
+            and ne metric_index 1 and eq metric_index gui_sfnt_simple_glyph_render_offset_line_geometry_projection_metric_index line and eq expected_command gui_sfnt_simple_glyph_render_offset_line_geometry_projection_path_command_index line and eq expected_left_y gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_start_y2 line eq expected_right_y gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_start_y2 line
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic:
+            let start_source_ok %bool match gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_start_tangent_source quadratic:
+                GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::StartControl: true
+                _: false
+            let end_source_ok %bool match gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_end_tangent_source quadratic:
+                GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::ControlEnd: true
+                _: false
+            and eq metric_index 1 and eq 1 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_metric_index quadratic and eq 3 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_path_command_index quadratic and start_source_ok end_source_ok

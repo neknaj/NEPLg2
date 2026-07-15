@@ -541,6 +541,69 @@ fn join_stroke_metric_join_run %impure fn GuiFontRegisteredFaceSimpleGlyphIndexe
                                             gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_free terminal_owner
                                             and budget_ok and budget_cursor_ok and mismatch_ok and recovery_cursor_ok and first_ok and first_cursor_ok and second_ok and second_cursor_ok and third_ok and third_cursor_ok and terminal_ok terminal_cursor_ok
 
+fn join_stroke_offset_geometry_ok %fn &GuiSfntSimpleGlyphRenderOffsetGeometryProjection fn i32 bool \geometry\metric_index:
+    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_test_geometry_matches geometry metric_index
+
+fn join_stroke_offset_step_record_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStep fn i32 bool \step\metric_index:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_status step:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::Projected:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_geometry step:
+                Option::None: false
+                Option::Some geometry: join_stroke_offset_geometry_ok &geometry metric_index
+        _: false
+
+fn join_stroke_offset_run %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner impure fn i32 bool \owner\metric_index:
+    if lt metric_index 3:
+        then:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step owner 1:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_owner error
+                    false
+                Result::Ok step:
+                    let record_ok %bool join_stroke_offset_step_record_ok &step metric_index
+                    let joined gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_joined &step
+                    let next gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_owner step
+                    let cursor_ok %bool eq add metric_index 1 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_next_metric_index &next
+                    if eq metric_index 0:
+                        then:
+                            match joined:
+                                Option::None:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free next
+                                    false
+                                Option::Some rejected:
+                                    let forced gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_test_force_geometry_failure next rejected
+                                    let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_kind &forced:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind::GeometryFailed lower:
+                                            match lower:
+                                                GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProvenanceContourSpanInvalid: true
+                                                _: false
+                                        _: false
+                                    let rejected_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_rejected &forced:
+                                        Option::Some value: join_stroke_metric_joined_first_ok &value
+                                        Option::None: false
+                                    let recovered gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_owner forced
+                                    let recovered_cursor_ok %bool eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_next_metric_index &recovered
+                                    let remaining_ok %bool join_stroke_offset_run recovered 1
+                                    and record_ok (and cursor_ok (and kind_ok (and rejected_ok (and recovered_cursor_ok remaining_ok))))
+                        else:
+                            let remaining_ok %bool join_stroke_offset_run next (add metric_index 1)
+                            and record_ok (and cursor_ok remaining_ok)
+        else:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step owner 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_owner error
+                    false
+                Result::Ok step:
+                    let terminal_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_status &step:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::Completed:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_geometry &step:
+                                Option::None: true
+                                Option::Some _geometry: false
+                        _: false
+                    let completed gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_owner step
+                    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free completed
+                    terminal_ok
+
 fn join_stroke_metric_join_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner bool \completed:
     let full %u8 cast 255
     let zero %u8 cast 0
@@ -554,8 +617,28 @@ fn join_stroke_metric_join_start %impure fn GuiFontRegisteredFaceSimpleGlyphInde
         Result::Ok owner:
             let origin gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_origin &owner
             let summary_ok %bool and eq 8 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_command_count &owner and eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_metric_count &owner and eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_line_count &owner and eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_quadratic_count &owner and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index &owner and eq 4 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_stroke_width &owner and eq 3 gui_point_x &origin eq sub 0 2 gui_point_y &origin
-            let joined_ok %bool join_stroke_metric_join_run owner
-            and summary_ok joined_ok
+            let offset_owner0 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_start owner
+            match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset_owner0 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_free error
+                    false
+                Result::Ok budget_step:
+                    let budget_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_status &budget_step:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted: true
+                        _: false
+                    let offset_owner1 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_owner budget_step
+                    let budget_cursor_ok %bool eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_next_metric_index &offset_owner1
+                    let forced_join gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_test_force_join_failure offset_owner1
+                    let join_kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_kind &forced_join:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind::JoinFailed lower:
+                            match lower:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch: true
+                                _: false
+                        _: false
+                    let offset_owner2 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_owner forced_join
+                    let join_cursor_ok %bool eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_next_metric_index &offset_owner2
+                    let joined_ok %bool join_stroke_offset_run offset_owner2 0
+                    and summary_ok (and budget_ok (and budget_cursor_ok (and join_kind_ok (and join_cursor_ok joined_ok))))
 
 fn join_stroke_metric_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner bool \owner:
     match gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_budget owner 1:
