@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-15T23:04:05.132Z",
+  "generated_at": "2026-07-15T23:35:21.385Z",
   "counts": {
-    "total": 1376,
-    "open": 60,
+    "total": 1377,
+    "open": 61,
     "resolved": 1316,
     "by_area": {
       "stdlib": {
@@ -15,6 +15,11 @@
         "total": 665,
         "open": 28,
         "resolved": 637
+      },
+      "GUI_FONT": {
+        "total": 3,
+        "open": 1,
+        "resolved": 2
       },
       "RESOURCE": {
         "total": 5,
@@ -90,11 +95,6 @@
         "total": 22,
         "open": 0,
         "resolved": 22
-      },
-      "GUI_FONT": {
-        "total": 2,
-        "open": 0,
-        "resolved": 2
       },
       "nodesrc": {
         "total": 16,
@@ -523,6 +523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
+    },
+    {
+      "id": "ISS-20260715T233149972Z-REGISTERED-STROKE-COVERAGE-WRITER-LA-E1133A7F",
+      "title": "Registered stroke coverage writer lacks a scan converter",
+      "area": "GUI_FONT",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-15",
+      "updated": "2026-07-15",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260715T233149972Z-REGISTERED-STROKE-COVERAGE-WRITER-LA-E1133A7F.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",

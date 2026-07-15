@@ -8518,4 +8518,6 @@ F5nxp ownerは移譲済みside-edge/join storage、exact-capacity geometry Vec�
 
 F5nxqはcompleted F5nxp owner全体を唯一のdirect authorityとして消費し、registered stroke coverage scan用cell writer ownerを作る。shared coverage configから検証済みshapeを導出し、F5nxp source invariant、geometry Vec exact len/cap、join countとbevel/miter/round count合計をallocation前に再検査する。cell Vecはshape cell countのexact capacityで一度だけ確保する。
 
+F5nxrはF5nxq writer ownerを唯一のdirect authorityとして消費するregistered stroke coverage scan converterである。nested registered side-edge projectionとjoin geometryを直接borrowし、legacy stroke scan ownerを再構築しない。Line、bounded Quadratic、Bevel、Miter、Roundのcrossing parityから1 cellずつcoverageを計算し、F5nxq pushだけをmutation境界とする。exact completionはraw coverage cell ownerを返し、packed mask以降は後続phaseに残す。
+
 F5nxq pushはwriter count、Vec len/cap、full、`0 <= coverage <= coverage_max`を検査し、成功後だけ1 cellをcommitする。storage failureではreturned Vecとpre-push countを持つwriter ownerを回収する。completionはexact fullだけをcompleted ownerへ進め、不足時はwriter ownerを返す。coverage scan computation、quadratic flattening、packed mask、paint composition、raster、runtime bridge、native/Web表示は後続phaseである。

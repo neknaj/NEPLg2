@@ -13577,3 +13577,12 @@ git diff --check
 - exact fullだけをcompleted ownerへ進め、incomplete completionはwriterを失わない。owner-bearing型はClone / Copyを持たず、single freeを提供する。
 - F5nxqはcell writer boundaryで止め、coverage scan、quadratic flattening、packed mask、paint composition、raster、runtime/native/GUI表示は後続phaseに残す。
 - runtime evidenceは、deep fixtureをF5nxp completion/freeまでの上流証拠として維持し、production projectionだけでinvariant-validなF5nxp completed ownerを作る固定test-only factoryからF5nxq focused fixtureを開始する。factoryは任意record注入を許さず、normal artifactには公開しない。
+
+## Phase F5nxr: registered simple glyph stroke coverage scan converter boundary
+
+- F5nxq writer ownerだけをdirect authorityとして消費し、nested F5nxp side-edge projectionとjoin geometryをborrowして1 stepで1 cellのraw coverageを計算する。
+- scan ownerはwriter、value-only quadratic subdivision config、cell indexを分離不能に保持する。startはfresh writer、shape、storage、nested source invariantを再検査し、失敗時はwriterとconfigを回収する。
+- registered projectionをlegacy F5ky/F5la/F5lb ownerへ詰め替えない。Lineはdirected endpoint、Quadraticはbounded subdivision、source curve評価、endpoint normal補間、Left加算／Right減算とsource順反転を用いる。
+- crossingはparityで畳み、Bevelは1 line、MiterとRoundは2 chordを検査する。finite値、sample座標overflow、quadratic segment upper boundをfail-closedに扱う。
+- terminal-before-budget、budget 0不変、push成功後だけcell indexとwritten countを同時に1進め、push/completion failureではF5nxq ownerを回収する。exact fullだけをF5nxq completed coverage ownerへ進める。
+- F5nxrはraw coverage scanで止め、packed mask、paint composition、raster、runtime bridge、native/Web GUI表示へ進まない。

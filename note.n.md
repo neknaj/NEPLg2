@@ -168380,3 +168380,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - focused runtimeはforced start failureからconfig/ownerを回収し、negative/over-max拒否、forced push failure後のowner回収、partial completion拒否、exact completion/freeを1/1で通過した。normal compileではF5nxp policy matrixとF5nxq completed-owner factoryの両identifierが`resolve.identifier.undefined`になることを確認した。
 - pass: Web GUI font contract、glyf module 2477/2477、registered module 52/52、focused F5nxq runtime 1/1、normal compile isolation、`trunk build`、trunk後Playground editor CLI JSON 13/13、`git diff --check`。deep F5nxp fixtureの再実行は360秒compile timeoutだったが、F5nxq変更前のF5nxp統合gateと今回の同一module compileは通過しており、timeoutをF5nxq runtime成功の代替にはしていない。
 - F5nxq writer issueの実装・runtime・source-policy・normal compile・build条件は満たした。次はF5nxr coverage scanであり、packed mask、raster、runtime bridge、native/Web GUI表示、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+
+## 2026-07-16 F5nxr registered coverage scan設計開始
+
+- F5nxq統合済み`46ee1cf64`から専用branchを作成した。F5nxrはF5nxq writerをsole direct authorityとし、nested registered projectionを直接読むraw coverage scan converterだけを実装する。
+- subagent設計・code auditにより、legacy F5lb ownerへの変換は禁止し、Line/Quadratic/Bevel/Miter/Roundの数値規則だけを維持する方針とした。quadratic segment countをboundedにし、sample座標をwide arithmeticで扱い、crossingはparityで畳んでoverflowを避ける。
+- packed mask、paint composition、raster、runtime bridge、native/Web GUI表示と全体目標は未完成である。この設計開始をissue完了または統合可能状態とは扱わない。

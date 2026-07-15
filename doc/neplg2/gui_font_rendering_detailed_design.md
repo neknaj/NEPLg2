@@ -398,6 +398,12 @@ F5nxは1つの巨大なouter owner型ではなく、phase-specific non-Copy owne
 
 F5nxq writerはF5nxp completed owner、validated coverage shape、cell Vec、written countを分離不能に保持する。F5laのlegacy owner型を再利用せず、owner非依存のcoverage config / shape validation contractだけを共有する。これによりregistered authorityをlegacy F5lc ownerへ偽装せず、後続F5nxr scanがregistered side-edge / join geometryをwriter内部からborrowできる。
 
+F5nxr scan ownerはF5nxq writer、quadratic subdivision config、cell indexを保持する。side edgeはnested F5nxp sourceの`Vec<GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection>`、joinはF5nxp geometry Vecからexact count/len/cap検査付きで読む。legacy F5lb ownerはauthority型が異なるため利用しない。
+
+Quadratic projectionはsource quadraticを`0..N`のbounded parameterで評価し、endpoint normalを同じparameterで補間する。Leftはnormalを加算し、Rightはnormalを減算してdirected ordinalを`N-i`へ反転する。crossingはcount加算ではなくparityで畳み、巨大edge/join countによるi32 overflowを避ける。sample座標はwide arithmeticからf32へ変換し、edge、join、quadratic intermediateをfinite検査する。
+
+bounded drainはowner invariantとterminalをbudgetより先に検査する。非terminalの1 stepはcoverageをF5nxq pushへ一度だけ渡し、成功後にcell indexとwritten countがともに1進んだことを要求する。push/completion failureはwriterをscan ownerへ戻し、exact fullだけをcompleted raw coverage ownerへ進める。
+
 F5nxa単体はRegisteredIndexedOwnerからRegisteredIndexedActionOwnerを作るdiagnostic / lower boundaryである。canonical F5nxb以降のowner DAGはRegisteredIndexedOwnerからActionSummaryOwner Runningを直接開始し、内部でF5nxa ownerを作る。そこからActionSummaryCompletedOwnerを経てF5nxc OutlineStorageOwnerへ進むsuccess branchと、ActionSummaryRejectedOwnerからdiagnostics / freeへ進むrejected branchに分かれる。F5nxc ownerはcompleted ownerを分解せずnested authorityとして保持する。その後RegisteredIndexedEndpointOwner、PointXOwner、PointYOwner、EdgeOwner、CommandTagOwner、CommandStreamOwner、CommandWriterOwner、StrokeSourceOwnerへ進む。
 
 canonical F5nxb source authorityはregistered indexed ownerから始まり、start内部でF5nxa action ownerへmoveされる。F5nxa単体のlower path ownerはsummary owner内部にnestedされた実行authorityであり、canonical public rootではない。各phase ownerはprivate transitionで次へmoveする。公開APIはphase owner全体のconsume / recovery / freeだけを提供し、raw collection、span index、lower path owner、outline storage、command storageを単独でtakeできない。read-only処理はphase owner内部のborrowed indexed sourceからcollectionまたはO(1) span lookupを行い、callerから別collectionを受け取らない。
