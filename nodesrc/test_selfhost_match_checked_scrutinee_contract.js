@@ -60,8 +60,13 @@ for (const needle of [
   "SelfhostCallReduceErrorKind::ExpectedTypeMismatch",
   "selfhost_match_checked_actual_member_context_root_type &context",
   "selfhost_match_checked_actual_member_context_member &context",
+  "match 1 |> make:",
+  "selfhost_check_expr_stage1_fixture_match_actual_pipe",
+  "SelfhostCallReduceErrorKind::PipeTargetAmbiguous",
+  "selfhost_name_scope_add_binding scope1 second_binding",
+  "selfhost_callable_signature_table_add signatures1 second_signature",
 ]) {
-  if (!fixture.includes(needle)) throw new Error(`actual Match ascription runtime gate missing: ${needle}`);
+  if (!fixture.includes(needle)) throw new Error(`actual Match runtime gate missing: ${needle}`);
 }
 
 console.log("selfhost Match checked scrutinee contract: pass");

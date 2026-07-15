@@ -168205,3 +168205,20 @@ MERGE_APPROVED
 - 差分reviewはsuccessだけではascription無視でも通る点をMajorとして指摘した。typed mismatch negativeを追加後、差分reviewと全体整合reviewはいずれもBlocker/Majorなしで統合承認した。全体reviewのLow指摘に従いsynthetic constructor authority制約も文書化した。
 - `run_source_policy_regressions.js --warn-only`は今回関連のMatch契約を含む全selfhost前半を通過し、既知のstdlib documentation baseline `2845 > 2756`だけをwarningとして報告した。後続の長時間GUI群は複数のformal video-memory harness通過後に打ち切り、変更scope外の全GUI網羅を統合条件にはしていない。
 - `PATH=/tmp:$PATH CARGO_TARGET_DIR=/tmp/nepl-trunk-target NO_COLOR=false trunk build`は成功した。続く`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-match-ascription.json`は13/13通過し、JSONの`failedCount`は0だった。
+# 2026-07-15 Selfhost actual Match pipe runtime gate
+
+## 方針
+
+- `plan.md`、todo、対象issue、Rust pipe / Match checker、selfhost body-line pipe reducerとactual Match connectorを再確認した。`plan.md`は変更していない。
+- component単体のpipe smokeをactual Match接続の証拠とせず、current Match contextからchecked rootとqualified member gate、またはtyped ambiguityまでを横断するruntime gateを作る。
+
+## 実装
+
+- `match 1 |> make:`用に`i32 -> Choice<i32>`のcallable typeを同一arenaへ作り、単一候補ではconnectorが再取得したrootとmember scrutinee typeが同じApplied typeであることを確認する。
+- ambiguity caseは同じ名前・callable typeを持つ異なる2 DefIdをscope bindingとsignature tableへ登録する一方、外部candidate vectorは1件のままにし、actual connectorから`PipeTargetAmbiguous`だけを受理する。pipe RHSがscope/signature再収集を迂回して外部vectorをauthorityにする退行を識別する。
+- constructor tableはsynthetic preseedでありactual import name-resolution originを証明しない。arm-derived expected retry / rollback以降は未完了としてtodoに維持する。
+
+## 検証
+
+- pipe focused doctest #3は`NEPL_TEST_CASE_TIMEOUT_MS=300000`で1/1通過した。Match checked scrutinee contract、stdlib unsafe helper policy、expression call reduction contract、line-count policy、issues check、`git diff --check`も通過した。
+- 初回差分reviewは外部candidate vectorにも2件目を追加するとscope/signature再収集の退行を識別できない点をMajorとして指摘した。外部vectorを1件に固定して再実行後、差分reviewと全体整合reviewはいずれもBlocker/Major/Lowなしで統合承認した。

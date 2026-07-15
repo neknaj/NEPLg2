@@ -1,7 +1,7 @@
 #indent 4
 
 //: # check/expr/stage1_match_actual_direct_fixture
-//: actual VFS Match のdirect callと明示ascriptionを検証するstage1専用fixtureです。
+//: actual VFS Match のdirect call、明示ascription、pipeを検証するstage1専用fixtureです。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -15,6 +15,7 @@
 //: ```
 
 #import "alloc/collections/vec" as v
+#import "core/field" as field
 #import "core/result" as *
 #import "core/math/bool" as *
 #import "neplg2/core/check/expr/call_candidate" as *
@@ -129,3 +130,113 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_ascription %impure fn voi
     let accepted %bool selfhost_check_expr_stage1_fixture_match_actual_source "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match %Choice i32 make:\n        child::Choice::First:\n            0\n        child::Choice::Last:\n            1\n" false
     let rejected %bool selfhost_check_expr_stage1_fixture_match_actual_source "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match %Choice bool make:\n        child::Choice::First:\n            0\n        child::Choice::Last:\n            1\n" true
     and accepted rejected
+
+struct SelfhostMatchActualFixtureCallableContext:
+    scope %SelfhostNameScope
+    signatures %SelfhostCallableSignatureTable
+    candidates %Vec SelfhostCallableCandidate
+
+fn selfhost_match_actual_fixture_callable_context %impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn bool SelfhostMatchActualFixtureCallableContext \function_type\span\duplicate:
+    let scope0 %SelfhostNameScope unwrap_ok selfhost_name_scope_new
+    let first_binding %SelfhostNameBinding selfhost_name_binding_pending "make" SelfhostDefKind::Function span
+    let first_added %SelfhostNameScopeAddResult unwrap_ok selfhost_name_scope_add_binding scope0 first_binding
+    let first_def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &first_added
+    let scope1 %SelfhostNameScope selfhost_name_scope_add_result_into_scope first_added
+    let signatures0 %SelfhostCallableSignatureTable unwrap_ok selfhost_callable_signature_table_new
+    let first_signature %SelfhostCallableSignature selfhost_callable_signature_new first_def_id function_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+    let signatures1 %SelfhostCallableSignatureTable unwrap_ok selfhost_callable_signature_table_add signatures0 first_signature
+    let candidates0 %Vec SelfhostCallableCandidate unwrap_ok v::new
+    let first_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "make" first_def_id function_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+    let candidates1 %Vec SelfhostCallableCandidate unwrap_ok v::push candidates0 first_candidate
+    if:
+        duplicate
+        then:
+            let second_binding %SelfhostNameBinding selfhost_name_binding_pending "make" SelfhostDefKind::Function span
+            let second_added %SelfhostNameScopeAddResult unwrap_ok selfhost_name_scope_add_binding scope1 second_binding
+            let second_def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &second_added
+            let scope2 %SelfhostNameScope selfhost_name_scope_add_result_into_scope second_added
+            let second_signature %SelfhostCallableSignature selfhost_callable_signature_new second_def_id function_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+            let signatures2 %SelfhostCallableSignatureTable unwrap_ok selfhost_callable_signature_table_add signatures1 second_signature
+            SelfhostMatchActualFixtureCallableContext scope2 signatures2 candidates1
+        else:
+            SelfhostMatchActualFixtureCallableContext scope1 signatures1 candidates1
+
+fn selfhost_check_expr_stage1_fixture_match_actual_pipe_source %impure fn bool bool \duplicate:
+    let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
+    let constructors0 %SelfhostTypeConstructorTable unwrap_ok selfhost_type_constructor_table_new
+    let constructor_added %SelfhostTypeConstructorAddResult unwrap_ok selfhost_type_constructor_table_add_checked constructors0 "Choice" 1 span
+    let choice_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &constructor_added
+    let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table constructor_added
+    let arena0 %SelfhostTypeArena unwrap_ok selfhost_type_arena_new
+    let primitive_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32
+    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &primitive_alloc
+    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena primitive_alloc
+    let type_args0 %Vec SelfhostTypeId unwrap_ok v::new
+    let type_args %Vec SelfhostTypeId unwrap_ok v::push type_args0 i32_type
+    let applied_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena1 choice_id type_args
+    let applied_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &applied_alloc
+    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena applied_alloc
+    let params0 %Vec SelfhostTypeId unwrap_ok v::new
+    let params %Vec SelfhostTypeId unwrap_ok v::push params0 i32_type
+    let function_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena2 params applied_type
+    let function_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &function_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena function_alloc
+    let callable %SelfhostMatchActualFixtureCallableContext selfhost_match_actual_fixture_callable_context function_type span duplicate
+    let scope %SelfhostNameScope field::get callable "scope"
+    let signatures %SelfhostCallableSignatureTable field::get callable "signatures"
+    let candidates %Vec SelfhostCallableCandidate field::get callable "candidates"
+    let value_types %SelfhostValueTypeEvidenceTable unwrap_ok selfhost_value_type_evidence_table_new
+    let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
+    let vfs1 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs0 "Child" "pub enum Choice<.T>:\n    First %.T\n    Last\n"
+    let source "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match 1 |> make:\n        child::Choice::First:\n            0\n        child::Choice::Last:\n            1\n"
+    let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs1 "Root" source
+    let graph %SelfhostModuleGraph unwrap_ok selfhost_build_module_graph &vfs "Root"
+    let order %SelfhostModuleOrder unwrap_ok selfhost_module_order_build &graph &vfs
+    let checked %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_check_match_checked_actual_member_result &graph &vfs &order "Root" 0 0 0 &scope &value_types &signatures &candidates arena constructors
+    let ok %bool match checked:
+        Result::Ok context:
+            let root_type %SelfhostTypeId selfhost_match_checked_actual_member_context_root_type &context
+            let member %SelfhostCheckedEnumMember selfhost_match_checked_actual_member_context_member &context
+            let preserved %bool and selfhost_type_id_eq root_type applied_type selfhost_type_id_eq member.scrutinee_type applied_type
+            selfhost_match_checked_actual_member_context_free context
+            and preserved not duplicate
+        Result::Err error:
+            if:
+                duplicate
+                then:
+                    match error:
+                        SelfhostMatchCheckedActualMemberError::Scrutinee scrutinee_error:
+                            match scrutinee_error:
+                                SelfhostMatchCheckedScrutineeError::ExpressionCheck expression_error:
+                                    selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::PipeTargetAmbiguous
+                                _: false
+                        _: false
+                else: false
+    v::free candidates
+    selfhost_value_type_evidence_table_free value_types
+    selfhost_callable_signature_table_free signatures
+    selfhost_name_scope_free scope
+    selfhost_module_order_free order
+    selfhost_module_graph_free graph
+    selfhost_vfs_free vfs
+    ok
+
+//: selfhost_check_expr_stage1_fixture_match_actual_pipe: pipe successと同型overload ambiguityをactual Match connectorで検査する
+//:
+//: [目的/もくてき]: `match 1 |> make:`をactual connectorへ渡し、単一`make : fn i32 Choice<i32>`ではroot/member typeを保持し、同じcallable typeを持つ異なるDefIdが2件ならtyped `PipeTargetAmbiguous`として拒否します。
+//: [authority boundary]: ambiguityでは外部candidate vectorを1件のままにし、同じchecker phaseのscope bindingとsignature tableだけへ異なる2件のDefIdを登録します。pipe RHSが外部vectorをauthorityにする退行では曖昧になりません。constructor tableはsynthetic preseedでありactual import name-resolution originを証明しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/check/expr/stage1_match_actual_direct_fixture" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_check_expr_stage1_fixture_match_actual_pipe:
+//:         true: 0
+//:         false: 1
+//: ```
+pub fn selfhost_check_expr_stage1_fixture_match_actual_pipe %impure fn void bool \void:
+    let accepted %bool selfhost_check_expr_stage1_fixture_match_actual_pipe_source false
+    let ambiguous %bool selfhost_check_expr_stage1_fixture_match_actual_pipe_source true
+    and accepted ambiguous
