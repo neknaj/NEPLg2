@@ -168203,3 +168203,5 @@ MERGE_APPROVED
 - Match checked scrutinee contract、stdlib unsafe helper policy、expression call reduction contract、line-count policy、issues check、`git diff --check`は通過した。
 - documentation contractは既存baseline `moduleNoDoc: 68 > 59`、Zenn review gateは今回未変更の`test_selfhost_resource_ir_place_projection_contract.js`未登録を報告した。今回の差分による新規public doc欠落やtest登録漏れではないため既存全体baselineとして記録し、残りのfull gateと統合前状態を継続確認する。
 - 差分reviewはsuccessだけではascription無視でも通る点をMajorとして指摘した。typed mismatch negativeを追加後、差分reviewと全体整合reviewはいずれもBlocker/Majorなしで統合承認した。全体reviewのLow指摘に従いsynthetic constructor authority制約も文書化した。
+- `run_source_policy_regressions.js --warn-only`は今回関連のMatch契約を含む全selfhost前半を通過し、既知のstdlib documentation baseline `2845 > 2756`だけをwarningとして報告した。後続の長時間GUI群は複数のformal video-memory harness通過後に打ち切り、変更scope外の全GUI網羅を統合条件にはしていない。
+- `PATH=/tmp:$PATH CARGO_TARGET_DIR=/tmp/nepl-trunk-target NO_COLOR=false trunk build`は成功した。続く`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-match-ascription.json`は13/13通過し、JSONの`failedCount`は0だった。
