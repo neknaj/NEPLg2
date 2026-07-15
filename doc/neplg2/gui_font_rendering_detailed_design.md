@@ -10928,3 +10928,8 @@ F5ek は F5eg `LoopAction` 全体を扱う最初の real loop step 境界であ�
 policy は `scheduler_policy` と `timer_policy` だけを保持する。Execute branch では F5ei の borrowed policy entry `loop_executor_complete_with_policy_refs` を呼び、executor 用に別の timer policy を持たない。これにより `AwaitTimerAdvance` と `ExecuteHostAction` が同じ timer policy authority を共有する。
 
 `RealLoopStepInput` は `ClockDelta`、`ExecutorOutcome`、`CompleteAck` の enum で表す。`YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` と input の対応が崩れた場合は、対応する `YieldInputMismatch`、`TimerInputMismatch`、`ExecuteInputMismatch`、`CompleteInputMismatch` を返し、action owner と input owner を回収可能にする。
+## Registered simple glyph stroke side-edge projection boundary
+
+F5nxn ownerはF5nxm offset projection owner、exact-capacity edge Vec、pending geometry、Left/Right phase、geometry/side/variant/side別countを所有する。pendingなしではlowerを一件進め、得たCopy geometryをownerへ確定してからLeftをpushする。Left成功後も同じgeometryをpendingに保持し、次の一budgetでRightをsource-reverseとしてpushする。Right成功時だけgeometry countを進める。
+
+中立side-edge projectionは既存F5ky private builderからも利用し、registered経路との方向座標authorityを一本化する。lower failureとpush failureはいずれもowner-bearing errorとし、lookup、parse、F5kx/F5ky drain再実行、closure、coverage、packed mask、render command、platform APIへ進まない。

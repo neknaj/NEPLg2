@@ -8494,3 +8494,8 @@ F5ek は、F5eg `LoopAction` と caller supplied explicit input を照合し、F
 `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy` は `scheduler_policy` と `timer_policy` だけを保持する。`LoopExecutorCompletePolicy` は保持しない。Execute branch は F5ei の `loop_executor_complete_with_policy_refs` を使い、timer branch と同じ timer policy authority を借用する。
 
 `RealLoopStepInput` は `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を明示する。`YieldToClock` と `AwaitTimerAdvance` は `ClockDelta`、`ExecuteHostAction` は caller supplied `ExecutorOutcome`、`Complete` は `CompleteAck` だけを受ける。入力種別不一致は action owner と input owner を保持する mismatch error で返し、fallback と silent no-op は行わない。
+### Registered simple glyph stroke side-edge projection boundary
+
+F5nxn は F5nxm の completed metric count と一件ずつの Copy offset geometry だけを authority とし、各 geometry から Left、Right の順で二件の directed side edge を生成する。Left は source-forward、Right は source-reverse とし、line と quadratic の座標・normal・provenance は F5ky の中立 Copy projectionを再利用する。quadratic offset control pointは生成しない。
+
+storage は開始時に `metric_count * 2` のoverflowを検査してexact capacityで一度だけ確保する。1 budgetは1 edge pushだけを許し、lower projection成功後のgeometryはpush前にpending ownerへ保存する。push失敗はreturned storage、pending geometry、pre-push side phaseとcountを回収可能にする。completed ownerはside-edge authorityであり、closure、coverage、raster、platform表示の完成を意味しない。

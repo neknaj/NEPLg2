@@ -13542,3 +13542,10 @@ git diff --check
 - 正しい action/input pair だけが F5ej / F5eh / F5ei を 1 回だけ呼ぶ。
 - mismatch error は action owner、input owner、`Option::Some GuiError::InvalidCommand` category を持つ。
 - actual loop、queue、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+## Phase F5nxn: registered simple glyph stroke side-edge projection boundary
+
+- F5nxm Copy offset geometryを既存F5ky規則のneutral Copy side-edge projectionへ接続する。
+- F5ky line/quadratic builderもneutral projectionへ委譲し、Left source-forwardとRight source-reverseの数値authorityを共有する。
+- registered ownerは`metric_count * 2` exact capacity、pending-before-push、1 budget 1 push、returned Vecとpre-push progress回収を実装する。
+- runtime fixtureでbudget不変、line/quadratic Left/Right、途中count、lower/push failure recovery、terminal exact capacityを固定する。
+- source policy、spec、design、todo、noteを同時更新し、後続registered closure / coverage / rasterを未完了として残す。

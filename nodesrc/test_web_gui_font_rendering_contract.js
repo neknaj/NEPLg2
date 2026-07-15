@@ -3949,6 +3949,27 @@ assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedSt
 assertNoMatch(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step"), /with_capacity|vec::push|full_scan|gui_sfnt_lookup_|gui_sfnt_parse_metadata|fallback|platform/, "F5nxm must not rebuild storage, re-enter lookup, or cross platform boundaries");
 assertOrderedFragments(functionSlice(allocFontSfntGlyf, "gui_sfnt_simple_glyph_render_stroke_offset_projection_geometry"), ["PathCommandTag::LineTo", "offset_geometry_provenance_guard", "offset_line_geometry_from_metric", "PathCommandTag::QuadraticTo", "offset_quadratic_geometry_from_metric"], "F5nxm numerical bridge must use the existing variant-correct F5kx provenance guard and geometry builders");
 assertMatch(allocFontSfntGlyf, /pub struct GuiSfntSimpleGlyphRenderOffsetNormalProjection:[\s\S]*tangent_dx %i64[\s\S]*unit_normal_x %f32[\s\S]*offset_x2 %f32[\s\S]*stroke_width %i32/, "F5nxm Copy projection must retain F5kx normal evidence for downstream phases");
+assertMatch(allocFontSfntGlyf, /pub struct GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection:[\s\S]*geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection[\s\S]*side %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide/, "F5nxn must retain Copy offset geometry and side as its neutral F5ky-compatible authority");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_start"), ["stroke_offset_projection_owner_metric_count", "1073741823", "mul metric_count 2", "vec::with_capacity"], "F5nxn start must allocate metric_count * 2 exact capacity once with overflow protection");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_push_pending"), ["pending", "stroke_side_edge_projection", "vec::push", "vec_push_error_vec", "some geometry"], "F5nxn must establish pending geometry before one-edge push and recover returned storage");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step"), ["le budget 0", "pending", "stroke_offset_projection_step offset 1", "some value", "stroke_side_edge_push_pending"], "F5nxn must preserve zero budget and spend one outer budget on one side-edge push");
+assertNoMatch(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step"), /gui_sfnt_lookup_|gui_sfnt_parse_|platform|coverage|raster|stroke_side_edge_drain_owner_/, "F5nxn must not re-enter lookup, platform, coverage, raster, or private F5ky drains");
+assertMatch(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_line_side_edge_record_from_geometry"), /stroke_side_edge_projection[\s\S]*stroke_side_edge_projection_start_x2[\s\S]*stroke_side_edge_projection_end_x2/, "F5ky line builder must delegate directed endpoints to the neutral projection");
+assertMatch(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record_from_geometry"), /stroke_side_edge_projection[\s\S]*stroke_side_edge_projection_start_x2[\s\S]*stroke_side_edge_projection_end_x2/, "F5ky quadratic builder must delegate directed endpoints to the neutral projection");
+for (const fragment of [
+    "join_stroke_side_edge_start",
+    "StepBudgetExhausted",
+    "let run_ok %bool match",
+    "stroke_side_edge_projection_is_source_forward",
+    "stroke_side_edge_owner_edges_cap",
+    "stroke_side_edge_test_force_push_failure",
+    "stroke_side_edge_test_force_offset_projection_failure",
+    "stroke_side_edge_test_edge_matches",
+    "stroke_side_edge_completed_owner_free",
+]) {
+    assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests.includes(fragment), `F5nxn registered side-edge runtime fixture must include ${fragment}`);
+}
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_edge_matches"), ["stroke_side_edge_projection_start_x2", "stroke_side_edge_projection_start_y2", "stroke_side_edge_projection_end_x2", "stroke_side_edge_projection_end_y2", "OffsetGeometryProjection::Line", "OffsetGeometryProjection::Quadratic"], "F5nxn runtime seam must compare directed start/end coordinates for Line and Quadratic edges");
 for (const fragment of [
     "gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset_owner0 0",
     "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted",

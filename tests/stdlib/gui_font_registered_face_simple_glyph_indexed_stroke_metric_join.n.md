@@ -604,6 +604,203 @@ fn join_stroke_offset_run %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStro
                     gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free completed
                     terminal_ok
 
+fn join_stroke_side_edge_assert %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn i32 bool \owner\edge\edge_index:
+    let status_count_ok %bool eq add edge_index 1 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_side_edge_count owner
+    let capacity_ok %bool eq 6 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_edges_cap owner
+    let expected_pending %bool or eq edge_index 0 or eq edge_index 2 eq edge_index 4
+    let actual_pending %bool gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_has_pending owner
+    let pending_ok %bool if expected_pending then actual_pending else not actual_pending
+    let geometry_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_edge_matches edge edge_index
+    and status_count_ok (and capacity_ok (and pending_ok geometry_ok))
+
+fn join_stroke_side_edge_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner bool \offset:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_start offset:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_start_error_free error
+            false
+        Result::Ok owner0:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step owner0 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free error
+                    false
+                Result::Ok budget_step:
+                    match budget_step:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue completed:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free completed
+                            false
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress_owner1:
+                            let status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_status &progress_owner1
+                            let edge %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_edge &progress_owner1
+                            let owner1 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_owner progress_owner1
+                            let budget_ok %bool match status:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::StepBudgetExhausted:
+                                    match edge:
+                                        Option::None: true
+                                        Option::Some _edge: false
+                                _: false
+                            let cursor_ok %bool and (eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_geometry_count &owner1) (eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_side_edge_count &owner1)
+                            let forced_lower gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_force_offset_projection_failure owner1
+                            let lower_kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_kind &forced_lower:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::OffsetProjectionFailed lower:
+                                    match lower:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind::GeometryFailed geometry_kind:
+                                            match geometry_kind:
+                                                GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProvenanceContourSpanInvalid: true
+                                                _: false
+                                        _: false
+                                _: false
+                            let recovered gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_owner forced_lower
+                            let recovery_ok %bool and (eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_geometry_count &recovered) (eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_side_edge_count &recovered)
+                            let run_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step recovered 1:
+                                    Result::Err error:
+                                        gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free error
+                                        false
+                                    Result::Ok step0:
+                                        match step0:
+                                            GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue completed:
+                                                gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free completed
+                                                false
+                                            GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress_next0:
+                                                let status0 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_status &progress_next0
+                                                let edge0 %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_edge &progress_next0
+                                                let next0 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_owner progress_next0
+                                                let status_ok0 %bool match status0:
+                                                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::EdgePushed: true
+                                                    _: false
+                                                let edge_ok0 %bool match edge0:
+                                                    Option::None: false
+                                                    Option::Some value: join_stroke_side_edge_assert &next0 &value 0
+                                                let forced_push gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_force_push_failure next0
+                                                let push_kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_kind &forced_push:
+                                                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::StorageFailed lower:
+                                                        match lower:
+                                                            StdErrorKind::CapacityExceeded: true
+                                                            _: false
+                                                    _: false
+                                                let rejected_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_rejected &forced_push:
+                                                    Option::Some rejected: not gui_sfnt_simple_glyph_render_stroke_side_edge_projection_is_source_forward &rejected
+                                                    Option::None: false
+                                                let recovered_push gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_owner forced_push
+                                                let push_recovery_ok %bool and eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_side_edge_count &recovered_push gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_has_pending &recovered_push
+                                                let remaining_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step recovered_push 1:
+                                                        Result::Err error:
+                                                            gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free error
+                                                            false
+                                                        Result::Ok step1:
+                                                            match step1:
+                                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue completed:
+                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free completed
+                                                                    false
+                                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress_next1:
+                                                                    let status1 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_status &progress_next1
+                                                                    let edge1 %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_edge &progress_next1
+                                                                    let next1 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_owner progress_next1
+                                                                    let status_ok1 %bool match status1:
+                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::EdgePushed: true
+                                                                        _: false
+                                                                    let edge_ok1 %bool match edge1:
+                                                                        Option::None: false
+                                                                        Option::Some value: join_stroke_side_edge_assert &next1 &value 1
+                                                                    let remaining_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step next1 1:
+                                                                            Result::Err error:
+                                                                                gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free error
+                                                                                false
+                                                                            Result::Ok step2:
+                                                                                match step2:
+                                                                                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue completed:
+                                                                                        gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free completed
+                                                                                        false
+                                                                                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress_next2:
+                                                                                        let status2 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_status &progress_next2
+                                                                                        let edge2 %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_edge &progress_next2
+                                                                                        let next2 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_owner progress_next2
+                                                                                        let status_ok2 %bool match status2:
+                                                                                            GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::EdgePushed: true
+                                                                                            _: false
+                                                                                        let edge_ok2 %bool match edge2:
+                                                                                            Option::None: false
+                                                                                            Option::Some value: join_stroke_side_edge_assert &next2 &value 2
+                                                                                        let remaining_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step next2 1:
+                                                                                                Result::Err error:
+                                                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free error
+                                                                                                    false
+                                                                                                Result::Ok step3:
+                                                                                                    match step3:
+                                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue completed:
+                                                                                                            gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free completed
+                                                                                                            false
+                                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress_next3:
+                                                                                                            let status3 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_status &progress_next3
+                                                                                                            let edge3 %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_edge &progress_next3
+                                                                                                            let next3 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_owner progress_next3
+                                                                                                            let status_ok3 %bool match status3:
+                                                                                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::EdgePushed: true
+                                                                                                                _: false
+                                                                                                            let edge_ok3 %bool match edge3:
+                                                                                                                Option::None: false
+                                                                                                                Option::Some value: join_stroke_side_edge_assert &next3 &value 3
+                                                                                                            let remaining_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step next3 1:
+                                                                                                                    Result::Err error:
+                                                                                                                        gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free error
+                                                                                                                        false
+                                                                                                                    Result::Ok step4:
+                                                                                                                        match step4:
+                                                                                                                            GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue completed:
+                                                                                                                                gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free completed
+                                                                                                                                false
+                                                                                                                            GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress_next4:
+                                                                                                                                let status4 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_status &progress_next4
+                                                                                                                                let edge4 %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_edge &progress_next4
+                                                                                                                                let next4 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_owner progress_next4
+                                                                                                                                let status_ok4 %bool match status4:
+                                                                                                                                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::EdgePushed: true
+                                                                                                                                    _: false
+                                                                                                                                let edge_ok4 %bool match edge4:
+                                                                                                                                    Option::None: false
+                                                                                                                                    Option::Some value: join_stroke_side_edge_assert &next4 &value 4
+                                                                                                                                let remaining_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step next4 1:
+                                                                                                                                        Result::Err error:
+                                                                                                                                            gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free error
+                                                                                                                                            false
+                                                                                                                                        Result::Ok step5:
+                                                                                                                                            match step5:
+                                                                                                                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue completed:
+                                                                                                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free completed
+                                                                                                                                                    false
+                                                                                                                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress_next5:
+                                                                                                                                                    let status5 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_status &progress_next5
+                                                                                                                                                    let edge5 %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_edge &progress_next5
+                                                                                                                                                    let next5 %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_owner progress_next5
+                                                                                                                                                    let status_ok5 %bool match status5:
+                                                                                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::EdgePushed: true
+                                                                                                                                                        _: false
+                                                                                                                                                    let edge_ok5 %bool match edge5:
+                                                                                                                                                        Option::None: false
+                                                                                                                                                        Option::Some value: join_stroke_side_edge_assert &next5 &value 5
+                                                                                                                                                    let remaining_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step next5 1:
+                                                                                                                                                            Result::Err error:
+                                                                                                                                                                gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free error
+                                                                                                                                                                false
+                                                                                                                                                            Result::Ok step6:
+                                                                                                                                                                match step6:
+                                                                                                                                                                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress_returned:
+                                                                                                                                                                        let _status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_status &progress_returned
+                                                                                                                                                                        let _edge %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_edge &progress_returned
+                                                                                                                                                                        let returned %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_owner progress_returned
+                                                                                                                                                                        gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_free returned
+                                                                                                                                                                        false
+                                                                                                                                                                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue completed:
+                                                                                                                                                                        let counts_ok %bool and eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_geometry_count &completed (and eq 6 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_side_edge_count &completed (and eq 4 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_line_side_edge_count &completed (and eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_quadratic_side_edge_count &completed (and eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_left_side_edge_count &completed (and eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_right_side_edge_count &completed eq 6 gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_edges_cap &completed)))))
+                                                                                                                                                                        gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free completed
+                                                                                                                                                                        counts_ok
+                                                                                                                                                    and status_ok5 (and edge_ok5 remaining_ok)
+                                                                                                                                and status_ok4 (and edge_ok4 remaining_ok)
+                                                                                                            and status_ok3 (and edge_ok3 remaining_ok)
+                                                                                        and status_ok2 (and edge_ok2 remaining_ok)
+                                                                    and status_ok1 (and edge_ok1 remaining_ok)
+                                                and status_ok0 (and edge_ok0 (and push_kind_ok (and rejected_ok (and push_recovery_ok remaining_ok))))
+                            and budget_ok (and cursor_ok (and lower_kind_ok (and recovery_ok run_ok)))
+
 fn join_stroke_metric_join_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner bool \completed:
     let full %u8 cast 255
     let zero %u8 cast 0
@@ -637,7 +834,7 @@ fn join_stroke_metric_join_start %impure fn GuiFontRegisteredFaceSimpleGlyphInde
                         _: false
                     let offset_owner2 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_owner forced_join
                     let join_cursor_ok %bool eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_next_metric_index &offset_owner2
-                    let joined_ok %bool join_stroke_offset_run offset_owner2 0
+                    let joined_ok %bool join_stroke_side_edge_start offset_owner2
                     and summary_ok (and budget_ok (and budget_cursor_ok (and join_kind_ok (and join_cursor_ok joined_ok))))
 
 fn join_stroke_metric_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner bool \owner:

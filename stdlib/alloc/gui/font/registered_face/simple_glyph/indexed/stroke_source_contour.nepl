@@ -832,3 +832,281 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_te
                 GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::ControlEnd: true
                 _: false
             and eq metric_index 1 and eq 1 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_metric_index quadratic and eq 3 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_path_command_index quadratic and start_source_ok end_source_ok
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner: F5nxm authority と exact-capacity side-edge storage を保持する owner
+//:
+//: [目的/もくてき]:
+//: - pending geometry を push より前に保持し、Left 成功後の Right 失敗でも同じ geometry から再開できるようにします。
+//: - Vec を所有するため Clone / Copy は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner:
+    offset %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner
+    edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection
+    pending %Option GuiSfntSimpleGlyphRenderOffsetGeometryProjection
+    side %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide
+    geometry_count %i32
+    side_edge_count %i32
+    line_side_edge_count %i32
+    quadratic_side_edge_count %i32
+    left_side_edge_count %i32
+    right_side_edge_count %i32
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner: F5nxn completed side-edge authority
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner:
+    offset %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner
+    edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection
+    geometry_count %i32
+    side_edge_count %i32
+    line_side_edge_count %i32
+    quadratic_side_edge_count %i32
+    left_side_edge_count %i32
+    right_side_edge_count %i32
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind: F5nxn step 状態
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind:
+    Completed
+    StepBudgetExhausted
+    EdgePushed
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeProgress:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind
+    edge %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep:
+    Progress %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeProgress
+    CompletedValue %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind:
+    CapacityInvalid
+    StorageFailed %StdErrorKind
+    OffsetProjectionFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind
+    ProgressInvariantInvalid
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStartError:
+    offset %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind
+    rejected %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection
+
+//: offset_projection_owner_metric_count: exact capacity authority を nested join から読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_metric_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner i32 \owner:
+    let join %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner field::get_ref owner "join"
+    gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_metric_count join
+
+//: side_edge_start: metric_count * 2 の exact capacity を一度だけ確保します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStartError \offset:
+    let metric_count %i32 gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_metric_count &offset
+    if or lt metric_count 0 gt metric_count 1073741823:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStartError offset GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::CapacityInvalid
+        else:
+            let capacity %i32 mul metric_count 2
+            match vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection> capacity:
+                Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStartError offset (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::StorageFailed kind)
+                Result::Ok edges: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner offset edges none GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left 0 0 0 0 0 0
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_geometry_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner i32 \owner: *field::get_ref owner "geometry_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_side_edge_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner i32 \owner: *field::get_ref owner "side_edge_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_edges_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner i32 \owner:
+    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection field::get_ref owner "edges"
+    vec::cap edges
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_has_pending %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner bool \owner:
+    match *field::get_ref owner "pending":
+        Option::None: false
+        Option::Some _geometry: true
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_geometry_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner i32 \owner: *field::get_ref owner "geometry_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_side_edge_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner i32 \owner: *field::get_ref owner "side_edge_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_line_side_edge_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner i32 \owner: *field::get_ref owner "line_side_edge_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_quadratic_side_edge_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner i32 \owner: *field::get_ref owner "quadratic_side_edge_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_left_side_edge_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner i32 \owner: *field::get_ref owner "left_side_edge_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_right_side_edge_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner i32 \owner: *field::get_ref owner "right_side_edge_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_edges_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner i32 \owner:
+    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection field::get_ref owner "edges"
+    vec::cap edges
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_edge %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner fn i32 Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \owner\index:
+    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection field::get_ref owner "edges"
+    match vec::get edges index:
+        Option::None: none
+        Option::Some edge: some edge
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind \step:
+    match step:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress: *field::get_ref progress "status"
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue _completed: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::Completed
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_edge %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \step:
+    match step:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress progress: *field::get_ref progress "edge"
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue _completed: none
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeProgress GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind \progress: *field::get_ref progress "status"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_edge %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeProgress Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \progress: *field::get_ref progress "edge"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_progress_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeProgress GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner \progress: field::get progress "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_rejected %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \error: *field::get_ref error "rejected"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner \error: field::get error "owner"
+
+//: side_edge_push_pending: pending をauthorityとして1 budgetで1 edgeだけpushします。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_push_pending %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError \owner:
+    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection unwrap *field::get_ref &owner "pending"
+    let side %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide *field::get_ref &owner "side"
+    let edge %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_side_edge_projection &geometry side
+    let geometry_count %i32 *field::get_ref &owner "geometry_count"
+    let side_edge_count %i32 *field::get_ref &owner "side_edge_count"
+    let line_count %i32 *field::get_ref &owner "line_side_edge_count"
+    let quadratic_count %i32 *field::get_ref &owner "quadratic_side_edge_count"
+    let left_count %i32 *field::get_ref &owner "left_side_edge_count"
+    let right_count %i32 *field::get_ref &owner "right_side_edge_count"
+    let offset %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner field::get owner "offset"
+    let edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection field::get owner "edges"
+    match vec::push edges edge:
+        Result::Err push_error:
+            let kind %StdErrorKind vec::vec_push_error_kind &push_error
+            let returned %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection vec::vec_push_error_vec push_error
+            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner offset returned (some geometry) side geometry_count side_edge_count line_count quadratic_count left_count right_count
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError recovered (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::StorageFailed kind) (some edge)
+        Result::Ok next_edges:
+            let next_side_edge_count %i32 add side_edge_count 1
+            let is_line %bool match geometry:
+                GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line _line: true
+                GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic _quadratic: false
+            match side:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left:
+                    let next_line %i32 if is_line then add line_count 1 else line_count
+                    let next_quadratic %i32 if is_line then quadratic_count else add quadratic_count 1
+                    let next %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner offset next_edges (some geometry) GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right geometry_count next_side_edge_count next_line next_quadratic (add left_count 1) right_count
+                    Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeProgress next GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::EdgePushed (some edge))
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right:
+                    let next_line %i32 if is_line then add line_count 1 else line_count
+                    let next_quadratic %i32 if is_line then quadratic_count else add quadratic_count 1
+                    let next %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner offset next_edges none GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left (add geometry_count 1) next_side_edge_count next_line next_quadratic left_count (add right_count 1)
+                    Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeProgress next GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::EdgePushed (some edge))
+
+//: side_edge_step: lower projection進行とpending確定をpushより前に行い、1 budgetで1 edgeだけ進めます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError \owner\budget:
+    if le budget 0:
+        then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::Progress (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeProgress owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStatusKind::StepBudgetExhausted none)
+        else:
+            match *field::get_ref &owner "pending":
+                Option::Some _geometry: gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_push_pending owner
+                Option::None:
+                    let edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection field::get owner "edges"
+                    let geometry_count %i32 field::get owner "geometry_count"
+                    let side_edge_count %i32 field::get owner "side_edge_count"
+                    let line_count %i32 field::get owner "line_side_edge_count"
+                    let quadratic_count %i32 field::get owner "quadratic_side_edge_count"
+                    let left_count %i32 field::get owner "left_side_edge_count"
+                    let right_count %i32 field::get owner "right_side_edge_count"
+                    let offset %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionOwner field::get owner "offset"
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset 1:
+                        Result::Err lower:
+                            let kind gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_kind &lower
+                            let returned gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_error_owner lower
+                            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner returned edges none GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left geometry_count side_edge_count line_count quadratic_count left_count right_count
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError recovered (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::OffsetProjectionFailed kind) none
+                        Result::Ok lower_step:
+                            let status gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_status &lower_step
+                            let geometry gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_geometry &lower_step
+                            let returned gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step_owner lower_step
+                            match status:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::Projected:
+                                    match geometry:
+                                        Option::None:
+                                            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner returned edges none GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left geometry_count side_edge_count line_count quadratic_count left_count right_count
+                                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError recovered GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::ProgressInvariantInvalid none
+                                        Option::Some value:
+                                            let pending %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner returned edges (some value) GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left geometry_count side_edge_count line_count quadratic_count left_count right_count
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_push_pending pending
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::Completed:
+                                    let expected %i32 mul gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_metric_count &returned 2
+                                    if and eq side_edge_count expected eq vec::len &edges vec::cap &edges:
+                                        then:
+                                            let completed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner returned edges geometry_count side_edge_count line_count quadratic_count left_count right_count
+                                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStep::CompletedValue completed
+                                        else:
+                                            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner returned edges none GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left geometry_count side_edge_count line_count quadratic_count left_count right_count
+                                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError recovered GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::ProgressInvariantInvalid none
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted:
+                                    let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner returned edges none GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left geometry_count side_edge_count line_count quadratic_count left_count right_count
+                                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError recovered GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::ProgressInvariantInvalid none
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free field::get owner "offset"
+    vec::free field::get owner "edges"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free field::get owner "offset"
+    vec::free field::get owner "edges"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free field::get error "offset"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_free field::get error "owner"
+
+#test
+//: side_edge_test_force_push_failure: pending geometry とpre-push progressを保持するerror seam
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_force_push_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError \owner:
+    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection unwrap *field::get_ref &owner "pending"
+    let side %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide *field::get_ref &owner "side"
+    let rejected %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_side_edge_projection &geometry side
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::StorageFailed StdErrorKind::CapacityExceeded) (some rejected)
+
+#test
+//: side_edge_test_force_offset_projection_failure: lower failureでもF5nxn owner全体を回収します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_force_offset_projection_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError \owner:
+    let lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStepErrorKind::GeometryFailed GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProvenanceContourSpanInvalid
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeErrorKind::OffsetProjectionFailed lower) none
+
+#test
+//: side_edge_test_edge_matches: Line/QuadraticとLeft/Rightのdirected endpointを元geometryと照合します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_edge_matches %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn i32 bool \edge\edge_index:
+    let geometry gui_sfnt_simple_glyph_render_stroke_side_edge_projection_geometry edge
+    let is_left %bool or eq edge_index 0 or eq edge_index 2 eq edge_index 4
+    let source_forward %bool gui_sfnt_simple_glyph_render_stroke_side_edge_projection_is_source_forward edge
+    let direction_ok %bool if is_left then source_forward else not source_forward
+    let start_x %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 edge
+    let start_y %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 edge
+    let end_x %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 edge
+    let end_y %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 edge
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line:
+            let expected_start_x %f32 if is_left then gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_start_x2 &line else gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_end_x2 &line
+            let expected_start_y %f32 if is_left then gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_start_y2 &line else gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_end_y2 &line
+            let expected_end_x %f32 if is_left then gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_end_x2 &line else gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_start_x2 &line
+            let expected_end_y %f32 if is_left then gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_end_y2 &line else gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_start_y2 &line
+            let variant_ok %bool or eq edge_index 0 or eq edge_index 1 or eq edge_index 4 eq edge_index 5
+            and variant_ok (and direction_ok (and eq start_x expected_start_x (and eq start_y expected_start_y (and eq end_x expected_end_x eq end_y expected_end_y))))
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic:
+            let expected_start_x %f32 if is_left then gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_start_x2 &quadratic else gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_end_x2 &quadratic
+            let expected_start_y %f32 if is_left then gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_start_y2 &quadratic else gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_end_y2 &quadratic
+            let expected_end_x %f32 if is_left then gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_end_x2 &quadratic else gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_start_x2 &quadratic
+            let expected_end_y %f32 if is_left then gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_end_y2 &quadratic else gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_start_y2 &quadratic
+            let variant_ok %bool or eq edge_index 2 eq edge_index 3
+            and variant_ok (and direction_ok (and eq start_x expected_start_x (and eq start_y expected_start_y (and eq end_x expected_end_x eq end_y expected_end_y))))

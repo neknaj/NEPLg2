@@ -30592,6 +30592,118 @@ pub fn gui_sfnt_simple_glyph_render_stroke_offset_projection_geometry %fn &GuiSf
                     match gui_sfnt_simple_glyph_render_stroke_offset_quadratic_geometry_from_metric &provenance &metric stroke_width:
                         Result::Err kind: Result::Err kind
                         Result::Ok geometry: Result::Ok gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection &geometry
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide: registered side-edge 射影の左右 authority
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide:
+    Left
+    Right
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide \value: *value
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide \value: value
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection: F5ky と同じ向き規則を保持する Copy side-edge 射影
+//:
+//: [目的/もくてき]:
+//: - F5nxm の Copy offset geometry と左右を保持し、registered 経路が F5ky drain owner を偽造せず同じ方向規則を再利用できるようにします。
+//: - quadratic offset control point は生成せず、source curve と endpoint normal authority をそのまま保持します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection:
+    geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection
+    side %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \value: *value
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \value: value
+
+//: gui_sfnt_simple_glyph_render_stroke_side_edge_projection: offset geometry 一件を左右いずれかの directed edge として保持する
+//:
+//: [計算量/けいさんりょう]: 時間・追加領域とも O(1) です。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection %fn &GuiSfntSimpleGlyphRenderOffsetGeometryProjection fn GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \geometry\side:
+    GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection *geometry side
+
+//: gui_sfnt_simple_glyph_render_stroke_side_edge_projection_geometry: Copy offset geometry authority を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection_geometry %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection GuiSfntSimpleGlyphRenderOffsetGeometryProjection \value: *field::get_ref value "geometry"
+
+//: gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side: directed edge の左右を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide \value: *field::get_ref value "side"
+
+//: gui_sfnt_simple_glyph_render_stroke_side_edge_projection_is_source_forward: Left は source-forward、Right は source-reverse と判定する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection_is_source_forward %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection bool \value:
+    match *field::get_ref value "side":
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: true
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: false
+
+//: gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2: directed edge の始点 x2 を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection f32 \value:
+    let geometry %&GuiSfntSimpleGlyphRenderOffsetGeometryProjection field::get_ref value "geometry"
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line:
+            match *field::get_ref value "side":
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_start_x2 line
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_end_x2 line
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic:
+            match *field::get_ref value "side":
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_start_x2 quadratic
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_end_x2 quadratic
+
+//: gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2: directed edge の終点 x2 を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection f32 \value:
+    let geometry %&GuiSfntSimpleGlyphRenderOffsetGeometryProjection field::get_ref value "geometry"
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line:
+            match *field::get_ref value "side":
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_end_x2 line
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_start_x2 line
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic:
+            match *field::get_ref value "side":
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_end_x2 quadratic
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_start_x2 quadratic
+
+//: gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2: directed edge の始点 y2 を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection f32 \value:
+    let geometry %&GuiSfntSimpleGlyphRenderOffsetGeometryProjection field::get_ref value "geometry"
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line:
+            match *field::get_ref value "side":
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_start_y2 line
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_end_y2 line
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic:
+            match *field::get_ref value "side":
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_start_y2 quadratic
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_end_y2 quadratic
+
+//: gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2: directed edge の終点 y2 を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection f32 \value:
+    let geometry %&GuiSfntSimpleGlyphRenderOffsetGeometryProjection field::get_ref value "geometry"
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line:
+            match *field::get_ref value "side":
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_end_y2 line
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_start_y2 line
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic:
+            match *field::get_ref value "side":
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_end_y2 quadratic
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_start_y2 quadratic
 //: gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_local_invariants: F5kx stroke offset geometry boundary の fn
 //:
 //: [目的/もくてき]:
@@ -31881,6 +31993,11 @@ fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_geometry %fn &GuiSfn
 //:
 //: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_stroke_line_side_edge_record_from_geometry %fn &GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry fn GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord \geometry\side:
+    let projected_geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection gui_sfnt_simple_glyph_render_offset_line_geometry_projection geometry
+    let projected_side %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide match side:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left: GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right: GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right
+    let projected_edge %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_side_edge_projection &projected_geometry projected_side
     let metric_index %i32 *field::get_ref geometry "metric_index"
     let path_command_index %i32 *field::get_ref geometry "path_command_index"
     let edge_index %i32 *field::get_ref geometry "edge_index"
@@ -31897,18 +32014,18 @@ fn gui_sfnt_simple_glyph_render_stroke_line_side_edge_record_from_geometry %fn &
     match side:
         GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
             let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward
-            let start_x2 %f32 *field::get_ref geometry "left_start_x2"
-            let start_y2 %f32 *field::get_ref geometry "left_start_y2"
-            let end_x2 %f32 *field::get_ref geometry "left_end_x2"
-            let end_y2 %f32 *field::get_ref geometry "left_end_y2"
-            gui_sfnt_simple_glyph_render_stroke_line_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_end_x2 source_end_y2 normal start_x2 start_y2 end_x2 end_y2
+            let left_start_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 &projected_edge
+            let left_start_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 &projected_edge
+            let left_end_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 &projected_edge
+            let left_end_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 &projected_edge
+            gui_sfnt_simple_glyph_render_stroke_line_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_end_x2 source_end_y2 normal left_start_x2 left_start_y2 left_end_x2 left_end_y2
         GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
             let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse
-            let start_x2 %f32 *field::get_ref geometry "right_end_x2"
-            let start_y2 %f32 *field::get_ref geometry "right_end_y2"
-            let end_x2 %f32 *field::get_ref geometry "right_start_x2"
-            let end_y2 %f32 *field::get_ref geometry "right_start_y2"
-            gui_sfnt_simple_glyph_render_stroke_line_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_end_x2 source_end_y2 normal start_x2 start_y2 end_x2 end_y2
+            let right_end_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 &projected_edge
+            let right_end_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 &projected_edge
+            let right_start_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 &projected_edge
+            let right_start_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 &projected_edge
+            gui_sfnt_simple_glyph_render_stroke_line_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_end_x2 source_end_y2 normal right_end_x2 right_end_y2 right_start_x2 right_start_y2
 
 //: gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record_from_geometry: F5ky stroke side edge owner boundary の fn
 //:
@@ -31918,6 +32035,11 @@ fn gui_sfnt_simple_glyph_render_stroke_line_side_edge_record_from_geometry %fn &
 //:
 //: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record_from_geometry %fn &GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry fn GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord \geometry\side:
+    let projected_geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection geometry
+    let projected_side %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide match side:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left: GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right: GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right
+    let projected_edge %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_side_edge_projection &projected_geometry projected_side
     let metric_index %i32 *field::get_ref geometry "metric_index"
     let path_command_index %i32 *field::get_ref geometry "path_command_index"
     let edge_index %i32 *field::get_ref geometry "edge_index"
@@ -31937,18 +32059,18 @@ fn gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record_from_geometry 
     match side:
         GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
             let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward
-            let start_x2 %f32 *field::get_ref geometry "left_start_x2"
-            let start_y2 %f32 *field::get_ref geometry "left_start_y2"
-            let end_x2 %f32 *field::get_ref geometry "left_end_x2"
-            let end_y2 %f32 *field::get_ref geometry "left_end_y2"
-            gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_control_x2 source_control_y2 source_end_x2 source_end_y2 start_normal end_normal start_x2 start_y2 end_x2 end_y2
+            let left_start_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 &projected_edge
+            let left_start_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 &projected_edge
+            let left_end_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 &projected_edge
+            let left_end_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 &projected_edge
+            gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_control_x2 source_control_y2 source_end_x2 source_end_y2 start_normal end_normal left_start_x2 left_start_y2 left_end_x2 left_end_y2
         GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
             let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse
-            let start_x2 %f32 *field::get_ref geometry "right_end_x2"
-            let start_y2 %f32 *field::get_ref geometry "right_end_y2"
-            let end_x2 %f32 *field::get_ref geometry "right_start_x2"
-            let end_y2 %f32 *field::get_ref geometry "right_start_y2"
-            gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_control_x2 source_control_y2 source_end_x2 source_end_y2 start_normal end_normal start_x2 start_y2 end_x2 end_y2
+            let right_end_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 &projected_edge
+            let right_end_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 &projected_edge
+            let right_start_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 &projected_edge
+            let right_start_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 &projected_edge
+            gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_control_x2 source_control_y2 source_end_x2 source_end_y2 start_normal end_normal right_end_x2 right_end_y2 right_start_x2 right_start_y2
 
 //: gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge: F5ky stroke side edge owner boundary の fn
 //:
