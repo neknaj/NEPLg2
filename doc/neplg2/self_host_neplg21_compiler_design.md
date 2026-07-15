@@ -3857,3 +3857,5 @@ substitution successはoutput TypeId単体を返さず、step tableを閉じた�
 borrowed scrutineeのReference bind、arm body scopeへのlocal挿入、checked Match node、HIR / Resource輸送、diagnostic/pending constraintを含むTypeCtx transaction、重複・網羅性・arm body型統一は未完成であり、このsliceをセルフホストコンパイラ完成とは扱わない。
 
 arm body scopeはparent tableを直接append/popせず、`NameScope`と`ValueTypeEvidenceTable`を同じDefId順序の独立ownerへforkしてからlocal deltaを追加する。module-private fixtureはscopeが割り当てたDefIdを型証拠にも使い、両ownerとowner-localな`(arm ordinal, local DefId)`を一体で閉じる。raw name/type/spanはproduction capabilityとして公開せず、このidentityもMatch外のstable identityとして輸送しない。checked Match connectorからcopy-owned bind spellingを渡す実接続、arm body lookup/reducer、checked Match/HIR輸送は未完成である。
+
+actual Owned bind lookupはselected armのbody envelopeを同じMatchContextから取得し、exactly one NamedValueだけをcopy-owned bytesへ投影する。checked bind bytesとexact一致した場合だけUTF-8 canonical nameを構築し、child scopeが発行したDefIdを同じchild evidenceのpayload TypeIdへ結ぶ。公開入口はraw body range/name/span/TypeIdを受けない。body reducerへarena ownerをmoveしてmember sessionを再構築する経路、multi-expression/nested body、Reference bindは未完成である。

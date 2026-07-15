@@ -168328,3 +168328,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - Rust Match checkerのarm scopeはpayload bind型を確定した後にpushされる。現selfhostにはparent scope/tableを復元するpop/transactionがないため、`NameScope`と`ValueTypeEvidenceTable`へ順序保持forkを追加した。
 - forkはparentのbinding順序、DefId index、DefId→TypeId evidenceを保ち、追加後child ownerだけを更新する。module-private fixtureはscopeで割り当てたDefIdを同じchild型証拠へ追加し、両ownerとowner-localな`(arm ordinal, local DefId)`を一体で保持する。raw name/type/spanを公開capabilityにせず、一方の構築に失敗した場合は到達済みownerを閉じる。
 - focused runtimeはscope fork、evidence fork、co-owned environment fixtureを各1/1で検査し、parent非変更、inherited/local lookup、同一DefId型証拠、owner-local identityを確認した。source-policy contract、expression call reduction contract、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13も通過した。checked Match connectorからcopy-owned bind spellingを渡す実接続、body check、Reference bind、HIR/Resourceは未完成であり、このsliceを全体完成とは扱わない。`plan.md`は変更していない。
+
+## 2026-07-16 Owned bind actual body lookup
+
+- actual Match connectorがselected armのbody envelopeをbind evidenceと同じparser contextからco-produceし、exactly one NamedValueのcopy-owned bytesをchecked contextに保持する。bind/body bytesのexact一致後だけcanonical UTF-8 nameを作り、parentを変更せずchild scope/evidenceへscope発行DefIdとconcrete payload TypeIdを登録する。
+- generic `Item value: value` actual runtimeでOwned i32 bindのscope/evidence lookupを検査する。body reducerのarena/session owner再構築、multi-expression/nested body、Reference、HIR/Resource、arm joinは未完成であり、全体完成とは扱わない。`plan.md`は変更していない。
+- focused actual Match runtime 1/1、actual member/checked scrutinee contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13を通過した。source-policy warn-onlyは今回非変更のenum definition contractとGUI unsafe helper/documentation baselineを報告したが、今回追加したMatch contractはpassした。

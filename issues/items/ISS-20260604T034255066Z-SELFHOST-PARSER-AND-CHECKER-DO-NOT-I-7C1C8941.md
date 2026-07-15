@@ -643,3 +643,8 @@ actual source-backed Match gateは候補ごとのTypeArena / checked tree fork�
 
 - parent `NameScope` と `ValueTypeEvidenceTable` を変更せず、binding順序・DefId・型対応を保った独立ownerへforkする。
 - fork後のlocal追加がparentや別armへ漏れないことをruntimeで検査する。module-private fixtureはscopeが発行したDefIdをevidenceへ同じく追加するが、raw name/type/spanを受けるためproduction capabilityにはしない。Owned bind名のowned symbol化、checked bind evidenceからの実接続、arm body checkは後続sliceで接続する。
+
+### 2026-07-16 Owned bind actual body lookup
+
+- selected armのbody envelopeをbindと同じMatchContextからco-produceし、exactly one `NamedValue`のbyte列をcopy-ownする。caller supplied body range/name/typeは受けない。
+- checked Owned bindのcopy-owned bytesとbody name bytesをexact比較し、UTF-8検証済みcanonical name、forkしたscope/evidence、scope発行DefId、payload TypeIdを一体で保持する。body reducerとarena owner再構築は後続である。

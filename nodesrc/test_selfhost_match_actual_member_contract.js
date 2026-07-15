@@ -67,4 +67,26 @@ for (const forbiddenName of ["source", "tokens", "range", "span", "actual_type",
   }
 }
 
+for (const needle of [
+  "body %SelfhostSyntaxRange",
+  "selfhost_match_variant_arm_body &arm",
+  "selfhost_body_segment_list_from_envelope tokens body",
+  "not eq selfhost_body_segment_list_len &segments 1",
+  "TokenKind::Ident:",
+  "SelfhostCheckedMatchArmBodyLookup::SingleNamedValue bytes",
+  "selfhost_checked_match_name_bytes_eq field::get_ref bind \"name_bytes\" body_bytes",
+  "selfhost_checked_match_name_from_bytes field::get_ref bind \"name_bytes\"",
+  "selfhost_name_scope_fork parent_scope",
+  "selfhost_value_type_evidence_table_fork parent_values",
+  "selfhost_name_scope_add_result_def_id &added",
+  "selfhost_value_type_evidence_new def_id bind.type_id bind.span",
+]) {
+  if (!composite.includes(needle)) throw new Error(`Owned Match arm body lookup authority missing: ${needle}`);
+}
+
+const lookupSignature = composite.match(/pub fn selfhost_checked_match_owned_arm_lookup_result[^\n]*/)?.[0] ?? "";
+for (const forbidden of ["SelfhostSourceSpan", "SelfhostSyntaxRange", "SelfhostTypeId", "str impure fn", "Vec i32"]) {
+  if (lookupSignature.includes(forbidden)) throw new Error(`raw authority in public arm lookup: ${forbidden}`);
+}
+
 console.log("selfhost actual Match member contract: pass");

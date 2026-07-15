@@ -8,7 +8,7 @@
 
 2026-07-13 selfhost Resource recursive control payload
 
-- enum sessionからOwned payload bind evidenceまでに加え、parent `NameScope` / `ValueTypeEvidenceTable` のDefId順序を保つarm-local fork、同一DefIdでのlocal追加と両owner cleanupのmodule-private fixtureは実装済み。次はactual checked Match bind evidenceのcopy-owned spelling/type/spanとmatch-site identityを所有するproduction environmentを作り、arm body lookup/checkへ接続する。その後にborrowed scrutineeのReference bind、TypeCtx transaction、checked Match / HIR / Resource輸送、網羅性とarm body型統一を接続する。
+- enum sessionからOwned payload bind evidence、arm-local fork、actual selected armのexactly one NamedValue bodyとbind bytesの一致、child scope/evidenceの同一DefId lookupまでは実装済み。次はmember contextのarena/session ownerをbody reducer成功後のarenaで再構築し、single ExpressionLineをactual checkする。その後にborrowed scrutineeのReference bind、TypeCtx transaction、checked Match / HIR / Resource輸送、網羅性とarm body型統一を接続する。
 
 2026-06-01 GUI/TUI standard library
 

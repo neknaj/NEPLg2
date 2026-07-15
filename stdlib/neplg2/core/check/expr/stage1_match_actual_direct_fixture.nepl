@@ -319,7 +319,7 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn
             else:
                 if:
                     or eq mode 1 ge mode 3
-                    then: "#import \"Child\" as child\nfn generic_first %fn void i32 \\void:\n    match make:\n        child::Generic::Item value:\n            0\n        child::Other::Only:\n            1\n"
+                    then: "#import \"Child\" as child\nfn generic_first %fn void i32 \\void:\n    match make:\n        child::Generic::Item value:\n            value\n        child::Other::Only:\n            1\n"
                     else: "#import \"Child\" as child\nfn nondirect_first %fn void i32 \\void:\n    match make:\n        Choice::First:\n            0\n        child::Other::Only:\n            1\n"
     let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
     let vfs1 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs0 "Child" child_source
@@ -380,8 +380,17 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn
                         then match bind.mode:
                             SelfhostCheckedMatchBindMode::Owned: and selfhost_type_id_eq bind.type_id i32_type selfhost_checked_match_payload_bind_name_eq bind "value"
                         else: false
+            let body_lookup_ok %bool if:
+                eq mode 1
+                then match selfhost_checked_match_owned_arm_lookup_result &context &scope &value_types:
+                    Result::Err _e: false
+                    Result::Ok lookup:
+                        let resolved %bool selfhost_checked_match_owned_arm_lookup_resolves &lookup
+                        selfhost_checked_match_owned_arm_lookup_free lookup
+                        resolved
+                else: true
             selfhost_match_checked_actual_member_context_free context
-            and and or eq mode 0 eq mode 1 root_ok and member_ok bind_ok
+            and and and or eq mode 0 eq mode 1 root_ok member_ok bind_ok body_lookup_ok
     v::free candidates
     selfhost_value_type_evidence_table_free value_types
     selfhost_callable_signature_table_free signatures

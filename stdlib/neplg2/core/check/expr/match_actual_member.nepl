@@ -9,7 +9,7 @@
 //: - variantは選択armのexact 3-segment AST projectionだけを使い、actual arenaへsynthetic typeを追加しません。
 //: - scope、value evidence、arena、constructor tableが選択functionと同じchecker phaseから作られたことは、この段階ではcaller preconditionです。production authorityへの昇格にはmodule checker environmentとのco-productionが必要です。
 //:
-//: [制約/せいやく]: exact export originと一致する非generic enum armだけはexpected typeを導出し、期待型無し失敗時に一度だけ再検査します。generic fresh inference、reference deref、payload typing、exhaustiveness、arm body型統一は後続sliceです。
+//: [制約/せいやく]: expected retryとgeneric payload Owned bindに加え、selected armのexactly one NamedValue bodyをchild scope/evidence lookupまで検査します。body reducer、reference deref/Borrowed bind、exhaustiveness、arm body型統一は後続sliceです。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -26,6 +26,7 @@
 #import "alloc/string/access" as string_access
 #import "alloc/string/search" as string_search
 #import "alloc/string/slice" as string_slice
+#import "alloc/string/builder" as *
 #import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
@@ -43,12 +44,14 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/module/vfs" as *
-#import "neplg2/core/resolve/name_resolver/scope" as *
+#import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/resolve/name_resolver/qualified_enum_import" as *
 #import "neplg2/core/resolve/name_resolver/public_export_table" as *
 #import "neplg2/core/resolve/type_resolver/constructor" as *
 #import "neplg2/core/syntax/parser/match_arm_segmenter" as *
+#import "neplg2/core/syntax/parser/body_segmenter" as *
 #import "neplg2/core/syntax/parser/match_context" as *
+#import "neplg2/core/syntax/token" as *
 #import "neplg2/core/ty/ty/arena" as *
 #import "neplg2/core/ty/ty/id" as *
 
@@ -71,6 +74,7 @@ pub struct SelfhostMatchCheckedActualMemberContext:
     root_expr %SelfhostCheckedExprId
     root_type %SelfhostTypeId
     payload_binding %SelfhostCheckedMatchPayloadBinding
+    body_lookup %SelfhostCheckedMatchArmBodyLookup
 
 pub enum SelfhostCheckedMatchBindMode:
     Owned
@@ -84,6 +88,27 @@ pub struct SelfhostCheckedMatchPayloadBind:
 pub enum SelfhostCheckedMatchPayloadBinding:
     Absent
     Bound %SelfhostCheckedMatchPayloadBind
+
+pub enum SelfhostCheckedMatchArmBodyLookup:
+    Unsupported
+    SingleNamedValue %(Vec i32)
+
+pub struct SelfhostCheckedMatchOwnedArmLookup:
+    name %str
+    scope %SelfhostNameScope
+    value_types %SelfhostValueTypeEvidenceTable
+    def_id %SelfhostDefId
+    value_type %SelfhostTypeId
+
+pub enum SelfhostCheckedMatchOwnedArmLookupError:
+    BindingAbsent
+    BodyUnsupported
+    BodyNameMismatch
+    NameBuild
+    ScopeFork %StdErrorKind
+    EvidenceFork %StdErrorKind
+    ScopeAdd %StdErrorKind
+    EvidenceAdd %StdErrorKind
 
 impl Clone for SelfhostCheckedMatchBindMode:
     fn clone %fn &SelfhostCheckedMatchBindMode SelfhostCheckedMatchBindMode \self: *self
@@ -104,12 +129,14 @@ pub enum SelfhostMatchCheckedActualMemberError:
     Member %SelfhostCheckedExportedEnumMemberError
     PayloadMissingForBind %SelfhostSourceSpan
     BindNameCopy %SelfhostMatchBindNameCopyError
+    BodyNameCopy %SelfhostMatchBindNameCopyError
 
 struct SelfhostMatchActualArmSpans:
     alias %SelfhostSourceSpan
     enum_name %SelfhostSourceSpan
     member %SelfhostSourceSpan
     bind %Option SelfhostMatchPatternBind
+    body %SelfhostSyntaxRange
 
 impl Clone for SelfhostMatchActualArmSpans:
     fn clone %fn &SelfhostMatchActualArmSpans SelfhostMatchActualArmSpans \self: *self
@@ -137,6 +164,40 @@ fn selfhost_match_bind_name_copy_result %impure fn str impure fn SelfhostSourceS
     match bytes_result:
         Result::Err e: Result::Err SelfhostMatchBindNameCopyError::Alloc e
         Result::Ok bytes: selfhost_match_bind_name_copy_loop bytes source span.start span.end
+
+fn selfhost_match_actual_single_named_body_lookup %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostSyntaxRange Result SelfhostCheckedMatchArmBodyLookup SelfhostMatchBindNameCopyError \tokens\source\body:
+    match selfhost_body_segment_list_from_envelope tokens body:
+        Result::Err _e: Result::Ok SelfhostCheckedMatchArmBodyLookup::Unsupported
+        Result::Ok segments:
+            let lookup %Result SelfhostCheckedMatchArmBodyLookup SelfhostMatchBindNameCopyError if:
+                not eq selfhost_body_segment_list_len &segments 1
+                then: Result::Ok SelfhostCheckedMatchArmBodyLookup::Unsupported
+                else match selfhost_body_segment_list_get &segments 0:
+                    Option::None: Result::Ok SelfhostCheckedMatchArmBodyLookup::Unsupported
+                    Option::Some segment:
+                        match segment.kind:
+                            SelfhostBodySegmentKind::BlockIntro: Result::Ok SelfhostCheckedMatchArmBodyLookup::Unsupported
+                            SelfhostBodySegmentKind::ExpressionLine:
+                                match segment.head:
+                                    SelfhostSyntaxRange::Empty: Result::Ok SelfhostCheckedMatchArmBodyLookup::Unsupported
+                                    SelfhostSyntaxRange::Range head:
+                                        if not eq head.token_count 1:
+                                            then: Result::Ok SelfhostCheckedMatchArmBodyLookup::Unsupported
+                                            else match v::get tokens head.first_token:
+                                                Option::None: Result::Ok SelfhostCheckedMatchArmBodyLookup::Unsupported
+                                                Option::Some token:
+                                                    match token.kind:
+                                                        TokenKind::Ident: match selfhost_match_bind_name_copy_result source token.span:
+                                                            Result::Err e: Result::Err e
+                                                            Result::Ok bytes: Result::Ok SelfhostCheckedMatchArmBodyLookup::SingleNamedValue bytes
+                                                        _: Result::Ok SelfhostCheckedMatchArmBodyLookup::Unsupported
+            selfhost_body_segment_list_free segments
+            lookup
+
+fn selfhost_checked_match_arm_body_lookup_free %impure fn SelfhostCheckedMatchArmBodyLookup unit \lookup:
+    match lookup:
+        SelfhostCheckedMatchArmBodyLookup::Unsupported: unit
+        SelfhostCheckedMatchArmBodyLookup::SingleNamedValue bytes: v::free bytes
 
 enum SelfhostMatchActualArmProjectionError:
     ArmOutOfBounds
@@ -272,9 +333,9 @@ fn selfhost_match_actual_arm_spans %fn &SelfhostMatchContext fn i32 Result Selfh
                     let alias_segment %SelfhostMatchPatternSegment field::get direct "alias"
                     let enum_name_segment %SelfhostMatchPatternSegment field::get direct "enum_name"
                     let member_segment %SelfhostMatchPatternSegment field::get direct "member"
-                    Result::Ok SelfhostMatchActualArmSpans alias_segment.span enum_name_segment.span member_segment.span direct.bind
+                    Result::Ok SelfhostMatchActualArmSpans alias_segment.span enum_name_segment.span member_segment.span direct.bind (selfhost_match_variant_arm_body &arm)
 
-fn selfhost_match_checked_actual_member_connect %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn str impure fn SelfhostMatchActualArmSpans impure fn SelfhostMatchCheckedScrutineeParts impure fn SelfhostTypeConstructorTable Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\source\spans\checked_root\constructors:
+fn selfhost_match_checked_actual_member_connect %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn &Vec SelfhostToken impure fn str impure fn SelfhostMatchActualArmSpans impure fn SelfhostMatchCheckedScrutineeParts impure fn SelfhostTypeConstructorTable Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\tokens\source\spans\checked_root\constructors:
     let parts %SelfhostMatchCheckedScrutineeOwnedParts selfhost_match_checked_scrutinee_parts_into_owned checked_root
     let arena %SelfhostTypeArena field::get parts "arena"
     let reduction %SelfhostCallReduceResult field::get parts "result"
@@ -282,19 +343,32 @@ fn selfhost_match_checked_actual_member_connect %impure fn &SelfhostModuleGraph 
     let checked_tree %SelfhostCheckedExprTree field::get parts "checked_tree"
     let root_expr %SelfhostCheckedExprId field::get parts "root_expr"
     let root_type %SelfhostTypeId field::get parts "root_type"
+    match selfhost_match_actual_single_named_body_lookup tokens source spans.body:
+        Result::Err e:
+            selfhost_type_arena_free arena
+            selfhost_type_constructor_table_free constructors
+            v::free checked_arguments
+            selfhost_checked_expr_tree_free checked_tree
+            Result::Err SelfhostMatchCheckedActualMemberError::BodyNameCopy e
+        Result::Ok body_lookup:
+            selfhost_match_checked_actual_member_connect_with_body graph vfs order path source spans arena reduction checked_arguments checked_tree root_expr root_type constructors body_lookup
+
+fn selfhost_match_checked_actual_member_connect_with_body %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn str impure fn SelfhostMatchActualArmSpans impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedExprTree impure fn SelfhostCheckedExprId impure fn SelfhostTypeId impure fn SelfhostTypeConstructorTable impure fn SelfhostCheckedMatchArmBodyLookup Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\source\spans\arena\reduction\checked_arguments\checked_tree\root_expr\root_type\constructors\body_lookup:
     match selfhost_check_exported_enum_member_actual_context_result graph vfs order path spans.alias spans.enum_name spans.member arena constructors root_type:
         Result::Err e:
+            selfhost_checked_match_arm_body_lookup_free body_lookup
             v::free checked_arguments
             selfhost_checked_expr_tree_free checked_tree
             Result::Err SelfhostMatchCheckedActualMemberError::Member e
         Result::Ok member:
             let payload %SelfhostResolvedEnumPayload selfhost_checked_exported_enum_member_context_payload &member
             match spans.bind:
-                Option::None: Result::Ok SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type SelfhostCheckedMatchPayloadBinding::Absent
+                Option::None: Result::Ok SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type SelfhostCheckedMatchPayloadBinding::Absent body_lookup
                 Option::Some bind:
                     match payload:
                         SelfhostResolvedEnumPayload::Absent:
                             selfhost_checked_exported_enum_member_context_free member
+                            selfhost_checked_match_arm_body_lookup_free body_lookup
                             v::free checked_arguments
                             selfhost_checked_expr_tree_free checked_tree
                             Result::Err SelfhostMatchCheckedActualMemberError::PayloadMissingForBind bind.span
@@ -302,12 +376,13 @@ fn selfhost_match_checked_actual_member_connect %impure fn &SelfhostModuleGraph 
                             match selfhost_match_bind_name_copy_result source bind.span:
                                 Result::Err e:
                                     selfhost_checked_exported_enum_member_context_free member
+                                    selfhost_checked_match_arm_body_lookup_free body_lookup
                                     v::free checked_arguments
                                     selfhost_checked_expr_tree_free checked_tree
                                     Result::Err SelfhostMatchCheckedActualMemberError::BindNameCopy e
                                 Result::Ok name_bytes:
                                     let evidence %SelfhostCheckedMatchPayloadBind SelfhostCheckedMatchPayloadBind bind.span payload_type SelfhostCheckedMatchBindMode::Owned name_bytes
-                                    Result::Ok SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type (SelfhostCheckedMatchPayloadBinding::Bound evidence)
+                                    Result::Ok SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type (SelfhostCheckedMatchPayloadBinding::Bound evidence) body_lookup
 
 //: selfhost_check_match_single_named_value_actual_member_result: VFS authorityからactual checked memberを生成する
 //:
@@ -360,7 +435,7 @@ fn selfhost_match_checked_actual_member_with_spans %impure fn &SelfhostModuleGra
                     Result::Err SelfhostMatchCheckedActualMemberError::Scrutinee e
                 Result::Ok checked_root:
                     let source %str selfhost_match_context_source &context
-                    let connected %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_match_checked_actual_member_connect graph vfs order path source spans checked_root constructors
+                    let connected %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_match_checked_actual_member_connect graph vfs order path selfhost_match_context_tokens &context source spans checked_root constructors
                     selfhost_match_context_free context
                     connected
         Option::Some expected_nominal:
@@ -380,7 +455,7 @@ fn selfhost_match_checked_actual_member_with_spans %impure fn &SelfhostModuleGra
                             Result::Err SelfhostMatchCheckedActualMemberError::Scrutinee e
                         Result::Ok checked_root:
                             let source %str selfhost_match_context_source &context
-                            let connected %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_match_checked_actual_member_connect graph vfs order path source spans checked_root constructors
+                            let connected %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_match_checked_actual_member_connect graph vfs order path selfhost_match_context_tokens &context source spans checked_root constructors
                             selfhost_match_context_free context
                             connected
 
@@ -412,6 +487,7 @@ pub fn selfhost_match_checked_actual_member_context_free %impure fn SelfhostMatc
     match field::get context "payload_binding":
         SelfhostCheckedMatchPayloadBinding::Absent: unit
         SelfhostCheckedMatchPayloadBinding::Bound bind: v::free field::get bind "name_bytes"
+    selfhost_checked_match_arm_body_lookup_free field::get context "body_lookup"
     v::free field::get context "checked_arguments"
     selfhost_checked_expr_tree_free field::get context "checked_tree"
     selfhost_checked_exported_enum_member_context_free field::get context "member"
@@ -430,6 +506,93 @@ pub fn selfhost_match_checked_actual_member_context_root_type %fn &SelfhostMatch
 
 pub fn selfhost_match_checked_actual_member_context_payload_binding %fn &SelfhostMatchCheckedActualMemberContext &SelfhostCheckedMatchPayloadBinding \context:
     field::get_ref context "payload_binding"
+
+fn selfhost_checked_match_name_bytes_eq_loop %fn &Vec i32 fn &Vec i32 fn i32 fn i32 bool \left\right\idx\count:
+    if ge idx count:
+        then: true
+        else match v::get left idx:
+            Option::None: false
+            Option::Some a:
+                match v::get right idx:
+                    Option::None: false
+                    Option::Some b: if eq a b selfhost_checked_match_name_bytes_eq_loop left right add idx 1 count false
+
+fn selfhost_checked_match_name_bytes_eq %fn &Vec i32 fn &Vec i32 bool \left\right:
+    let count %i32 v::len left
+    if not eq count v::len right:
+        then: false
+        else: selfhost_checked_match_name_bytes_eq_loop left right 0 count
+
+fn selfhost_checked_match_name_builder_loop %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn StringBuilder Result str str \bytes\idx\count\builder:
+    if ge idx count:
+        then: sb_build_result builder
+        else match v::get bytes idx:
+            Option::None:
+                string_builder_free builder
+                Result::Err "match bind name byte missing"
+            Option::Some byte:
+                match sb_append_byte_result builder byte:
+                    Result::Err e: Result::Err e
+                    Result::Ok next: selfhost_checked_match_name_builder_loop bytes add idx 1 count next
+
+fn selfhost_checked_match_name_from_bytes %impure fn &Vec i32 Result str str \bytes:
+    match string_builder_new_result void:
+        Result::Err e: Result::Err e
+        Result::Ok builder: selfhost_checked_match_name_builder_loop bytes 0 v::len bytes builder
+
+//: selfhost_checked_match_owned_arm_lookup_result: actual checked bindをparser-selected単一NamedValue bodyへ接続する
+//:
+//: [authority boundary]: raw name/span/TypeId/body rangeを受けず、同じchecked contextが所有するOwned bind bytesとbody bytesだけを照合します。
+//: [owner boundary]: canonical UTF-8 name、forkしたscope/evidence、scope発行DefIdを一つのresultが所有します。TypeIdはcontextのarena owner存命中だけ有効です。
+//: [制約]: body reducerは後続です。現段階はexactly one NamedValue bodyのlookupだけをproduction evidenceとして返します。
+pub fn selfhost_checked_match_owned_arm_lookup_result %impure fn &SelfhostMatchCheckedActualMemberContext impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable Result SelfhostCheckedMatchOwnedArmLookup SelfhostCheckedMatchOwnedArmLookupError \context\parent_scope\parent_values:
+    match field::get_ref context "payload_binding":
+        SelfhostCheckedMatchPayloadBinding::Absent: Result::Err SelfhostCheckedMatchOwnedArmLookupError::BindingAbsent
+        SelfhostCheckedMatchPayloadBinding::Bound bind:
+            match field::get_ref context "body_lookup":
+                SelfhostCheckedMatchArmBodyLookup::Unsupported: Result::Err SelfhostCheckedMatchOwnedArmLookupError::BodyUnsupported
+                SelfhostCheckedMatchArmBodyLookup::SingleNamedValue body_bytes:
+                    if not selfhost_checked_match_name_bytes_eq field::get_ref bind "name_bytes" body_bytes:
+                        then: Result::Err SelfhostCheckedMatchOwnedArmLookupError::BodyNameMismatch
+                        else match selfhost_checked_match_name_from_bytes field::get_ref bind "name_bytes":
+                            Result::Err _e: Result::Err SelfhostCheckedMatchOwnedArmLookupError::NameBuild
+                            Result::Ok name:
+                                match selfhost_name_scope_fork parent_scope:
+                                    Result::Err e: Result::Err SelfhostCheckedMatchOwnedArmLookupError::ScopeFork e
+                                    Result::Ok scope0:
+                                        match selfhost_value_type_evidence_table_fork parent_values:
+                                            Result::Err e:
+                                                selfhost_name_scope_free scope0
+                                                Result::Err SelfhostCheckedMatchOwnedArmLookupError::EvidenceFork e
+                                            Result::Ok values0:
+                                                let pending %SelfhostNameBinding selfhost_name_binding_pending name SelfhostDefKind::Local bind.span
+                                                match selfhost_name_scope_add_binding scope0 pending:
+                                                    Result::Err e:
+                                                        selfhost_value_type_evidence_table_free values0
+                                                        Result::Err SelfhostCheckedMatchOwnedArmLookupError::ScopeAdd e
+                                                    Result::Ok added:
+                                                        let def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &added
+                                                        let scope %SelfhostNameScope selfhost_name_scope_add_result_into_scope added
+                                                        let evidence %SelfhostValueTypeEvidence selfhost_value_type_evidence_new def_id bind.type_id bind.span
+                                                        match selfhost_value_type_evidence_table_add values0 evidence:
+                                                            Result::Err e:
+                                                                selfhost_name_scope_free scope
+                                                                Result::Err SelfhostCheckedMatchOwnedArmLookupError::EvidenceAdd e
+                                                            Result::Ok value_types: Result::Ok SelfhostCheckedMatchOwnedArmLookup name scope value_types def_id bind.type_id
+
+pub fn selfhost_checked_match_owned_arm_lookup_free %impure fn SelfhostCheckedMatchOwnedArmLookup unit \lookup:
+    selfhost_name_scope_free field::get lookup "scope"
+    selfhost_value_type_evidence_table_free field::get lookup "value_types"
+
+pub fn selfhost_checked_match_owned_arm_lookup_resolves %fn &SelfhostCheckedMatchOwnedArmLookup bool \lookup:
+    match selfhost_name_scope_find field::get_ref lookup "scope" lookup.name:
+        Option::None: false
+        Option::Some binding:
+            if not selfhost_name_binding_def_id_eq binding lookup.def_id:
+                then: false
+                else match selfhost_value_type_evidence_table_find field::get_ref lookup "value_types" lookup.def_id:
+                    Option::None: false
+                    Option::Some evidence: selfhost_type_id_eq evidence.value_type lookup.value_type
 
 pub fn selfhost_checked_match_payload_bind_name_eq %fn &SelfhostCheckedMatchPayloadBind fn str bool \bind\expected:
     if not eq v::len field::get_ref bind "name_bytes" string_access::len expected:
