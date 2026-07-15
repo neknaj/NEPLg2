@@ -313,11 +313,14 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn
     let root_source %str if:
         eq mode 0
         then: "#import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match make:\n        child::Choice::First:\n            0\n"
-        else:
-            if:
-                or eq mode 1 ge mode 3
-                then: "#import \"Child\" as child\nfn generic_first %fn void i32 \\void:\n    match make:\n        child::Generic::Item value:\n            0\n        child::Other::Only:\n            1\n"
-                else: "#import \"Child\" as child\nfn nondirect_first %fn void i32 \\void:\n    match make:\n        Choice::First:\n            0\n        child::Other::Only:\n            1\n"
+        else if:
+            eq mode 5
+            then: "#import \"Child\" as child\nfn missing_payload %fn void i32 \\void:\n    match make:\n        child::Other::Only value:\n            0\n"
+            else:
+                if:
+                    or eq mode 1 ge mode 3
+                    then: "#import \"Child\" as child\nfn generic_first %fn void i32 \\void:\n    match make:\n        child::Generic::Item value:\n            0\n        child::Other::Only:\n            1\n"
+                    else: "#import \"Child\" as child\nfn nondirect_first %fn void i32 \\void:\n    match make:\n        Choice::First:\n            0\n        child::Other::Only:\n            1\n"
     let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
     let vfs1 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs0 "Child" child_source
     let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs1 "Root" root_source
@@ -349,24 +352,36 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn
             if:
                 or eq mode 0 eq mode 1
                 then: false
-                else:
-                    match error:
-                        SelfhostMatchCheckedActualMemberError::Scrutinee scrutinee_error:
-                            match scrutinee_error:
-                                SelfhostMatchCheckedScrutineeError::ExpressionCheck expression_error:
-                                    if:
-                                        eq mode 3
-                                        then: selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadNoCandidate
-                                        else: selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadAmbiguous
-                                _: false
+                else if:
+                    eq mode 5
+                    then match error:
+                        SelfhostMatchCheckedActualMemberError::PayloadMissingForBind _span: true
                         _: false
+                    else:
+                        match error:
+                            SelfhostMatchCheckedActualMemberError::Scrutinee scrutinee_error:
+                                match scrutinee_error:
+                                    SelfhostMatchCheckedScrutineeError::ExpressionCheck expression_error:
+                                        if:
+                                            eq mode 3
+                                            then: selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadNoCandidate
+                                            else: selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadAmbiguous
+                                    _: false
+                            _: false
         Result::Ok context:
             let expected_root %SelfhostTypeId if eq mode 1 generic_type choice_type
             let root_ok %bool selfhost_type_id_eq selfhost_match_checked_actual_member_context_root_type &context expected_root
             let member %SelfhostCheckedEnumMember selfhost_match_checked_actual_member_context_member &context
             let member_ok %bool selfhost_type_id_eq member.scrutinee_type expected_root
+            let bind_ok %bool match selfhost_match_checked_actual_member_context_payload_binding &context:
+                SelfhostCheckedMatchPayloadBinding::Absent: eq mode 0
+                SelfhostCheckedMatchPayloadBinding::Bound bind:
+                    if eq mode 1:
+                        then match bind.mode:
+                            SelfhostCheckedMatchBindMode::Owned: and selfhost_type_id_eq bind.type_id i32_type selfhost_checked_match_payload_bind_name_eq bind "value"
+                        else: false
             selfhost_match_checked_actual_member_context_free context
-            and or eq mode 0 eq mode 1 and root_ok member_ok
+            and and or eq mode 0 eq mode 1 root_ok and member_ok bind_ok
     v::free candidates
     selfhost_value_type_evidence_table_free value_types
     selfhost_callable_signature_table_free signatures
@@ -382,4 +397,5 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry %impure fn void
     let nondirect_first_stays_ambiguous %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 2
     let no_candidate %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 3
     let two_candidates %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 4
-    and and and and positive generic_retry nondirect_first_stays_ambiguous no_candidate two_candidates
+    let payload_missing %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 5
+    and and and and and positive generic_retry nondirect_first_stays_ambiguous no_candidate two_candidates payload_missing

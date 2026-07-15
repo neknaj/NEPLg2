@@ -1,0 +1,356 @@
+#indent 4
+
+//: # type_resolver/enum_payload_projection
+//: enum declarationのpayload syntaxをsame-session binder/constructor authorityで型へ投影し、actual Applied引数で置換します。
+//:
+//: [authority boundary]: member identity、definition、payload range、binder token、constructor tableは一つのenum sessionから取得します。actual type argumentだけをarenaから読み、spellingからordinalや型を推測しません。
+//: [owner boundary]: input arenaを消費し、成功時はprojection owner、失敗時はtyped errorだけを返します。
+//: [type boundary]:成功payload TypeIdは返却arena内にあり、bind名やdiagnostic spanを型identityにしません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/resolve/type_resolver" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| fn main %impure fn void i32 \void:
+//:|     let source "enum Box<.T, .E>:\n    Item %.E\n    Empty\n"
+//:|     match selfhost_type_constructor_table_new:
+//:|         Result::Err _e: 1
+//:|         Result::Ok constructors:
+//:|             match selfhost_resolved_enum_module_session_materialize_with_file_id_result constructors source 8:
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok session:
+//:|                     match selfhost_resolved_enum_session_definition_get &session 0:
+//:|                         Option::None:
+//:|                             selfhost_resolved_enum_session_free session
+//:|                             1
+//:|                         Option::Some definition:
+//:|                             match selfhost_type_arena_new:
+//:|                                 Result::Err _e:
+//:|                                     selfhost_resolved_enum_session_free session
+//:|                                     1
+//:|                                 Result::Ok arena0:
+//:|                                     match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+//:|                                         Result::Err _e:
+//:|                                             selfhost_resolved_enum_session_free session
+//:|                                             1
+//:|                                         Result::Ok i32_added:
+//:|                                             let i32_type selfhost_type_arena_alloc_type_id &i32_added
+//:|                                             let arena1 selfhost_type_arena_alloc_into_arena i32_added
+//:|                                             match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::I64:
+//:|                                                 Result::Err _e:
+//:|                                                     selfhost_resolved_enum_session_free session
+//:|                                                     1
+//:|                                                 Result::Ok i64_added:
+//:|                                                     let i64_type selfhost_type_arena_alloc_type_id &i64_added
+//:|                                                     let arena2 selfhost_type_arena_alloc_into_arena i64_added
+//:|                                                     let args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+//:|                                                     match args_result:
+//:|                                                         Result::Err e:
+//:|                                                             selfhost_type_arena_free arena2
+//:|                                                             selfhost_resolved_enum_session_free session
+//:|                                                             1
+//:|                                                         Result::Ok args0:
+//:|                                                             match v::push args0 i32_type:
+//:|                                                                 Result::Err e:
+//:|                                                                     v::free v::vec_push_error_vec e
+//:|                                                                     selfhost_type_arena_free arena2
+//:|                                                                     selfhost_resolved_enum_session_free session
+//:|                                                                     1
+//:|                                                                 Result::Ok args1:
+//:|                                                                     match v::push args1 i64_type:
+//:|                                                                         Result::Err e:
+//:|                                                                             v::free v::vec_push_error_vec e
+//:|                                                                             selfhost_type_arena_free arena2
+//:|                                                                             selfhost_resolved_enum_session_free session
+//:|                                                                             1
+//:|                                                                         Result::Ok args:
+//:|                                                                             match selfhost_type_arena_add_applied_named arena2 definition.nominal_id args:
+//:|                                                                                 Result::Err _e:
+//:|                                                                                     selfhost_resolved_enum_session_free session
+//:|                                                                                     1
+//:|                                                                                 Result::Ok applied_added:
+//:|                                                                                     let actual_type selfhost_type_arena_alloc_type_id &applied_added
+//:|                                                                                     let arena3 selfhost_type_arena_alloc_into_arena applied_added
+//:|                                                                                     match selfhost_resolved_enum_session_member_id &session 0 0:
+//:|                                                                                         Option::None:
+//:|                                                                                             selfhost_type_arena_free arena3
+//:|                                                                                             selfhost_resolved_enum_session_free session
+//:|                                                                                             1
+//:|                                                                                         Option::Some member:
+//:|                                                                                             match selfhost_resolved_enum_member_payload_project_result arena3 &session actual_type member:
+//:|                                                                                                 Result::Err _e:
+//:|                                                                                                     selfhost_resolved_enum_session_free session
+//:|                                                                                                     1
+//:|                                                                                                 Result::Ok projection:
+//:|                                                                                                     let ok %bool match selfhost_resolved_enum_payload_projection_payload &projection:
+//:|                                                                                                         SelfhostResolvedEnumPayload::Present payload_type: selfhost_type_id_eq payload_type i64_type
+//:|                                                                                                         SelfhostResolvedEnumPayload::Absent: false
+//:|                                                                                                     selfhost_resolved_enum_payload_projection_free projection
+//:|                                                                                                     selfhost_resolved_enum_session_free session
+//:|                                                                                                     if ok 0 1
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/type_resolver" as *
+//:| fn main %impure fn void i32 \void:
+//:|     let source "enum Box<.T>:\n    One %.T\nenum Box<.T>:\n    Two %.T\n"
+//:|     match selfhost_type_constructor_table_new:
+//:|         Result::Err _e: 1
+//:|         Result::Ok table0:
+//:|             match selfhost_type_constructor_table_add_checked table0 "Box" 1 source_span_new_unchecked 9 5 8:
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok added:
+//:|                     let table1 selfhost_type_constructor_add_result_into_table added
+//:|                     match selfhost_resolved_enum_module_session_attach_existing_with_file_id_result table1 source 9:
+//:|                         Result::Ok session:
+//:|                             selfhost_resolved_enum_session_free session
+//:|                             1
+//:|                         Result::Err e:
+//:|                             match e.kind:
+//:|                                 SelfhostResolvedEnumSurfaceErrorKind::ExistingConstructorOriginMismatch: 0
+//:|                                 _: 1
+//: ```
+
+#import "alloc/string/slice" as string_slice
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+#import "./enum_surface" as *
+#import "./input" as *
+#import "./project" as *
+#import "./reduce" as *
+#import "./resolved" as *
+#import "./typeparam" as *
+
+pub enum SelfhostResolvedEnumPayload:
+    Absent
+    Present %SelfhostTypeId
+
+impl Clone for SelfhostResolvedEnumPayload:
+    fn clone %fn &SelfhostResolvedEnumPayload SelfhostResolvedEnumPayload \self: *self
+
+impl Copy for SelfhostResolvedEnumPayload:
+    fn copy_mark %fn SelfhostResolvedEnumPayload SelfhostResolvedEnumPayload \self: self
+
+pub struct SelfhostResolvedEnumPayloadProjection:
+    arena %SelfhostTypeArena
+    payload %SelfhostResolvedEnumPayload
+
+pub enum SelfhostResolvedEnumPayloadProjectionErrorKind:
+    DefinitionMissing
+    DefinitionDuplicate
+    MemberMismatch
+    VariantRangeInvalid
+    ActualTypeMissing
+    ActualTypeNotNominal
+    ActualNominalMismatch
+    ActualArityMismatch
+    BinderRangeInvalid
+    BinderEnvironment %SelfhostTypeParameterEnvErrorKind
+    Prefix %SelfhostTypePrefixBuildErrorKind
+    Reduce %SelfhostTypeReduceErrorKind
+    Project %SelfhostTypeProjectErrorKind
+    Substitution %SelfhostTypeSubstitutionErrorKind
+
+pub struct SelfhostResolvedEnumPayloadProjectionError:
+    kind %SelfhostResolvedEnumPayloadProjectionErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostResolvedEnumPayloadProjectionErrorKind:
+    fn clone %fn &SelfhostResolvedEnumPayloadProjectionErrorKind SelfhostResolvedEnumPayloadProjectionErrorKind \self: *self
+
+impl Copy for SelfhostResolvedEnumPayloadProjectionErrorKind:
+    fn copy_mark %fn SelfhostResolvedEnumPayloadProjectionErrorKind SelfhostResolvedEnumPayloadProjectionErrorKind \self: self
+
+impl Clone for SelfhostResolvedEnumPayloadProjectionError:
+    fn clone %fn &SelfhostResolvedEnumPayloadProjectionError SelfhostResolvedEnumPayloadProjectionError \self: *self
+
+impl Copy for SelfhostResolvedEnumPayloadProjectionError:
+    fn copy_mark %fn SelfhostResolvedEnumPayloadProjectionError SelfhostResolvedEnumPayloadProjectionError \self: self
+
+fn selfhost_enum_payload_error %fn SelfhostResolvedEnumPayloadProjectionErrorKind fn SelfhostSourceSpan SelfhostResolvedEnumPayloadProjectionError \kind\span:
+    SelfhostResolvedEnumPayloadProjectionError kind span
+
+fn selfhost_enum_payload_fail %impure fn SelfhostTypeArena impure fn SelfhostResolvedEnumPayloadProjectionErrorKind impure fn SelfhostSourceSpan Result SelfhostResolvedEnumPayloadProjection SelfhostResolvedEnumPayloadProjectionError \arena\kind\span:
+    selfhost_type_arena_free arena
+    Result::Err selfhost_enum_payload_error kind span
+
+pub fn selfhost_resolved_enum_payload_projection_free %impure fn SelfhostResolvedEnumPayloadProjection unit \projection:
+    selfhost_type_arena_free field::get projection "arena"
+
+pub fn selfhost_resolved_enum_payload_projection_arena %fn &SelfhostResolvedEnumPayloadProjection &SelfhostTypeArena \projection:
+    field::get_ref projection "arena"
+
+pub fn selfhost_resolved_enum_payload_projection_payload %fn &SelfhostResolvedEnumPayloadProjection SelfhostResolvedEnumPayload \projection:
+    *field::get_ref projection "payload"
+
+pub fn selfhost_resolved_enum_payload_projection_into_arena %impure fn SelfhostResolvedEnumPayloadProjection SelfhostTypeArena \projection:
+    field::get projection "arena"
+
+fn selfhost_enum_payload_definition_find %fn &SelfhostResolvedEnumSession fn SelfhostNamedTypeId fn i32 Option i32 \session\nominal\idx:
+    if ge idx selfhost_resolved_enum_session_definition_len session:
+        then: none
+        else match selfhost_resolved_enum_session_definition_get session idx:
+            Option::None: none
+            Option::Some definition:
+                if selfhost_named_type_id_eq definition.nominal_id nominal (some idx) selfhost_enum_payload_definition_find session nominal add idx 1
+
+fn selfhost_enum_payload_definition_count %fn &SelfhostResolvedEnumSession fn SelfhostNamedTypeId fn i32 fn i32 i32 \session\nominal\idx\count:
+    if ge idx selfhost_resolved_enum_session_definition_len session:
+        then: count
+        else match selfhost_resolved_enum_session_definition_get session idx:
+            Option::None: selfhost_enum_payload_definition_count session nominal add idx 1 count
+            Option::Some definition:
+                selfhost_enum_payload_definition_count session nominal add idx 1 (if selfhost_named_type_id_eq definition.nominal_id nominal (add count 1) count)
+
+//: selfhost_resolved_enum_payload_definition_unique_result: payload projection前にnominal definition authorityがexactly oneであることを検査する
+pub fn selfhost_resolved_enum_payload_definition_unique_result %fn &SelfhostResolvedEnumSession fn SelfhostNamedTypeId Result i32 SelfhostResolvedEnumPayloadProjectionErrorKind \session\nominal:
+    let count %i32 selfhost_enum_payload_definition_count session nominal 0 0
+    if eq count 0:
+        then: Result::Err SelfhostResolvedEnumPayloadProjectionErrorKind::DefinitionMissing
+        else if eq count 1 Result::Ok 1 Result::Err SelfhostResolvedEnumPayloadProjectionErrorKind::DefinitionDuplicate
+
+fn selfhost_enum_payload_env_loop %impure fn &SelfhostResolvedEnumSession impure fn SelfhostTypeParameterEnv impure fn i32 impure fn i32 Result SelfhostTypeParameterEnv SelfhostResolvedEnumPayloadProjectionError \session\env\definition_idx\ordinal:
+    match selfhost_resolved_enum_session_definition_get session definition_idx:
+        Option::None:
+            selfhost_type_parameter_env_free env
+            Result::Err selfhost_enum_payload_error SelfhostResolvedEnumPayloadProjectionErrorKind::DefinitionMissing source_span_empty_unchecked 0 0
+        Option::Some definition:
+            if ge ordinal definition.parameter_count:
+                then: Result::Ok env
+                else match selfhost_resolved_enum_session_definition_parameter_name_span session definition_idx ordinal:
+                    Option::None:
+                        selfhost_type_parameter_env_free env
+                        Result::Err selfhost_enum_payload_error SelfhostResolvedEnumPayloadProjectionErrorKind::BinderRangeInvalid definition.declaration_span
+                    Option::Some span:
+                        let source %&str selfhost_resolved_enum_session_source session
+                        let name %str string_slice::str_slice *source span.start span.end
+                        match selfhost_type_parameter_env_add_checked env name 0 span:
+                            Result::Err e: Result::Err selfhost_enum_payload_error (SelfhostResolvedEnumPayloadProjectionErrorKind::BinderEnvironment e.kind) e.span
+                            Result::Ok added: selfhost_enum_payload_env_loop session (selfhost_type_parameter_env_add_result_into_env added) definition_idx add ordinal 1
+
+fn selfhost_enum_payload_bindings_loop %impure fn &SelfhostTypeArena impure fn SelfhostTypeSubstitutionBindingTable impure fn SelfhostTypeId impure fn i32 impure fn i32 Result SelfhostTypeSubstitutionBindingTable SelfhostResolvedEnumPayloadProjectionError \arena\bindings\actual_type\count\ordinal:
+    if ge ordinal count:
+        then: Result::Ok bindings
+        else match selfhost_type_arena_applied_arg arena actual_type ordinal:
+            Option::None:
+                selfhost_type_substitution_binding_table_free bindings
+                Result::Err selfhost_enum_payload_error SelfhostResolvedEnumPayloadProjectionErrorKind::ActualArityMismatch source_span_empty_unchecked 0 0
+            Option::Some replacement:
+                let binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 ordinal
+                let record %SelfhostTypeSubstitutionBindingRecord selfhost_type_substitution_binding_record_new binding replacement
+                match selfhost_type_substitution_binding_table_push bindings record:
+                    Result::Err e: Result::Err selfhost_enum_payload_error (SelfhostResolvedEnumPayloadProjectionErrorKind::Substitution e) source_span_empty_unchecked 0 0
+                    Result::Ok next: selfhost_enum_payload_bindings_loop arena next actual_type count add ordinal 1
+
+fn selfhost_enum_payload_substitute %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn i32 Result SelfhostResolvedEnumPayloadProjection SelfhostResolvedEnumPayloadProjectionError \arena\payload_type\actual_type\parameter_count:
+    match selfhost_type_substitution_binding_table_new:
+        Result::Err e: selfhost_enum_payload_fail arena (SelfhostResolvedEnumPayloadProjectionErrorKind::Substitution e) source_span_empty_unchecked 0 0
+        Result::Ok bindings:
+            match selfhost_enum_payload_bindings_loop &arena bindings actual_type parameter_count 0:
+                Result::Err e:
+                    selfhost_type_arena_free arena
+                    Result::Err e
+                Result::Ok complete:
+                    match selfhost_type_substitution_result arena &complete payload_type:
+                        Result::Err e:
+                            selfhost_type_substitution_binding_table_free complete
+                            Result::Err selfhost_enum_payload_error (SelfhostResolvedEnumPayloadProjectionErrorKind::Substitution e) source_span_empty_unchecked 0 0
+                        Result::Ok substituted:
+                            selfhost_type_substitution_binding_table_free complete
+                            let output %SelfhostTypeSubstitutionOutput selfhost_type_substitution_result_into_output substituted
+                            Result::Ok SelfhostResolvedEnumPayloadProjection (field::get output "arena") (SelfhostResolvedEnumPayload::Present (field::get output "output_type_id"))
+
+fn selfhost_enum_payload_project_range %impure fn SelfhostTypeArena impure fn &SelfhostResolvedEnumSession impure fn SelfhostSyntaxRange impure fn SelfhostTypeParameterEnv impure fn SelfhostTypeId impure fn i32 Result SelfhostResolvedEnumPayloadProjection SelfhostResolvedEnumPayloadProjectionError \arena\session\payload_range\env\actual_type\parameter_count:
+    match selfhost_type_prefix_list_from_syntax_range selfhost_resolved_enum_session_tokens session payload_range:
+        Result::Err e:
+            selfhost_type_parameter_env_free env
+            selfhost_enum_payload_fail arena (SelfhostResolvedEnumPayloadProjectionErrorKind::Prefix e.kind) e.span
+        Result::Ok prefix:
+            let source %&str selfhost_resolved_enum_session_source session
+            match selfhost_type_prefix_list_reduce_with_constructors_and_type_parameters *source selfhost_resolved_enum_session_constructors session &env &prefix:
+                Result::Err e:
+                    selfhost_type_prefix_list_free prefix
+                    selfhost_type_parameter_env_free env
+                    selfhost_enum_payload_fail arena (SelfhostResolvedEnumPayloadProjectionErrorKind::Reduce e.kind) e.span
+                Result::Ok root:
+                    selfhost_type_prefix_list_free prefix
+                    selfhost_type_parameter_env_free env
+                    match selfhost_type_project_root_with_constructors_into_arena arena source selfhost_resolved_enum_session_constructors session &root:
+                        Result::Err e:
+                            selfhost_resolved_type_tree_root_free root
+                            Result::Err selfhost_enum_payload_error (SelfhostResolvedEnumPayloadProjectionErrorKind::Project e.kind) e.span
+                        Result::Ok allocated:
+                            let payload_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                            selfhost_resolved_type_tree_root_free root
+                            if eq parameter_count 0:
+                                then: Result::Ok SelfhostResolvedEnumPayloadProjection next_arena (SelfhostResolvedEnumPayload::Present payload_type)
+                                else: selfhost_enum_payload_substitute next_arena payload_type actual_type parameter_count
+
+pub fn selfhost_resolved_enum_member_payload_project_result %impure fn SelfhostTypeArena impure fn &SelfhostResolvedEnumSession impure fn SelfhostTypeId impure fn SelfhostResolvedEnumMemberId Result SelfhostResolvedEnumPayloadProjection SelfhostResolvedEnumPayloadProjectionError \arena\session\actual_type\member:
+    let definition_count %i32 selfhost_enum_payload_definition_count session member.nominal_id 0 0
+    if eq definition_count 0:
+        then: selfhost_enum_payload_fail arena SelfhostResolvedEnumPayloadProjectionErrorKind::DefinitionMissing source_span_empty_unchecked 0 0
+        else if not eq definition_count 1:
+            then: selfhost_enum_payload_fail arena SelfhostResolvedEnumPayloadProjectionErrorKind::DefinitionDuplicate source_span_empty_unchecked 0 0
+            else match selfhost_enum_payload_definition_find session member.nominal_id 0:
+                Option::None: selfhost_enum_payload_fail arena SelfhostResolvedEnumPayloadProjectionErrorKind::DefinitionMissing source_span_empty_unchecked 0 0
+                Option::Some definition_idx:
+                    match selfhost_resolved_enum_session_definition_get session definition_idx:
+                        Option::None: selfhost_enum_payload_fail arena SelfhostResolvedEnumPayloadProjectionErrorKind::DefinitionMissing source_span_empty_unchecked 0 0
+                        Option::Some definition:
+                            match selfhost_resolved_enum_session_member_id session definition_idx member.variant_ordinal:
+                                Option::None: selfhost_enum_payload_fail arena SelfhostResolvedEnumPayloadProjectionErrorKind::MemberMismatch definition.declaration_span
+                                Option::Some issued:
+                                    if not and selfhost_named_type_id_eq issued.nominal_id member.nominal_id eq issued.variant_ordinal member.variant_ordinal:
+                                        then: selfhost_enum_payload_fail arena SelfhostResolvedEnumPayloadProjectionErrorKind::MemberMismatch definition.declaration_span
+                                        else:
+                                            let global_idx %i32 add definition.variant_start member.variant_ordinal
+                                            match selfhost_resolved_enum_session_variant_get session global_idx:
+                                                Option::None: selfhost_enum_payload_fail arena SelfhostResolvedEnumPayloadProjectionErrorKind::VariantRangeInvalid definition.declaration_span
+                                                Option::Some variant:
+                                                    match selfhost_type_arena_get_record &arena actual_type:
+                                                        Option::None: selfhost_enum_payload_fail arena SelfhostResolvedEnumPayloadProjectionErrorKind::ActualTypeMissing definition.declaration_span
+                                                        Option::Some actual_record:
+                                                            let actual_error %Option SelfhostResolvedEnumPayloadProjectionErrorKind match actual_record:
+                                                                SelfhostTypeRecord::Named named:
+                                                                    if not selfhost_named_type_id_eq named.nominal_id definition.nominal_id:
+                                                                        then: some SelfhostResolvedEnumPayloadProjectionErrorKind::ActualNominalMismatch
+                                                                        else if eq definition.parameter_count 0 none some SelfhostResolvedEnumPayloadProjectionErrorKind::ActualArityMismatch
+                                                                SelfhostTypeRecord::Applied applied:
+                                                                    if not selfhost_named_type_id_eq applied.nominal_id definition.nominal_id:
+                                                                        then: some SelfhostResolvedEnumPayloadProjectionErrorKind::ActualNominalMismatch
+                                                                        else if eq selfhost_applied_type_arg_range_count applied.args definition.parameter_count none some SelfhostResolvedEnumPayloadProjectionErrorKind::ActualArityMismatch
+                                                                _: some SelfhostResolvedEnumPayloadProjectionErrorKind::ActualTypeNotNominal
+                                                            match actual_error:
+                                                                Option::Some kind: selfhost_enum_payload_fail arena kind definition.declaration_span
+                                                                Option::None:
+                                                                    match variant.payload:
+                                                                        Option::None: Result::Ok SelfhostResolvedEnumPayloadProjection arena SelfhostResolvedEnumPayload::Absent
+                                                                        Option::Some payload_range:
+                                                                            match selfhost_type_parameter_env_new:
+                                                                                Result::Err _e: selfhost_enum_payload_fail arena SelfhostResolvedEnumPayloadProjectionErrorKind::BinderRangeInvalid definition.declaration_span
+                                                                                Result::Ok env:
+                                                                                    match selfhost_enum_payload_env_loop session env definition_idx 0:
+                                                                                        Result::Err e:
+                                                                                            selfhost_type_arena_free arena
+                                                                                            Result::Err e
+                                                                                        Result::Ok complete_env: selfhost_enum_payload_project_range arena session payload_range complete_env actual_type definition.parameter_count

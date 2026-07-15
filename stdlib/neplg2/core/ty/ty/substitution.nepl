@@ -153,6 +153,14 @@ pub struct SelfhostTypeSubstitutionResult:
     step_table %SelfhostTypeSubstitutionStepTable
     evidence %SelfhostTypeSubstitutionEvidence
 
+//: SelfhostTypeSubstitutionOutput: substitution後arenaとconcrete output TypeIdのowner bundle
+//:
+//: [owner boundary]: resultのstep tableだけを閉じ、arena ownerを後続checkerへ移します。
+//: [type boundary]: output_type_idは同じarena内のrecordを指します。
+pub struct SelfhostTypeSubstitutionOutput:
+    arena %SelfhostTypeArena
+    output_type_id %SelfhostTypeId
+
 //: SelfhostTypeSubstitutionNodeResult: recursive traversal 内部の owner bundle
 struct SelfhostTypeSubstitutionNodeResult:
     arena %SelfhostTypeArena
@@ -306,8 +314,21 @@ pub fn selfhost_type_substitution_step_table_len %fn &SelfhostTypeSubstitutionSt
 
 //: selfhost_type_substitution_result_free: substitution result owner を[閉/と]じる
 pub fn selfhost_type_substitution_result_free %impure fn SelfhostTypeSubstitutionResult unit \result:
-    selfhost_type_arena_free field::get result "arena"
     selfhost_type_substitution_step_table_free field::get result "step_table"
+    selfhost_type_arena_free field::get result "arena"
+
+//: selfhost_type_substitution_result_into_output: traversal resultからarenaとoutput TypeIdを回収する
+//:
+//: [契約/けいやく]: typed step tableを閉じ、evidenceが指すoutputだけを同じarena ownerと束ねて返します。
+pub fn selfhost_type_substitution_result_into_output %impure fn SelfhostTypeSubstitutionResult SelfhostTypeSubstitutionOutput \result:
+    let evidence %SelfhostTypeSubstitutionEvidence *field::get_ref &result "evidence"
+    let output_type_id %SelfhostTypeId evidence.output_type_id
+    selfhost_type_substitution_step_table_free field::get result "step_table"
+    SelfhostTypeSubstitutionOutput (field::get result "arena") output_type_id
+
+//: selfhost_type_substitution_output_free: substitution output ownerを閉じる
+pub fn selfhost_type_substitution_output_free %impure fn SelfhostTypeSubstitutionOutput unit \output:
+    selfhost_type_arena_free field::get output "arena"
 
 //: selfhost_type_substitution_mix2: substitution hash 用に 2 値を[混/ま]ぜる
 fn selfhost_type_substitution_mix2 %fn i32 fn i32 i32 \a\b:

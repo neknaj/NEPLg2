@@ -631,3 +631,10 @@ actual source-backed Match gateは候補ごとのTypeArena / checked tree fork�
 - enum surface definition は検査済みgeneric binderで先頭parameterの`.Ident` pairを始める`Dot` token ordinalとparameter countをvariant rangeとは別に保持する。
 - definition-local parameter ordinal accessorはsame-session token ownerの`.Ident` pairとdeclaration containmentを検査し、source spellingからparameter順序を再構成しない。
 - これはpayload projection/substitutionでApplied type argumentと宣言binderを結ぶ前提であり、payload型投影、binder environment、owned bind evidence、diagnostic/pending constraintを含むTypeCtx transactionは後続sliceに残る。セルフホストコンパイラ全体は未完成である。
+
+### 2026-07-16 generic enum payload projection / Owned bind
+
+- same-session member/definition/payload rangeからbinder environmentを構築し、既存type input/reduce/projectでpayload syntaxをTypeArenaへ投影する。
+- actual Applied scrutineeのargument ordinalをbinder depth 0 / parameter ordinalへ結び、既存substitution traversalでconcrete payload TypeIdを生成する。inference retry tableやsource spellingはmapping authorityにしない。
+- exported originのarena/session ownerをprojection後arenaで再構築し、actual Match armのoptional bindを`Owned` concrete TypeId evidenceへ接続する。bind名はMatch context解放前にUTF-8 byte列としてcopy-ownedし、payloadなしbindはtyped errorにする。nominal definitionはexactly oneを要求し、重複をtypedに拒否する。
+- borrowed bind、body scope/HIR/Resource、diagnostic/pending constraint transaction、網羅性とarm body joinは未完成である。

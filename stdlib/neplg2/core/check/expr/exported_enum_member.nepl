@@ -28,6 +28,7 @@
 pub struct SelfhostCheckedExportedEnumMemberContext:
     origin %SelfhostExportedEnumOriginContext
     checked %SelfhostCheckedEnumMember
+    payload %SelfhostResolvedEnumPayload
 
 //: SelfhostCheckedExportedEnumMemberErrorKind: qualified importからmember checkerまでのtyped failure
 pub enum SelfhostCheckedExportedEnumMemberErrorKind:
@@ -39,6 +40,7 @@ pub enum SelfhostCheckedExportedEnumMemberErrorKind:
     QueryTextAllocationFailed
     Checker %SelfhostCheckedEnumMemberErrorKind
     CheckedResultInvariant
+    PayloadProjection %SelfhostResolvedEnumPayloadProjectionErrorKind
 
 impl Clone for SelfhostCheckedExportedEnumMemberErrorKind:
     fn clone %fn &SelfhostCheckedExportedEnumMemberErrorKind SelfhostCheckedExportedEnumMemberErrorKind \self: *self
@@ -102,7 +104,11 @@ fn selfhost_checked_exported_enum_member_finish %impure fn SelfhostQualifiedEnum
                         then:
                             selfhost_exported_enum_origin_context_free origin
                             Result::Err selfhost_checked_exported_enum_member_error SelfhostCheckedExportedEnumMemberErrorKind::CheckedResultInvariant member_span
-                        else: Result::Ok SelfhostCheckedExportedEnumMemberContext origin checked
+                        else match selfhost_exported_enum_origin_context_project_payload_result origin checked.member_id:
+                            Result::Err e: Result::Err selfhost_checked_exported_enum_member_error (SelfhostCheckedExportedEnumMemberErrorKind::PayloadProjection e.kind) e.span
+                            Result::Ok payload_context:
+                                let payload %SelfhostResolvedEnumPayload selfhost_exported_enum_payload_context_payload &payload_context
+                                Result::Ok SelfhostCheckedExportedEnumMemberContext (selfhost_exported_enum_payload_context_into_origin payload_context) checked payload
 
 fn selfhost_checked_exported_enum_member_with_import %impure fn SelfhostQualifiedEnumImportTable impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError \qualified\graph\vfs\order\source_path\enum_name_span\member_span\arena\constructors:
     let source %str *selfhost_qualified_enum_import_table_source &qualified
@@ -167,6 +173,9 @@ pub fn selfhost_check_exported_enum_member_actual_context_result %impure fn &Sel
 //: selfhost_checked_exported_enum_member_context_checked: ownerが保持するchecked memberを観測する
 pub fn selfhost_checked_exported_enum_member_context_checked %fn &SelfhostCheckedExportedEnumMemberContext SelfhostCheckedEnumMember \context:
     *field::get_ref context "checked"
+
+pub fn selfhost_checked_exported_enum_member_context_payload %fn &SelfhostCheckedExportedEnumMemberContext SelfhostResolvedEnumPayload \context:
+    *field::get_ref context "payload"
 
 //: selfhost_checked_exported_enum_member_context_free: checked memberのarena/session ownerを1回だけ閉じる
 pub fn selfhost_checked_exported_enum_member_context_free %impure fn SelfhostCheckedExportedEnumMemberContext unit \context:

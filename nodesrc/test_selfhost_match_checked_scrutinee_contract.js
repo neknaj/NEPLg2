@@ -40,6 +40,9 @@ for (const needle of [
   "selfhost_check_exported_enum_member_actual_context_result",
   "constructors root_type",
   "SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type",
+  "SelfhostCheckedMatchPayloadBinding::Bound evidence",
+  "SelfhostMatchCheckedActualMemberError::PayloadMissingForBind",
+  "selfhost_checked_exported_enum_member_context_payload &member",
   "selfhost_checked_exported_enum_member_context_free",
   "selfhost_checked_expr_tree_free",
   "selfhost_match_actual_expected_nominal",
@@ -81,6 +84,9 @@ for (const needle of [
   "pub enum Other:",
   "pub enum Generic<.T>:",
   "generic_retry",
+  "selfhost_match_checked_actual_member_context_payload_binding &context",
+  "SelfhostCheckedMatchBindMode::Owned",
+  "selfhost_type_id_eq bind.type_id i32_type",
   "nondirect_first_stays_ambiguous",
 ]) {
   if (!fixture.includes(needle)) throw new Error(`actual Match runtime gate missing: ${needle}`);

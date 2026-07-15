@@ -147,6 +147,7 @@
 #import "./constructor" as *
 #import "./enum_binding" as *
 #import "./enum_surface" as *
+#import "./enum_payload_projection" as *
 
 //: SelfhostExportedEnumOriginWitness: producerが導出したmodule/file/DefId/nominal/TypeIdの観測用record
 pub struct SelfhostExportedEnumOriginWitness:
@@ -168,6 +169,10 @@ pub struct SelfhostExportedEnumOriginContext:
     arena %SelfhostTypeArena
     enum_session %SelfhostResolvedEnumSession
     witness %SelfhostExportedEnumOriginWitness
+
+pub struct SelfhostExportedEnumPayloadContext:
+    origin %SelfhostExportedEnumOriginContext
+    payload %SelfhostResolvedEnumPayload
 
 //: SelfhostExportedEnumOriginErrorKind: export closureからarena allocationまでのtyped failure
 pub enum SelfhostExportedEnumOriginErrorKind:
@@ -454,3 +459,25 @@ pub fn selfhost_exported_enum_origin_context_session %fn &SelfhostExportedEnumOr
 
 //: selfhost_exported_enum_origin_context_witness: context内の非capability witnessを返す
 pub fn selfhost_exported_enum_origin_context_witness %fn &SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginWitness \context: *field::get_ref context "witness"
+
+//: selfhost_exported_enum_origin_context_project_payload_result: origin ownerのarena/sessionでmember payloadを具体化する
+//:
+//: [owner boundary]: originを消費し、成功時は更新arenaを持つoriginとpayload TypeIdを返します。失敗時はsessionを閉じます。
+pub fn selfhost_exported_enum_origin_context_project_payload_result %impure fn SelfhostExportedEnumOriginContext impure fn SelfhostResolvedEnumMemberId Result SelfhostExportedEnumPayloadContext SelfhostResolvedEnumPayloadProjectionError \context\member:
+    let witness %SelfhostExportedEnumOriginWitness *field::get_ref &context "witness"
+    let session %SelfhostResolvedEnumSession field::get context "enum_session"
+    let arena %SelfhostTypeArena field::get context "arena"
+    match selfhost_resolved_enum_member_payload_project_result arena &session witness.scrutinee_type_id member:
+        Result::Err e:
+            selfhost_resolved_enum_session_free session
+            Result::Err e
+        Result::Ok projection:
+            let payload %SelfhostResolvedEnumPayload selfhost_resolved_enum_payload_projection_payload &projection
+            let next_arena %SelfhostTypeArena selfhost_resolved_enum_payload_projection_into_arena projection
+            Result::Ok SelfhostExportedEnumPayloadContext (SelfhostExportedEnumOriginContext next_arena session witness) payload
+
+pub fn selfhost_exported_enum_payload_context_payload %fn &SelfhostExportedEnumPayloadContext SelfhostResolvedEnumPayload \context:
+    *field::get_ref context "payload"
+
+pub fn selfhost_exported_enum_payload_context_into_origin %impure fn SelfhostExportedEnumPayloadContext SelfhostExportedEnumOriginContext \context:
+    field::get context "origin"

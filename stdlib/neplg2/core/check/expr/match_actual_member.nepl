@@ -70,6 +70,30 @@ pub struct SelfhostMatchCheckedActualMemberContext:
     checked_tree %SelfhostCheckedExprTree
     root_expr %SelfhostCheckedExprId
     root_type %SelfhostTypeId
+    payload_binding %SelfhostCheckedMatchPayloadBinding
+
+pub enum SelfhostCheckedMatchBindMode:
+    Owned
+
+pub struct SelfhostCheckedMatchPayloadBind:
+    span %SelfhostSourceSpan
+    type_id %SelfhostTypeId
+    mode %SelfhostCheckedMatchBindMode
+    name_bytes %Vec i32
+
+pub enum SelfhostCheckedMatchPayloadBinding:
+    Absent
+    Bound %SelfhostCheckedMatchPayloadBind
+
+impl Clone for SelfhostCheckedMatchBindMode:
+    fn clone %fn &SelfhostCheckedMatchBindMode SelfhostCheckedMatchBindMode \self: *self
+
+impl Copy for SelfhostCheckedMatchBindMode:
+    fn copy_mark %fn SelfhostCheckedMatchBindMode SelfhostCheckedMatchBindMode \self: self
+
+enum SelfhostMatchBindNameCopyError:
+    Alloc %StdErrorKind
+    Range
 
 pub enum SelfhostMatchCheckedActualMemberError:
     Context %SelfhostMatchContextErrorKind
@@ -78,17 +102,41 @@ pub enum SelfhostMatchCheckedActualMemberError:
     PatternNotDirectAlias
     ExpectedOrigin
     Member %SelfhostCheckedExportedEnumMemberError
+    PayloadMissingForBind %SelfhostSourceSpan
+    BindNameCopy %SelfhostMatchBindNameCopyError
 
 struct SelfhostMatchActualArmSpans:
     alias %SelfhostSourceSpan
     enum_name %SelfhostSourceSpan
     member %SelfhostSourceSpan
+    bind %Option SelfhostMatchPatternBind
 
 impl Clone for SelfhostMatchActualArmSpans:
     fn clone %fn &SelfhostMatchActualArmSpans SelfhostMatchActualArmSpans \self: *self
 
 impl Copy for SelfhostMatchActualArmSpans:
     fn copy_mark %fn SelfhostMatchActualArmSpans SelfhostMatchActualArmSpans \self: self
+
+fn selfhost_match_bind_name_copy_loop %impure fn Vec i32 impure fn str impure fn i32 impure fn i32 Result Vec i32 SelfhostMatchBindNameCopyError \bytes\source\idx\end:
+    if ge idx end:
+        then: Result::Ok bytes
+        else match string_access::byte_at source idx:
+            Option::None:
+                v::free bytes
+                Result::Err SelfhostMatchBindNameCopyError::Range
+            Option::Some byte:
+                match v::push bytes byte:
+                    Result::Err e:
+                        let error %StdErrorKind field::get e "error"
+                        v::free v::vec_push_error_vec e
+                        Result::Err SelfhostMatchBindNameCopyError::Alloc error
+                    Result::Ok next: selfhost_match_bind_name_copy_loop next source add idx 1 end
+
+fn selfhost_match_bind_name_copy_result %impure fn str impure fn SelfhostSourceSpan Result Vec i32 SelfhostMatchBindNameCopyError \source\span:
+    let bytes_result %Result Vec i32 StdErrorKind v::new
+    match bytes_result:
+        Result::Err e: Result::Err SelfhostMatchBindNameCopyError::Alloc e
+        Result::Ok bytes: selfhost_match_bind_name_copy_loop bytes source span.start span.end
 
 enum SelfhostMatchActualArmProjectionError:
     ArmOutOfBounds
@@ -224,9 +272,9 @@ fn selfhost_match_actual_arm_spans %fn &SelfhostMatchContext fn i32 Result Selfh
                     let alias_segment %SelfhostMatchPatternSegment field::get direct "alias"
                     let enum_name_segment %SelfhostMatchPatternSegment field::get direct "enum_name"
                     let member_segment %SelfhostMatchPatternSegment field::get direct "member"
-                    Result::Ok SelfhostMatchActualArmSpans alias_segment.span enum_name_segment.span member_segment.span
+                    Result::Ok SelfhostMatchActualArmSpans alias_segment.span enum_name_segment.span member_segment.span direct.bind
 
-fn selfhost_match_checked_actual_member_connect %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostMatchActualArmSpans impure fn SelfhostMatchCheckedScrutineeParts impure fn SelfhostTypeConstructorTable Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\spans\checked_root\constructors:
+fn selfhost_match_checked_actual_member_connect %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn str impure fn SelfhostMatchActualArmSpans impure fn SelfhostMatchCheckedScrutineeParts impure fn SelfhostTypeConstructorTable Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\source\spans\checked_root\constructors:
     let parts %SelfhostMatchCheckedScrutineeOwnedParts selfhost_match_checked_scrutinee_parts_into_owned checked_root
     let arena %SelfhostTypeArena field::get parts "arena"
     let reduction %SelfhostCallReduceResult field::get parts "result"
@@ -240,7 +288,26 @@ fn selfhost_match_checked_actual_member_connect %impure fn &SelfhostModuleGraph 
             selfhost_checked_expr_tree_free checked_tree
             Result::Err SelfhostMatchCheckedActualMemberError::Member e
         Result::Ok member:
-            Result::Ok SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type
+            let payload %SelfhostResolvedEnumPayload selfhost_checked_exported_enum_member_context_payload &member
+            match spans.bind:
+                Option::None: Result::Ok SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type SelfhostCheckedMatchPayloadBinding::Absent
+                Option::Some bind:
+                    match payload:
+                        SelfhostResolvedEnumPayload::Absent:
+                            selfhost_checked_exported_enum_member_context_free member
+                            v::free checked_arguments
+                            selfhost_checked_expr_tree_free checked_tree
+                            Result::Err SelfhostMatchCheckedActualMemberError::PayloadMissingForBind bind.span
+                        SelfhostResolvedEnumPayload::Present payload_type:
+                            match selfhost_match_bind_name_copy_result source bind.span:
+                                Result::Err e:
+                                    selfhost_checked_exported_enum_member_context_free member
+                                    v::free checked_arguments
+                                    selfhost_checked_expr_tree_free checked_tree
+                                    Result::Err SelfhostMatchCheckedActualMemberError::BindNameCopy e
+                                Result::Ok name_bytes:
+                                    let evidence %SelfhostCheckedMatchPayloadBind SelfhostCheckedMatchPayloadBind bind.span payload_type SelfhostCheckedMatchBindMode::Owned name_bytes
+                                    Result::Ok SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type (SelfhostCheckedMatchPayloadBinding::Bound evidence)
 
 //: selfhost_check_match_single_named_value_actual_member_result: VFS authorityからactual checked memberを生成する
 //:
@@ -292,8 +359,10 @@ fn selfhost_match_checked_actual_member_with_spans %impure fn &SelfhostModuleGra
                     selfhost_type_constructor_table_free constructors
                     Result::Err SelfhostMatchCheckedActualMemberError::Scrutinee e
                 Result::Ok checked_root:
+                    let source %str selfhost_match_context_source &context
+                    let connected %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_match_checked_actual_member_connect graph vfs order path source spans checked_root constructors
                     selfhost_match_context_free context
-                    selfhost_match_checked_actual_member_connect graph vfs order path spans checked_root constructors
+                    connected
         Option::Some expected_nominal:
             match selfhost_match_actual_add_expected_type arena expected_nominal:
                 Result::Err _e:
@@ -310,8 +379,10 @@ fn selfhost_match_checked_actual_member_with_spans %impure fn &SelfhostModuleGra
                             selfhost_type_constructor_table_free constructors
                             Result::Err SelfhostMatchCheckedActualMemberError::Scrutinee e
                         Result::Ok checked_root:
+                            let source %str selfhost_match_context_source &context
+                            let connected %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_match_checked_actual_member_connect graph vfs order path source spans checked_root constructors
                             selfhost_match_context_free context
-                            selfhost_match_checked_actual_member_connect graph vfs order path spans checked_root constructors
+                            connected
 
 //: selfhost_check_match_checked_actual_member_result: checked reduction rootをactual member gateへ接続する
 //:
@@ -338,6 +409,9 @@ pub fn selfhost_check_match_checked_actual_member_result %impure fn &SelfhostMod
 
 //: selfhost_match_checked_actual_member_context_free: member ownerとchecked scrutinee treeを一度だけ閉じる
 pub fn selfhost_match_checked_actual_member_context_free %impure fn SelfhostMatchCheckedActualMemberContext unit \context:
+    match field::get context "payload_binding":
+        SelfhostCheckedMatchPayloadBinding::Absent: unit
+        SelfhostCheckedMatchPayloadBinding::Bound bind: v::free field::get bind "name_bytes"
     v::free field::get context "checked_arguments"
     selfhost_checked_expr_tree_free field::get context "checked_tree"
     selfhost_checked_exported_enum_member_context_free field::get context "member"
@@ -353,3 +427,21 @@ pub fn selfhost_match_checked_actual_member_context_root_expr %fn &SelfhostMatch
 
 pub fn selfhost_match_checked_actual_member_context_root_type %fn &SelfhostMatchCheckedActualMemberContext SelfhostTypeId \context:
     *field::get_ref context "root_type"
+
+pub fn selfhost_match_checked_actual_member_context_payload_binding %fn &SelfhostMatchCheckedActualMemberContext &SelfhostCheckedMatchPayloadBinding \context:
+    field::get_ref context "payload_binding"
+
+pub fn selfhost_checked_match_payload_bind_name_eq %fn &SelfhostCheckedMatchPayloadBind fn str bool \bind\expected:
+    if not eq v::len field::get_ref bind "name_bytes" string_access::len expected:
+        then: false
+        else: selfhost_match_checked_payload_bind_name_eq_loop field::get_ref bind "name_bytes" expected 0 string_access::len expected
+
+fn selfhost_match_checked_payload_bind_name_eq_loop %fn &Vec i32 fn str fn i32 fn i32 bool \bytes\expected\idx\count:
+    if ge idx count:
+        then: true
+        else match v::get bytes idx:
+            Option::None: false
+            Option::Some stored:
+                match string_access::byte_at expected idx:
+                    Option::None: false
+                    Option::Some actual: if eq stored actual selfhost_match_checked_payload_bind_name_eq_loop bytes expected add idx 1 count false

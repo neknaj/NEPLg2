@@ -25,6 +25,7 @@ pub #import "./type_resolver/model" as *
 pub #import "./type_resolver/input" as *
 pub #import "./type_resolver/constructor" as *
 pub #import "./type_resolver/enum_surface" as *
+pub #import "./type_resolver/enum_payload_projection" as *
 pub #import "./type_resolver/enum_binding" as *
 pub #import "./type_resolver/exported_enum_origin" as *
 pub #import "./type_resolver/typeparam/id" as *

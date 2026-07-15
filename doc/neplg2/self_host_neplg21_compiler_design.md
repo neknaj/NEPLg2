@@ -3847,3 +3847,11 @@ resolved enum definition の `declaration_span` は header span ではなく、h
 resolved enum definition は generic parameter の個数に加え、検査済み header token buffer 内で先頭parameterの`.Ident` pairを始める`Dot` token ordinalを保持する。parameter ordinal から宣言名 span を得る accessor は同じ session の token ownerだけを読み、ordinal 範囲、`Dot` / `Ident` の並び、宣言全体 span への包含を再検査する。source spelling の比較や parameter 名の再探索で宣言順を復元しない。
 
 これは payload syntax を型へ投影するときに `Applied` の type argument ordinal と宣言 binder ordinal を結ぶための前提 authority である。現 checkpoint は payload syntax range の型投影、binder environment、substitution、Match bind の owned checked evidence、TypeCtx の diagnostic / pending constraint transactionをまだ生成しない。したがって generic Match payload とセルフホストコンパイラ全体は未完成である。
+
+### Generic enum payload projection と Owned bind evidence
+
+enum payload resolverはcaller supplied payload rangeを受けず、same-session member identityからdefinitionとglobal variant recordを再検証する。definition-local binderの`Dot/Ident` token evidenceからordered `SelfhostTypeParameterEnv`を作り、payload syntaxを既存input/reduce/projectへ通して`Parameter(depth=0,index=ordinal)`を含むTypeArena recordへ投影する。actual scrutineeは同じarenaのNamedまたはApplied recordだけを受理し、Applied argument ordinalをsubstitution binding tableへ写して既存のactual traversal engineでpayload型を具体化する。
+
+substitution successはoutput TypeId単体を返さず、step tableを閉じた後もarena ownerとoutputを一体で保持する。exported enum origin contextはarena/session ownerを消費してprojection後arenaで再構築され、actual Match connectorはparser armがco-produceしたoptional bindだけを読む。bindありかつpayloadありの場合はconcrete TypeIdと`Owned` modeに加え、Match context解放前に検証済みbind spanのUTF-8 byte列をchecked evidenceへcopyして所有する。payloadなしbindはtyped `PayloadMissingForBind`として拒否する。bind名、variant spelling、retry inference binding tableからpayload型を推測しない。
+
+borrowed scrutineeのReference bind、arm body scopeへのlocal挿入、checked Match node、HIR / Resource輸送、diagnostic/pending constraintを含むTypeCtx transaction、重複・網羅性・arm body型統一は未完成であり、このsliceをセルフホストコンパイラ完成とは扱わない。

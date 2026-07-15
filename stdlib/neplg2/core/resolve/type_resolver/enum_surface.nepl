@@ -1411,6 +1411,18 @@ pub fn selfhost_resolved_enum_session_definition_name_eq %fn &SelfhostResolvedEn
 pub fn selfhost_resolved_enum_session_source %fn &SelfhostResolvedEnumSession &str \session:
     field::get_ref session "source"
 
+//: selfhost_resolved_enum_session_tokens: payload resolverがsame-session token ownerを借用する
+//:
+//: [authority boundary]: caller supplied token列ではなく、enum surface materializerが保持するparser token列です。
+pub fn selfhost_resolved_enum_session_tokens %fn &SelfhostResolvedEnumSession &Vec SelfhostToken \session:
+    field::get_ref session "tokens"
+
+//: selfhost_resolved_enum_session_constructors: payload resolverがsame-session constructor authorityを借用する
+//:
+//: [authority boundary]: definition nominal IDを発行した同じconstructor tableです。
+pub fn selfhost_resolved_enum_session_constructors %fn &SelfhostResolvedEnumSession &SelfhostTypeConstructorTable \session:
+    field::get_ref session "constructors"
+
 //: selfhost_resolved_enum_session_token_len: session-owned parser token 数を返す
 //: [契約/けいやく]: token buffer を借用するだけで、definition/variant 数ではありません。計算量は O(1) です。
 pub fn selfhost_resolved_enum_session_token_len %fn &SelfhostResolvedEnumSession i32 \session:
