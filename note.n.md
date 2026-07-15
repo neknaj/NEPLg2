@@ -7,8 +7,8 @@
 
 ## 実装
 
-- TypeArenaのrecords、function argument、type argument bufferを順序保持でdeep-copyする`selfhost_type_arena_fork`を追加した。成功branchはfork時点まで同じTypeId配置を持ち、以後の追記は相互に影響しない。allocation失敗は途中bufferを閉じる。
-- runtime fixtureでNamed、Applied、Functionを含むarenaをforkし、三bufferの長さ、type argument identity、branch追記後の元arena不変を検査した。focused doctestは1/1通過した。
+- TypeArenaのrecords、function argument、type argument bufferを順序保持でdeep-copyする`selfhost_type_arena_fork`を追加した。成功branchはfork時点までsnapshot-relativeなTypeId index対応を持ち、以後の追記は相互に影響しない。allocation失敗は途中bufferを閉じる。
+- runtime fixtureでNamed、Applied、Functionを含むarenaをforkし、三bufferの長さ、primitive kind、named nominal、applied constructor/argument、function argument/result、branch追記後の元arena不変を検査した。focused doctestは1/1通過した。
 - このcheckpointは再試行transactionのowner前提だけであり、セルフホストcompilerやMatch retryの完成ではない。次はactual public export originから非generic arm expected nominalを同一sessionへ生成し、専用expectation sourceと期待無し/expected付き二試行を接続する。generic fresh-variable推論とdiagnostic/pending rollbackは未完了としてtodoへ残した。
 
 # 2026-07-14 Selfhost actual Match NamedValue member connection

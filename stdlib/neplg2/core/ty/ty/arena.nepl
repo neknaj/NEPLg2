@@ -94,7 +94,7 @@ fn selfhost_type_arena_copy_ids %impure fn Vec SelfhostTypeId impure fn &Vec Sel
 //: selfhost_type_arena_fork: arena-local identityを保った独立transaction branchを作る
 //:
 //: [目的/もくてき]: expression検査を試行して失敗ownerを解放した後でも、同じ初期TypeId配置から再試行できるように、三つの内部bufferを順序どおり複製します。
-//: [契約/けいやく]: sourceは借用したまま変更しません。成功branchへの追記はsourceの長さ・record・argument tableへ影響しません。TypeIdは同じindexのrecordを指しますが、branch間で後から追加したTypeIdを持ち出してはいけません。
+//: [契約/けいやく]: sourceは借用したまま変更しません。成功branchへの追記はsourceの長さ・record・argument tableへ影響しません。fork時点のTypeId indexは両arenaで対応しますが、このsnapshot-relative対応を一般のarena間identityとして扱ったり、branch間で後から追加したTypeIdを持ち出したりしてはいけません。
 //: [owner boundary]: 成功時はcallerがsourceとbranchを別々に解放します。allocation失敗時は途中まで作ったbranch bufferをこの関数が解放します。
 //: [計算量/けいさんりょう]: record数、function argument数、type argument数の合計に対してO(n)です。
 pub fn selfhost_type_arena_fork %impure fn &SelfhostTypeArena Result SelfhostTypeArena StdErrorKind \source:
