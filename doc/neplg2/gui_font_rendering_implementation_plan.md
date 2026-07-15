@@ -13559,3 +13559,12 @@ git diff --check
 - start/step/push/invariant failureは元owner、returned Vec、rejected recordを失わないtyped errorにし、step resultは`Progress` / `CompletedValue`の排他的enumとする。
 - runtime fixtureでLeft/Right順序とwrap、Line/Quadratic directed coordinates、6回の1-record push、次回terminal、budget 0、forced push retry、exact count/capacity、single freeを検査する。
 - source policy、spec、design、todo、noteを同時更新し、join geometry、coverage、raster、runtime/native/GUI表示を未完了として残す。
+
+## Phase F5nxp: registered simple glyph stroke join geometry projection boundary
+
+- completed F5nxo compact ownerをsole direct authorityとし、side-edge/join storageと検証済みcounts/style/cap evidenceをcompact join-geometry sourceへ一度だけ移譲する。F5kz/F5lc owner、paint、glyph lookup、earlier registered drainへ戻らない。
+- F5lcとregistered経路が共有するowner-neutral geometry projection helperを用意する。stroke widthはside-edge offset normal evidenceから取得し、from/toでpositive/equalを再検査する。
+- bevel chord、line-only miter intersectionとclip evidence、line-only round two-chord midpoint、quadratic bevel evidenceを既存scan-ready geometry recordへ射影する。
+- `join_count` exact-capacity Vec、budget 0不変、1 budget 1 push、terminal-before-budget、push後commit、typed owner-bearing recovery、single freeを実装する。
+- runtime fixtureでbevel/miter/clip/round/quadratic bevel、Left/Right、forced failure retry、exact counts/capacity/terminalを検査し、F5lc focused regressionも通す。
+- source policy、normal compile、spec/design/todo/note、trunk、CLI、GUI contractを同時更新し、coverage、packed mask、raster、runtime/native/GUI表示を未完了として残す。

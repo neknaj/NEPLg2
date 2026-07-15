@@ -33913,7 +33913,7 @@ fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_terminal_free %impure 
 //: - `join_policy`、`miter_clipped`、`quadratic_bevel` を[残/のこ]すことで、通常 bevel、miter clip、quadratic を[含/ふく]む join の閉境界 bevel を[区別/くべつ]します。
 //:
 //: neplg2:test[skip]
-struct GuiSfntSimpleGlyphRenderStrokeJoinBevelGeometryRecord:
+pub struct GuiSfntSimpleGlyphRenderStrokeJoinBevelGeometryRecord:
     join_index %i32
     from_side_edge_index %i32
     to_side_edge_index %i32
@@ -33947,7 +33947,7 @@ fn gui_sfnt_simple_glyph_render_stroke_join_bevel_geometry_record %fn i32 fn i32
 //: - miter limit は nested `GuiStroke` の stroke width と F5kz record の miter limit から[検査/けんさ]し、超過時は typed bevel record に[切/き]り[替/か]えます。
 //:
 //: neplg2:test[skip]
-struct GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord:
+pub struct GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord:
     join_index %i32
     from_side_edge_index %i32
     to_side_edge_index %i32
@@ -33982,7 +33982,7 @@ fn gui_sfnt_simple_glyph_render_stroke_join_miter_geometry_record %fn i32 fn i32
 //: - `arc_mid_*` は offset endpoint の[半径/はんけい]方向から[計算/けいさん]した arc midpoint であり、endpoint chord に[丸/まる]めを[偽装/ぎそう]しません。
 //:
 //: neplg2:test[skip]
-struct GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord:
+pub struct GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord:
     join_index %i32
     from_side_edge_index %i32
     to_side_edge_index %i32
@@ -34014,7 +34014,7 @@ fn gui_sfnt_simple_glyph_render_stroke_join_round_geometry_record %fn i32 fn i32
 //: GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord: scan-ready join geometry
 //:
 //: neplg2:test[skip]
-enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord:
+pub enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord:
     Bevel %GuiSfntSimpleGlyphRenderStrokeJoinBevelGeometryRecord
     Miter %GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord
     Round %GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord
@@ -34026,6 +34026,42 @@ impl Clone for GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord:
 impl Copy for GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord \record:
         record
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_record_join_index: geometry の source join index を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_join_geometry_record_join_index %fn &GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord i32 \record:
+    match record:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel bevel: *field::get_ref bevel "join_index"
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter miter: *field::get_ref miter "join_index"
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round round: *field::get_ref round "join_index"
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_record_miter_clipped: bevel が miter clip 由来か返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_join_geometry_record_miter_clipped %fn &GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord Option bool \record:
+    match record:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel bevel: some *field::get_ref bevel "miter_clipped"
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter _miter: none
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round _round: none
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_record_quadratic_bevel: bevel が quadratic 代替由来か返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_join_geometry_record_quadratic_bevel %fn &GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord Option bool \record:
+    match record:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel bevel: some *field::get_ref bevel "quadratic_bevel"
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter _miter: none
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round _round: none
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_record_stroke_width: miter / round geometry の検証済み stroke width を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_join_geometry_record_stroke_width %fn &GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord Option i32 \record:
+    match record:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel _bevel: none
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter miter: some *field::get_ref miter "stroke_width"
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round round: some *field::get_ref round "stroke_width"
 
 //: GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner: join geometry drain state
 //:
@@ -34126,7 +34162,7 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_joins_cap %fn &GuiSfn
 //: GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind: join geometry failure reason
 //:
 //: neplg2:test[skip]
-enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind:
+pub enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind:
     SourceClosureInvariantFailed
     JoinIndexNegative
     JoinIndexExceedsJoinCount
@@ -34150,6 +34186,7 @@ enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind:
     RoundCoordinateInvalid
     MiterCoordinateInvalid
     MiterLimitInvalid
+    StrokeWidthMismatch
     JoinGeometryPushFailed
     CompletionIncomplete
     CompletionJoinCountMismatch
@@ -34601,6 +34638,12 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_threshold %fn &GuiSfn
     let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_edge_closure_style_from_side_edge_owner side_edge_owner
     let stroke_width %i32 gui_stroke_width &stroke
     let miter_limit %f32 *field::get_ref join "miter_limit"
+    gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_threshold_from_width stroke_width miter_limit
+
+//: owner-neutral stroke width と miter limit から距離しきい値を計算する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_threshold_from_width %fn i32 fn f32 Result f32 GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \stroke_width\miter_limit:
     if or le stroke_width 0 not gt miter_limit 0.0:
         then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::MiterLimitInvalid
         else:
@@ -34611,7 +34654,7 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_threshold %fn &GuiSfn
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines: 2 本の line edge から miter connector を計算する
 //:
 //: neplg2:test[skip]
-fn gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines %fn i32 fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord Result GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \join_index\edge_closure_owner\join\from_line\to_line:
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines %fn i32 fn i32 fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord Result GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \join_index\stroke_width\join\from_line\to_line:
     let from_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide *field::get_ref from_line "side"
     let to_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide *field::get_ref to_line "side"
     if not gui_sfnt_simple_glyph_render_stroke_edge_closure_side_eq from_side to_side:
@@ -34636,7 +34679,8 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines %fn i32 fn
                     if eq denom 0.0:
                         then gui_sfnt_simple_glyph_render_stroke_join_geometry_bevel_from_join join_index join true false
                         else:
-                            match gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_threshold edge_closure_owner join:
+                            let miter_limit %f32 *field::get_ref join "miter_limit"
+                            match gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_threshold_from_width stroke_width miter_limit:
                                 Result::Err error_kind:
                                     Result::Err error_kind
                                 Result::Ok threshold:
@@ -34666,9 +34710,6 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines %fn i32 fn
                                                                 else:
                                                                     let from_side_edge_index %i32 *field::get_ref join "from_side_edge_index"
                                                                     let to_side_edge_index %i32 *field::get_ref join "to_side_edge_index"
-                                                                    let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref edge_closure_owner "side_edge_owner"
-                                                                    let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_edge_closure_style_from_side_edge_owner side_edge_owner
-                                                                    let stroke_width %i32 gui_stroke_width &stroke
                                                                     let miter_limit %f32 *field::get_ref join "miter_limit"
                                                                     let side %GuiSfntSimpleGlyphRenderStrokeEdgeSide *field::get_ref join "side"
                                                                     let miter %GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord gui_sfnt_simple_glyph_render_stroke_join_miter_geometry_record join_index from_side_edge_index to_side_edge_index side stroke_width miter_limit from_end_x2 from_end_y2 miter_x2 miter_y2 to_start_x2 to_start_y2
@@ -34704,7 +34745,10 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_record_from_join %fn &GuiSf
                                                 Result::Err error_kind:
                                                     Result::Err error_kind
                                                 Result::Ok to_line:
-                                                    gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines join_index edge_closure_owner join &from_line &to_line
+                                                    let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref edge_closure_owner "side_edge_owner"
+                                                    let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_edge_closure_style_from_side_edge_owner side_edge_owner
+                                                    let stroke_width %i32 gui_stroke_width &stroke
+                                                    gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines join_index stroke_width join &from_line &to_line
         GuiStrokeJoin::Round:
             let from_side_edge_index %i32 *field::get_ref join "from_side_edge_index"
             let to_side_edge_index %i32 *field::get_ref join "to_side_edge_index"
@@ -34728,6 +34772,147 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_record_from_join %fn &GuiSf
                                                     Result::Err error_kind
                                                 Result::Ok to_line:
                                                     gui_sfnt_simple_glyph_render_stroke_join_geometry_round_from_lines join_index join &from_line &to_line
+
+//: registered side-edge projection が保持する normal evidence から stroke width を再検査する
+//:
+//: [契約/けいやく]:
+//: - line は単一 normal、quadratic は start/end normal の width が正かつ一致する場合だけ受理します。
+//: - caller が別の paint や既定値から width を補うことはありません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_stroke_width %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection Result i32 GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \edge:
+    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection gui_sfnt_simple_glyph_render_stroke_side_edge_projection_geometry edge
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line:
+            let normal %GuiSfntSimpleGlyphRenderOffsetNormalProjection gui_sfnt_simple_glyph_render_offset_line_geometry_projection_normal &line
+            let width %i32 gui_sfnt_simple_glyph_render_offset_normal_projection_stroke_width &normal
+            if gt width 0:
+                then Result::Ok width
+                else Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::StrokeWidthMismatch
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic:
+            let start_normal %GuiSfntSimpleGlyphRenderOffsetNormalProjection gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_start_normal &quadratic
+            let end_normal %GuiSfntSimpleGlyphRenderOffsetNormalProjection gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_end_normal &quadratic
+            let start_width %i32 gui_sfnt_simple_glyph_render_offset_normal_projection_stroke_width &start_normal
+            let end_width %i32 gui_sfnt_simple_glyph_render_offset_normal_projection_stroke_width &end_normal
+            if and gt start_width 0 eq start_width end_width:
+                then Result::Ok start_width
+                else Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::StrokeWidthMismatch
+
+//: registered side-edge projection が quadratic geometry か判定する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_is_quadratic %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection bool \edge:
+    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection gui_sfnt_simple_glyph_render_stroke_side_edge_projection_geometry edge
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line _line: false
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic _quadratic: true
+
+//: registered line projection の directed source endpoint を返す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_line_source_end %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection Result GuiPoint GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \edge:
+    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection gui_sfnt_simple_glyph_render_stroke_side_edge_projection_geometry edge
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic _quadratic: Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::LineSideEdgeRequired
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line:
+            match gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side edge:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left:
+                    Result::Ok gui_point_new (gui_sfnt_simple_glyph_render_offset_line_geometry_projection_end_x2 &line) (gui_sfnt_simple_glyph_render_offset_line_geometry_projection_end_y2 &line)
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right:
+                    Result::Ok gui_point_new (gui_sfnt_simple_glyph_render_offset_line_geometry_projection_start_x2 &line) (gui_sfnt_simple_glyph_render_offset_line_geometry_projection_start_y2 &line)
+
+//: registered line projection を F5lc の owner-neutral line value record へ写す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_line_from_projection %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection Result GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \edge:
+    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection gui_sfnt_simple_glyph_render_stroke_side_edge_projection_geometry edge
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic _quadratic: Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::LineSideEdgeRequired
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line:
+            let provenance %GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance gui_sfnt_simple_glyph_render_offset_line_geometry_projection_provenance &line
+            let normal_projection %GuiSfntSimpleGlyphRenderOffsetNormalProjection gui_sfnt_simple_glyph_render_offset_line_geometry_projection_normal &line
+            let normal %GuiSfntSimpleGlyphRenderStrokeOffsetNormal GuiSfntSimpleGlyphRenderStrokeOffsetNormal (*field::get_ref &normal_projection "tangent_dx") (*field::get_ref &normal_projection "tangent_dy") (*field::get_ref &normal_projection "length_squared") (*field::get_ref &normal_projection "length") (gui_sfnt_simple_glyph_render_offset_normal_projection_unit_normal_x &normal_projection) (gui_sfnt_simple_glyph_render_offset_normal_projection_unit_normal_y &normal_projection) (gui_sfnt_simple_glyph_render_offset_normal_projection_offset_x2 &normal_projection) (gui_sfnt_simple_glyph_render_offset_normal_projection_offset_y2 &normal_projection) (gui_sfnt_simple_glyph_render_offset_normal_projection_stroke_width &normal_projection)
+            let projection_side %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side edge
+            let side %GuiSfntSimpleGlyphRenderStrokeEdgeSide match projection_side:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right
+            let direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection match projection_side:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse
+            Result::Ok gui_sfnt_simple_glyph_render_stroke_line_side_edge_record (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_metric_index &provenance) (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_path_command_index &provenance) (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_edge_index &provenance) (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_index &provenance) (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_edge_index &provenance) (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_start_edge_index &provenance) (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_end_edge_index &provenance) (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_edge_count &provenance) side direction (gui_sfnt_simple_glyph_render_offset_line_geometry_projection_start_x2 &line) (gui_sfnt_simple_glyph_render_offset_line_geometry_projection_start_y2 &line) (gui_sfnt_simple_glyph_render_offset_line_geometry_projection_end_x2 &line) (gui_sfnt_simple_glyph_render_offset_line_geometry_projection_end_y2 &line) normal (gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 edge) (gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 edge) (gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 edge) (gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 edge)
+
+//: registered closure と Copy side-edge projection から scan-ready join geometry を作る
+//:
+//: [契約/けいやく]:
+//: - completed registered closure owner から借用した join と side-edge projection だけを値 authority とします。
+//: - quadratic を含む miter / round は line geometry を捏造せず typed bevel にします。
+//: - normal evidence の stroke width、directed side、source center、finite geometry を fail-closed に検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges %fn i32 fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection Result GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \join_index\join\from\to:
+    let from_side_projection %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side from
+    let to_side_projection %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side to
+    let join_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide *field::get_ref join "side"
+    let from_is_left %bool match from_side_projection:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: true
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: false
+    let to_is_left %bool match to_side_projection:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: true
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: false
+    let side_ok %bool match join_side:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left: and from_is_left to_is_left
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right: and not from_is_left not to_is_left
+    let endpoints_ok %bool and eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_end_x2 join gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 from and eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_end_y2 join gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 from and eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_start_x2 join gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 to eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_start_y2 join gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 to
+    let from_provenance %GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance gui_sfnt_simple_glyph_render_stroke_side_edge_projection_provenance from
+    let to_provenance %GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance gui_sfnt_simple_glyph_render_stroke_side_edge_projection_provenance to
+    let from_metric_ok %bool eq *field::get_ref join "from_metric_index" gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_metric_index &from_provenance
+    let from_edge_ok %bool eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_edge_index join gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_edge_index &from_provenance
+    let to_metric_ok %bool eq *field::get_ref join "to_metric_index" gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_metric_index &to_provenance
+    let to_edge_ok %bool eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_edge_index join gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_edge_index &to_provenance
+    let provenance_ok %bool and from_metric_ok and from_edge_ok and to_metric_ok to_edge_ok
+    let authority_ok %bool and side_ok and endpoints_ok provenance_ok
+    if lt join_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::JoinIndexNegative
+        else if not authority_ok:
+            then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::JoinSideMismatch
+            else:
+                match gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_stroke_width from:
+                    Result::Err kind: Result::Err kind
+                    Result::Ok from_width:
+                        match gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_stroke_width to:
+                            Result::Err kind: Result::Err kind
+                            Result::Ok to_width:
+                                if ne from_width to_width:
+                                    then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::StrokeWidthMismatch
+                                    else:
+                                        let join_policy %GuiStrokeJoin *field::get_ref join "join"
+                                        if or gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_is_quadratic from gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_is_quadratic to:
+                                            then match join_policy:
+                                                GuiStrokeJoin::Bevel: gui_sfnt_simple_glyph_render_stroke_join_geometry_bevel_from_join join_index join false false
+                                                GuiStrokeJoin::Miter: gui_sfnt_simple_glyph_render_stroke_join_geometry_bevel_from_join join_index join false true
+                                                GuiStrokeJoin::Round: gui_sfnt_simple_glyph_render_stroke_join_geometry_bevel_from_join join_index join false true
+                                            else:
+                                                let from_start_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 from
+                                                let from_start_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 from
+                                                let from_end_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 from
+                                                let from_end_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 from
+                                                let to_start_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 to
+                                                let to_start_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 to
+                                                let to_end_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 to
+                                                let to_end_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 to
+                                                if not and gui_sfnt_simple_glyph_render_stroke_join_geometry_line_coords_valid from_start_x2 from_start_y2 from_end_x2 from_end_y2 gui_sfnt_simple_glyph_render_stroke_join_geometry_line_coords_valid to_start_x2 to_start_y2 to_end_x2 to_end_y2:
+                                                    then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::LineCoordinateInvalid
+                                                    else:
+                                                        match gui_sfnt_simple_glyph_render_stroke_join_geometry_line_from_projection from:
+                                                            Result::Err kind: Result::Err kind
+                                                            Result::Ok from_line:
+                                                                match gui_sfnt_simple_glyph_render_stroke_join_geometry_line_from_projection to:
+                                                                    Result::Err kind: Result::Err kind
+                                                                    Result::Ok to_line:
+                                                                        match join_policy:
+                                                                            GuiStrokeJoin::Bevel: gui_sfnt_simple_glyph_render_stroke_join_geometry_bevel_from_join join_index join false false
+                                                                            GuiStrokeJoin::Miter: gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines join_index from_width join &from_line &to_line
+                                                                            GuiStrokeJoin::Round: gui_sfnt_simple_glyph_render_stroke_join_geometry_round_from_lines join_index join &from_line &to_line
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_push: 生成済み geometry を drain owner に push する
 //:

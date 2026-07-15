@@ -168334,3 +168334,22 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - actual Match connectorがselected armのbody envelopeをbind evidenceと同じparser contextからco-produceし、exactly one NamedValueのcopy-owned bytesをchecked contextに保持する。bind/body bytesのexact一致後だけcanonical UTF-8 nameを作り、parentを変更せずchild scope/evidenceへscope発行DefIdとconcrete payload TypeIdを登録する。
 - generic `Item value: value` actual runtimeでOwned i32 bindのscope/evidence lookupを検査する。body reducerのarena/session owner再構築、multi-expression/nested body、Reference、HIR/Resource、arm joinは未完成であり、全体完成とは扱わない。`plan.md`は変更していない。
 - focused actual Match runtime 1/1、actual member/checked scrutinee contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13を通過した。source-policy warn-onlyは今回非変更のenum definition contractとGUI unsafe helper/documentation baselineを報告したが、今回追加したMatch contractはpassした。
+
+## 2026-07-16 F5nxp registered join geometry設計開始
+
+- `origin/main`のF5nxo統合済み`6ebbd0179`から専用branchを作成し、F5nxo completed compact ownerをsole direct authorityとするF5nxp issueを開始した。
+- subagent設計reviewは、既存F5lc owner-bound helperの直接利用やalgorithm複製ではなく、closure record、Copy side-edge projection、normal evidence由来stroke widthを入力とするowner-neutral helperをF5lc/registered双方で共有する方針を承認した。
+- F5nxpはjoin geometry境界であり、coverage、packed mask、raster、runtime bridge、native/Web GUI表示とフォント/GUI全体は未完成である。この設計checkpointをissue完成または統合可能状態とは扱わない。
+
+### owner/helper implementation checkpoint
+
+- owner-neutral side-edge projection helperとcompact registered geometry ownerを実装した。module focused compileは50/50通過した。
+- F5nxoまで通過済みのproduction runtime fixtureをF5nxp completionへ延長すると、compileが300秒でtimeoutした。runtime assertion failureではなくResource/compile complexity境界のため、全gate・review・統合は未完了である。次は差分reviewでowner graphとF5lc共有境界を確認し、fixture分離またはcompiler root causeを切り分ける。
+- 差分reviewはpublic helperのjoin/projection authority照合不足、round radius exact equality、F5lcとの数値algorithm重複をMajorとした。前二点とnegative join indexは修正してmodule compile 50/50を再通過した。F5lc/registeredの低レベル数値helper共有、policy/error fixture、長時間production runtime gateは未完了である。
+
+### shared geometryとruntime policy matrix
+
+- F5lcとregistered経路のmiter threshold / line intersection / round two-chord処理を同じowner-neutral helperへ集約した。F5lcはnested strokeからwidthを渡し、registeredはnormal evidenceのfrom/to positive/equal widthを照合して渡す。roundは各辺のpositive finite radiusを個別に正規化し、浮動小数のexact radius equalityは要求しない。
+- public projectionはnegative join index、side、directed endpoint、metric/edge provenance、stroke widthを再検査する。start/push failure seamはpre-consumption / pre-push ownerとrejected geometryを回収し、実際のallocation failure注入ではない限定を持つ。
+- production registered chainはstart/push recovery、budget 0、exact completionを含め1/1通過し、module focusedはregistered 52/52、glyf 2477/2477、Web GUI契約も通過した。
+- 再reviewのradius文書不整合とF5nxp regionの後続phase禁止検査は修正した。一方、bevel、miter交点、parallel/limit clip、round、quadratic bevel、Left/Right payloadを個別に実値検査する小さいowner-neutral runtime matrixは未完成であり、issueの全gate・統合条件を満たしていない。coverage、packed mask、raster、runtime bridge、native/Web GUI表示とフォント/GUI全体も引き続き未完成である。

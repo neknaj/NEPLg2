@@ -10942,4 +10942,10 @@ F5nxo ownerはcompleted F5nxnから一度だけ移譲したside-edge Vecと検�
 
 join recordはfrom/to storage index、両side edgeのmetric/edge/contour provenance、directed from end/to start、join/miter policy、adjacency evidenceを保持する。requested capはclosure owner-level style、cap materialization decisionは`ClosedContourNoCap` evidenceとして保持する。これはclosure topology recordであり、bevel/miter/round geometry、coverage、raster、presentationはcompleted F5nxo ownerをsole authorityとする後続ownerの責務である。
 
+F5nxp startはcompleted F5nxoのcompact source edge Vec、closure join Vec、style/cap evidenceを一度だけcompact join-geometry sourceへ移譲し、`join_count` exact-capacity geometry Vecを確保する。start failureではF5nxo owner全体を返し、成功後はF5nxo shellを再構築しない。ownerはsource、geometry Vec、join cursor、join/bevel/miter/round countを保持し、Clone/Copyを実装しない。
+
+数値処理はF5lc owner-bound helperを直接呼ばず、closure record、from/to Copy side-edge projection、side-edge normal由来stroke widthを受けるneutral helperへ集約する。既存F5lc adapterも同じhelperを使い、registered経路のためにbevel/miter/round algorithmを複製しない。quadratic混在はevidence付きbevel、line-only roundはdirected source center一致、positive finite radii、equal stroke widthを要求し、line-only miterはfinite intersectionとpositive finite thresholdを要求する。
+
+stepはsource join/side-edge slotとcount/len/capをpush前に再検査する。budget 0ではownerを変更せず、1 budgetで最大1件を生成し、push成功後だけcursorと分類countを進める。terminal probeはbudgetを消費しない。push failureはpre-push owner、returned Vec、rejected geometryを返し、completed/error/freeの全経路でsource edge、source join、geometry Vecを一度だけ解放する。
+
 startは`side_edge_count` exact capacityを一度だけ確保する。stepはterminal、budget 0、read/successor/record検査、pushの順で進み、push成功後だけcursor/countをcommitする。push失敗はreturned Vecとrejected record、pre-push progressをowner-bearing errorへ戻す。step resultは`Progress`または`CompletedValue`だけを持ち、同時にprogress ownerとcompleted ownerを返さない。全failure/free経路はnested F5nxn ownerとVecの単一解放を維持する。

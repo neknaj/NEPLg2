@@ -8509,3 +8509,9 @@ successorは同一contour・同一sideから`edge_index` orderで選ぶ。Left�
 join/cap/miter policyはcaller defaultから捏造しない。callerはpaint-bound strokeを消費する前に公開paint projection helperでtyped Copy closure style projectionを固定し、completed F5nxn ownerと同時にF5nxo startへ渡す。raw cap/join/miter constructorはmodule-privateとする。F5nxo ownerは受領したprojectionを保持し、後段からnested `GuiStroke` resourceへ再進入しない。closed contourではcap geometryを生成せず、requested cap policyと`ClosedContourNoCap` evidenceを保持する。F5nxoはjoin geometry、coverage、raster、packed mask、render command、native/Web表示を生成しない。
 
 budget 0はownerを変更せず、completion判定はbudgetを消費しない。step resultは`Progress`と`CompletedValue`を排他的variantで表す。start failureはF5nxn completed owner、step/invariant/read/successor/record failureはF5nxo owner全体、push failureはreturned Vecとrejected recordを回収可能にする。completed/error/freeの全経路でnested ownerとjoin Vecは一度だけ解放する。
+
+F5nxp は completed F5nxo compact owner を唯一のdirect authorityとして消費し、registered coverage scan が読める bevel / miter / round join geometry ownerを作る。F5kz/F5lc owner、paint、glyph lookup、F5nxm/F5nxn/F5nxo drainへ再進入しない。F5lcとregistered経路はowner非依存の共通数値projectionを使い、stroke widthは各side-edgeのoffset normal evidenceから取得してfrom/toのpositive/equal invariantを検査する。
+
+bevelはclosure chordを保持する。line-only miterは両side edgeの交点を使い、parallelまたは`stroke_width * miter_limit`超過では`miter_clipped`付きbevelへ落とす。line-only roundは一致するdirected source centerと半径から二分chordを作る。quadraticを含むmiter/roundは`quadratic_bevel`付きbevelとし、line geometryを捏造しない。非finite座標、width/side/center/radius/policy不整合はtyped errorとしてfail closedにする。
+
+F5nxp ownerは移譲済みside-edge/join storage、exact-capacity geometry Vec、cursor、bevel/miter/round countを所有する。budget 0は不変、1 budgetは1 source joinのread/project/pushだけ、terminal probeはbudget非消費、push成功後だけcursor/countをcommitする。start/step/push failureは元owner、returned Vec、rejected geometryを回収可能にする。coverage、packed mask、raster、runtime bridge、native/Web表示は後続phaseである。

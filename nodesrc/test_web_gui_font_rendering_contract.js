@@ -4000,6 +4000,17 @@ for (const fragment of [
 assertOrderedFragments(spec, ["F5nxo", "Left", "strict", "Right", "wrap", "ClosedContourNoCap"], "F5nxo spec must document directional successor order, wrap, and closed-contour cap evidence");
 assertOrderedFragments(detailedDesign, ["F5nxo owner", "exact-capacity join Vec", "DirectNeighbor", "SkippedNoSegmentRange", "ContourWrap", "SelfTarget", "CompletedValue"], "F5nxo design must preserve exact owner, typed adjacency, and exclusive completion contracts");
 assertOrderedFragments(implementationPlan, ["Phase F5nxo", "completed F5nxn owner", "Left strict ascending", "Right strict descending", "join geometry、coverage、raster"], "F5nxo plan must retain authority, successor direction, and later-phase boundaries");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner:[\s\S]*closure_source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner[\s\S]*closure_joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord[\s\S]*pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner:[\s\S]*geometries %Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord/, "F5nxp must transfer completed F5nxo storage into a compact geometry authority");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_step_after_terminal_probe"), ["le budget 0", "stroke_join_geometry_read_join", "stroke_join_geometry_read_edge", "stroke_join_geometry_projection_from_side_edges", "vec::push"], "F5nxp must preserve zero budget and commit one authority-derived geometry only after push");
+assertNoMatch(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_step_after_terminal_probe"), /gui_sfnt_lookup_|gui_sfnt_parse_|stroke_offset_projection_step|stroke_side_edge_step|stroke_edge_closure_step|coverage|raster|platform|fallback/, "F5nxp must not re-enter lookup, earlier drains, coverage, raster, platform, or fallback paths");
+const registeredStrokeJoinGeometryRegion = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner"));
+assertNoMatch(registeredStrokeJoinGeometryRegion, /gui_sfnt_lookup_|gui_sfnt_parse_|stroke_offset_projection_step|stroke_side_edge_step|stroke_edge_closure_step|coverage|packed|raster|RenderTarget|render2d|platform|fallback|panic|unreachable/, "F5nxp owner, start, step, free, and test seams must stay outside earlier drains and later coverage, packed, raster, render, platform, or fallback paths");
+assertOrderedFragments(functionSlice(allocFontSfntGlyf, "gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges"), ["endpoints_ok", "provenance_ok", "lt join_index 0", "stroke_join_geometry_projection_stroke_width", "stroke_join_geometry_line_from_projection", "stroke_join_geometry_miter_from_lines", "stroke_join_geometry_round_from_lines"], "F5nxp projection must validate authority and share F5lc miter/round numeric helpers");
+for (const fragment of ["join_stroke_join_geometry_start", "join_stroke_join_geometry_run", "stroke_join_geometry_test_force_start_storage_failure", "stroke_join_geometry_test_force_push_failure", "stroke_join_geometry_step_error_rejected", "stroke_join_geometry_completed_owner_geometries_cap", "stroke_join_geometry_completed_owner_free"]) {
+    assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests.includes(fragment), `F5nxp registered join geometry runtime fixture must include ${fragment}`);
+}
+assertOrderedFragments(spec, ["F5nxp", "bevel", "line-only miter", "line-only round", "quadratic_bevel", "coverage、packed mask、raster"], "F5nxp spec must preserve geometry policy and later-phase boundaries");
+assertOrderedFragments(implementationPlan, ["Phase F5nxp", "completed F5nxo compact owner", "owner-neutral geometry projection helper", "coverage、packed mask、raster"], "F5nxp plan must preserve direct authority, shared geometry, and later phases");
 for (const fragment of [
     "gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset_owner0 0",
     "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted",
@@ -4031,7 +4042,15 @@ assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /Gui
 for (const helper of ["test_force_span_lookup_failure", "test_force_identity_mismatch"]) {
     assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, new RegExp(`#test[\\s\\S]*pub\\s+fn\\s+gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_${helper}\\b`), `F5nxk ${helper} must remain test-only`);
 }
-assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /(?:take_source|take_sink|take_writer|source_ref|writer_ref|collection_ref|take_collection|raw_collection|curve_segment\s+collection|full_scan|fullscan|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|callback|\bfallback\b|\bpanic\b|\bunreachable\b|\bRaster\b|RenderTarget|render2d|\bplatform\b)/, "F5nxk adapter must not split authority, invoke the legacy full scan, or cross later phase boundaries");
+const registeredStrokeSourceContourAdapter = [
+    "gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_start",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_read_at",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_value",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_span",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_curve",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_event",
+].map((name) => functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, name)).join("\n");
+assertNoMatch(registeredStrokeSourceContourAdapter, /(?:take_source|take_sink|take_writer|source_ref|writer_ref|collection_ref|take_collection|raw_collection|curve_segment\s+collection|full_scan|fullscan|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|callback|\bfallback\b|\bpanic\b|\bunreachable\b|\bRaster\b|RenderTarget|render2d|\bplatform\b)/, "F5nxk adapter must not split authority, invoke the legacy full scan, or cross later phase boundaries");
 const registeredIndexedOutlineStorageBehaviorStart = functionSlice(
     guiFontRegisteredFaceTests,
     "registered_face_simple_glyph_summary_completed_close_ok",
@@ -25079,7 +25098,7 @@ for (const typeName of [
 }
 assertNoMatch(
     allocFontSfntGlyfImpl,
-    /pub struct GuiSfntSimpleGlyphRenderStrokeJoinGeometry(?:DrainOwner|Owner|OwnerStartError|DrainError)|pub enum GuiSfntSimpleGlyphRenderStrokeJoinGeometry(?:Record|ErrorKind|OwnerStartErrorKind|DrainTerminal)|pub fn gui_sfnt_simple_glyph_render_stroke_join_geometry_(?:owner_start|drain_owner_step|drain_to_complete_budget)\b/,
+    /pub struct GuiSfntSimpleGlyphRenderStrokeJoinGeometry(?:DrainOwner|Owner|OwnerStartError|DrainError)|pub enum GuiSfntSimpleGlyphRenderStrokeJoinGeometry(?:OwnerStartErrorKind|DrainTerminal)|pub fn gui_sfnt_simple_glyph_render_stroke_join_geometry_(?:owner_start|drain_owner_step|drain_to_complete_budget)\b/,
     "alloc/gui/font/sfnt/glyf F5lc owner-bearing boundary and drain operations must remain private",
 );
 const renderStrokeJoinGeometryStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start");
@@ -25132,7 +25151,8 @@ assertOrderedFragments(
         "let denom %f32",
         "if eq denom 0.0",
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_bevel_from_join join_index join true false",
-        "gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_threshold edge_closure_owner join",
+        "let miter_limit %f32 *field::get_ref join \"miter_limit\"",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_threshold_from_width stroke_width miter_limit",
         "let miter_x2 %f32",
         "let miter_y2 %f32",
         "MiterCoordinateInvalid",
@@ -25177,7 +25197,8 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_read_side_edge edge_closure_owner from_side_edge_index",
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_side_edge_is_quadratic &from_edge",
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_bevel_from_join join_index join false true",
-        "gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines join_index edge_closure_owner join &from_line &to_line",
+        "let stroke_width %i32 gui_stroke_width &stroke",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines join_index stroke_width join &from_line &to_line",
         "GuiStrokeJoin::Round:",
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_read_side_edge edge_closure_owner from_side_edge_index",
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_side_edge_is_quadratic &from_edge",

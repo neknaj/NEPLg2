@@ -1430,6 +1430,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_edge_
             let expected_end_y %f32 if is_left then gui_sfnt_simple_glyph_render_offset_line_geometry_projection_left_end_y2 &line else gui_sfnt_simple_glyph_render_offset_line_geometry_projection_right_start_y2 &line
             let variant_ok %bool or eq edge_index 0 or eq edge_index 1 or eq edge_index 4 eq edge_index 5
             and variant_ok (and direction_ok (and eq start_x expected_start_x (and eq start_y expected_start_y (and eq end_x expected_end_x eq end_y expected_end_y))))
+
         GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic:
             let expected_start_x %f32 if is_left then gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_start_x2 &quadratic else gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_end_x2 &quadratic
             let expected_start_y %f32 if is_left then gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_start_y2 &quadratic else gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_end_y2 &quadratic
@@ -1437,3 +1438,233 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_edge_
             let expected_end_y %f32 if is_left then gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_left_end_y2 &quadratic else gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_right_start_y2 &quadratic
             let variant_ok %bool or eq edge_index 2 eq edge_index 3
             and variant_ok (and direction_ok (and eq start_x expected_start_x (and eq start_y expected_start_y (and eq end_x expected_end_x eq end_y expected_end_y))))
+
+//: F5nxp registered join geometry owner
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner:
+    closure_source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner
+    closure_joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord
+    join_count %i32
+    left_join_count %i32
+    right_join_count %i32
+    style %GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection
+    cap_resolution %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner
+    geometries %Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord
+    join_index %i32
+    bevel_count %i32
+    miter_count %i32
+    round_count %i32
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner
+    geometries %Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord
+    join_count %i32
+    bevel_count %i32
+    miter_count %i32
+    round_count %i32
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind:
+    GeometryPushed
+    StepBudgetExhausted
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryProgress:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind
+    geometry %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStep:
+    Progress %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryProgress
+    CompletedValue %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind:
+    SourceInvariantInvalid
+    SourceSlotMissing
+    ProjectionFailed %GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind
+    StorageFailed %StdErrorKind
+    ProgressInvariantInvalid
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError:
+    closure %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind
+    rejected %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_source_invariants %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner bool \source:
+    let closure_source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner field::get_ref source "closure_source"
+    let edge_count %i32 *field::get_ref closure_source "side_edge_count"
+    let edge_len %i32 vec::len field::get_ref closure_source "edges"
+    let edge_cap %i32 vec::cap field::get_ref closure_source "edges"
+    let join_count %i32 *field::get_ref source "join_count"
+    let join_len %i32 vec::len field::get_ref source "closure_joins"
+    let join_cap %i32 vec::cap field::get_ref source "closure_joins"
+    let left %i32 *field::get_ref source "left_join_count"
+    let right %i32 *field::get_ref source "right_join_count"
+    and ge join_count 0 and eq edge_count join_count and eq edge_len join_count and eq edge_cap join_count and eq join_len join_count and eq join_cap join_count eq add left right join_count
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError \closure:
+    let join_count %i32 gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_join_count &closure
+    let left %i32 gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_left_join_count &closure
+    let right %i32 gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_right_join_count &closure
+    let join_len %i32 gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_joins_len &closure
+    let join_cap %i32 gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_joins_cap &closure
+    let source_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner field::get_ref &closure "source"
+    let edge_count %i32 *field::get_ref source_ref "side_edge_count"
+    let edge_len %i32 vec::len field::get_ref source_ref "edges"
+    let edge_cap %i32 vec::cap field::get_ref source_ref "edges"
+    let split_count %i32 add left right
+    let source_valid %bool and ge join_count 0 and eq join_count split_count and eq join_count join_len and eq join_count join_cap and eq join_count edge_count and eq join_count edge_len eq join_count edge_cap
+    if not source_valid:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError closure GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::SourceInvariantInvalid
+        else:
+            match vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord> join_count:
+                Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError closure (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::StorageFailed kind)
+                Result::Ok geometries:
+                    if or ne vec::len &geometries 0 ne vec::cap &geometries join_count:
+                        then:
+                            vec::free geometries
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError closure GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::ProgressInvariantInvalid
+                        else:
+                            let source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner (field::get closure "source") (field::get closure "joins") join_count left right (field::get closure "style") (field::get closure "cap_resolution")
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner source geometries 0 0 0 0
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_read_join %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner fn i32 Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord \source\index:
+    vec::get field::get_ref source "closure_joins" index
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_read_edge %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner fn i32 Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \source\index:
+    let closure_source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner field::get_ref source "closure_source"
+    vec::get field::get_ref closure_source "edges" index
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_step_after_terminal_probe %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError \owner\budget:
+    if le budget 0:
+        then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStep::Progress (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryProgress owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind::StepBudgetExhausted none)
+        else:
+            let source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner field::get_ref &owner "source"
+            let index %i32 *field::get_ref &owner "join_index"
+            let total %i32 *field::get_ref source "join_count"
+            let bevel_count %i32 *field::get_ref &owner "bevel_count"
+            let miter_count %i32 *field::get_ref &owner "miter_count"
+            let round_count %i32 *field::get_ref &owner "round_count"
+            let len %i32 vec::len field::get_ref &owner "geometries"
+            let cap %i32 vec::cap field::get_ref &owner "geometries"
+            let classified_count %i32 add bevel_count add miter_count round_count
+            let progress_valid %bool and gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_source_invariants source and ge index 0 and eq index len and eq cap total and eq index classified_count le index total
+            if not progress_valid:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::ProgressInvariantInvalid none
+                else if eq index total:
+                    then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStep::CompletedValue (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner (field::get owner "source") (field::get owner "geometries") total bevel_count miter_count round_count)
+                    else:
+                        match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_read_join source index:
+                            Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::SourceSlotMissing none
+                            Option::Some join:
+                                let from_index %i32 gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_side_edge_index &join
+                                let to_index %i32 gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_side_edge_index &join
+                                match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_read_edge source from_index:
+                                    Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::SourceSlotMissing none
+                                    Option::Some from_edge:
+                                        match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_read_edge source to_index:
+                                            Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::SourceSlotMissing none
+                                            Option::Some to_edge:
+                                                match gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges index &join &from_edge &to_edge:
+                                                    Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::ProjectionFailed kind) none
+                                                    Result::Ok geometry:
+                                                        let source_value field::get owner "source"
+                                                        let geometries field::get owner "geometries"
+                                                        match vec::push geometries geometry:
+                                                            Result::Err push_error:
+                                                                let push_kind vec::vec_push_error_kind &push_error
+                                                                let returned vec::vec_push_error_vec push_error
+                                                                let recovered GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner source_value returned index bevel_count miter_count round_count
+                                                                Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError recovered (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::StorageFailed push_kind) (some geometry)
+                                                            Result::Ok next:
+                                                                let next_bevel %i32 match geometry:
+                                                                    GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel _: add bevel_count 1
+                                                                    GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter _: bevel_count
+                                                                    GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round _: bevel_count
+                                                                let next_miter %i32 match geometry:
+                                                                    GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel _: miter_count
+                                                                    GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter _: add miter_count 1
+                                                                    GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round _: miter_count
+                                                                let next_round %i32 match geometry:
+                                                                    GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel _: round_count
+                                                                    GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter _: round_count
+                                                                    GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round _: add round_count 1
+                                                                let next_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner source_value next (add index 1) next_bevel next_miter next_round
+                                                                Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStep::Progress (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryProgress next_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind::GeometryPushed (some geometry))
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError \owner\budget:
+    let index %i32 *field::get_ref &owner "join_index"
+    let total %i32 *field::get_ref field::get_ref &owner "source" "join_count"
+    gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_step_after_terminal_probe owner (if eq index total then 1 else budget)
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_progress_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryProgress GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner \progress: field::get progress "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_progress_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryProgress GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStatusKind \progress: *field::get_ref progress "status"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_progress_geometry %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryProgress Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord \progress: *field::get_ref progress "geometry"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_owner_join_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner i32 \owner: *field::get_ref owner "join_index"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_owner_geometries_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner i32 \owner: vec::len field::get_ref owner "geometries"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_join_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner i32 \owner: *field::get_ref owner "join_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_bevel_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner i32 \owner: *field::get_ref owner "bevel_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_miter_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner i32 \owner: *field::get_ref owner "miter_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_round_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner i32 \owner: *field::get_ref owner "round_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_geometries_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner i32 \owner: vec::len field::get_ref owner "geometries"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_geometries_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner i32 \owner: vec::cap field::get_ref owner "geometries"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_start_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner \error: field::get error "closure"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_step_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner \error: field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_step_error_rejected %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord \error: *field::get_ref error "rejected"
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_source_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner unit \source:
+    gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_owner_free field::get source "closure_source"
+    vec::free field::get source "closure_joins"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_source_free field::get owner "source"
+    vec::free field::get owner "geometries"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_source_free field::get owner "source"
+    vec::free field::get owner "geometries"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_free field::get error "closure"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_owner_free field::get error "owner"
+
+#test
+//: join_geometry_test_force_start_storage_failure: allocation前のF5nxo completed ownerを回収可能なstorage failureにします。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_force_start_storage_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError \closure:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStartError closure (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::StorageFailed StdErrorKind::CapacityExceeded)
+
+#test
+//: join_geometry_test_force_push_failure: productionと同じprojectionからrejected geometryを作り、pre-push ownerを保持します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_force_push_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError \owner:
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner field::get_ref &owner "source"
+    let index %i32 *field::get_ref &owner "join_index"
+    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_read_join source index:
+        Option::None: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::SourceSlotMissing none
+        Option::Some join:
+            let from_index %i32 gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_side_edge_index &join
+            let to_index %i32 gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_side_edge_index &join
+            match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_read_edge source from_index:
+                Option::None: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::SourceSlotMissing none
+                Option::Some from_edge:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_read_edge source to_index:
+                        Option::None: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::SourceSlotMissing none
+                        Option::Some to_edge:
+                            match gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges index &join &from_edge &to_edge:
+                                Result::Err kind: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::ProjectionFailed kind) none
+                                Result::Ok rejected: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::StorageFailed StdErrorKind::CapacityExceeded) (some rejected)
