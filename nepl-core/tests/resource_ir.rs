@@ -19206,6 +19206,261 @@ fn run_join <(JoinOwner)*>bool> (owner):
 }
 
 #[test]
+fn resource_ir_owner_check_repackages_retained_owner_before_nested_terminal_result() {
+    let source = r#"
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/math" as *
+#import "core/result" as *
+
+enum LeafState:
+    Empty
+    Ready <RegionToken<u8>>
+
+struct LeafOwner:
+    state <LeafState>
+
+struct RetiredOwner:
+    leaf <LeafOwner>
+
+struct RetainedOwner:
+    leaf <LeafOwner>
+
+struct InputOwner:
+    retired <RetiredOwner>
+    retained <RetainedOwner>
+
+struct CompactOwner:
+    retained <RetainedOwner>
+    fresh <LeafOwner>
+
+struct StartError:
+    input <InputOwner>
+
+struct StepError:
+    owner <CompactOwner>
+
+struct StepProgress:
+    owner <CompactOwner>
+
+enum StepTerminal:
+    Progress <StepProgress>
+    CompletedValue <CompactOwner>
+
+fn free_leaf <(LeafOwner)*>()> (owner):
+    match field::get owner "state":
+        LeafState::Empty:
+            ()
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+
+fn free_input <(InputOwner)*>()> (owner):
+    let retired <RetiredOwner> field::get owner "retired"
+    let retained <RetainedOwner> field::get owner "retained"
+    free_leaf field::get retired "leaf"
+    free_leaf field::get retained "leaf"
+
+fn free_compact <(CompactOwner)*>()> (owner):
+    let retained <RetainedOwner> field::get owner "retained"
+    free_leaf field::get retained "leaf"
+    free_leaf field::get owner "fresh"
+
+fn topology_start <(InputOwner,bool)*>Result<CompactOwner,StartError>> (input, valid):
+    if:
+        not valid
+        then:
+            Result<CompactOwner,StartError>::Err StartError input
+        else:
+            match alloc_region<u8> 1:
+                Result::Err _:
+                    Result<CompactOwner,StartError>::Err StartError input
+                Result::Ok fresh:
+                    let retired <RetiredOwner> field::get input "retired"
+                    let retained <RetainedOwner> field::get input "retained"
+                    free_leaf field::get retired "leaf"
+                    Result<CompactOwner,StartError>::Ok CompactOwner retained (LeafOwner LeafState::Ready fresh)
+
+fn step <(CompactOwner,i32)*>Result<StepTerminal,StepError>> (owner, tag):
+    if:
+        lt tag 0
+        then:
+            Result<StepTerminal,StepError>::Err StepError owner
+        else if:
+            eq tag 0
+            then:
+                Result<StepTerminal,StepError>::Ok StepTerminal::Progress StepProgress owner
+            else:
+                Result<StepTerminal,StepError>::Ok StepTerminal::CompletedValue owner
+
+fn run_steps <(CompactOwner,i32)*>bool> (owner, remaining):
+    match step owner (if le remaining 0 then 1 else 0):
+        Result::Err error:
+            free_compact field::get error "owner"
+            false
+        Result::Ok terminal:
+            match terminal:
+                StepTerminal::Progress progress:
+                    run_steps (field::get progress "owner") (sub remaining 1)
+                StepTerminal::CompletedValue completed:
+                    free_compact completed
+                    true
+
+fn run <(InputOwner,bool,i32)*>bool> (input, valid, tag):
+    match topology_start input valid:
+        Result::Err error:
+            free_input field::get error "input"
+            false
+        Result::Ok compact:
+            if lt tag 0:
+                then:
+                    match step compact tag:
+                        Result::Err error:
+                            free_compact field::get error "owner"
+                            false
+                        Result::Ok terminal:
+                            match terminal:
+                                StepTerminal::Progress progress:
+                                    free_compact field::get progress "owner"
+                                    true
+                                StepTerminal::CompletedValue completed:
+                                    free_compact completed
+                                    true
+                else run_steps compact 6
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/compact_owner_topology.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "a retained input owner repackaged with a fresh owner must survive a second owner-bearing Result: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_repackages_retained_vec_with_fresh_vec() {
+    let source = r#"
+#indent 4
+#target core
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+
+struct InputOwner:
+    retired <Vec<i32>>
+    retained <Vec<bool>>
+
+struct CompactOwner:
+    retained <Vec<bool>>
+    fresh <Vec<i32>>
+
+struct StartError:
+    input <InputOwner>
+
+struct StepError:
+    owner <CompactOwner>
+
+struct StepProgress:
+    owner <CompactOwner>
+    status <i32>
+
+enum StepTerminal:
+    Progress <StepProgress>
+    CompletedValue <CompactOwner>
+
+fn free_input <(InputOwner)*>()> (owner):
+    free<i32> field::get owner "retired"
+    free<bool> field::get owner "retained"
+
+fn free_compact <(CompactOwner)*>()> (owner):
+    free<bool> field::get owner "retained"
+    free<i32> field::get owner "fresh"
+
+fn topology_start <(InputOwner,bool)*>Result<CompactOwner,StartError>> (input, valid):
+    if:
+        not valid
+        then:
+            Result<CompactOwner,StartError>::Err StartError input
+        else:
+            match with_capacity<i32> 1:
+                Result::Err _:
+                    Result<CompactOwner,StartError>::Err StartError input
+                Result::Ok fresh:
+                    let retired <Vec<i32>> field::get input "retired"
+                    let retained <Vec<bool>> field::get input "retained"
+                    free<i32> retired
+                    Result<CompactOwner,StartError>::Ok CompactOwner retained fresh
+
+fn step <(CompactOwner,i32)*>Result<StepTerminal,StepError>> (owner, tag):
+    if:
+        lt tag 0
+        then:
+            Result<StepTerminal,StepError>::Err StepError owner
+        else if:
+            eq tag 0
+            then:
+                let retained <Vec<bool>> field::get owner "retained"
+                let fresh <Vec<i32>> field::get owner "fresh"
+                match push<i32> fresh tag:
+                    Result::Err push_error:
+                        let returned <Vec<i32>> vec_push_error_vec<i32> push_error
+                        Result<StepTerminal,StepError>::Err StepError (CompactOwner retained returned)
+                    Result::Ok next:
+                        Result<StepTerminal,StepError>::Ok StepTerminal::Progress StepProgress (CompactOwner retained next) 0
+            else:
+                Result<StepTerminal,StepError>::Ok StepTerminal::CompletedValue owner
+
+fn run <(InputOwner,bool,i32)*>bool> (input, valid, tag):
+    match topology_start input valid:
+        Result::Err error:
+            free_input field::get error "input"
+            false
+        Result::Ok compact:
+            match step compact tag:
+                Result::Err error:
+                    free_compact field::get error "owner"
+                    false
+                Result::Ok terminal:
+                    match terminal:
+                        StepTerminal::Progress progress:
+                            free_compact field::get progress "owner"
+                            true
+                        StepTerminal::CompletedValue completed:
+                            free_compact completed
+                            true
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/compact_vec_topology.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "a retained Vec repackaged with a fresh Vec must survive a second owner-bearing Result: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_scales_owner_return_projection_depth() {
     for depth in [1usize, 2, 4, 8, 16, 32] {
         let mut wrappers = String::from("struct Depth0:\n    leaf <LeafOwner>\n\n");

@@ -5,6 +5,22 @@
 - 未解決inference variableはcanonical key、substitution、memo trait/layout/producer/recursive aggregateの安定境界で明示的に拒否する。現行selfhostには診断accumulatorやpending constraint tableが無いため、今回のtransaction対象はarena forkと候補ローカルbinding ownerであり、存在しない副作用列は導入していない。
 - runtime gateは `Pair<X, X>` と `Pair<i32, i32>` の1束縛成功、`Pair<i32, bool>` の衝突拒否、および先頭 `Generic<.T>::Item` armが `Generic<i32>` result候補を選ぶactual Match retryを検査する。payload substitution、bind検査、arm body統一、一般generic call推論は後続sliceである。
 
+# 2026-07-16 Resource owner-summary unsafe wrapper dependency
+
+## 方針
+
+- F5nxo compact registered-stroke fixtureの63件の`resource.owner.use_after_move`を、stdlib側の実move/leakではなく大規模moduleでだけ再現するowner-summary固定点順序の問題として切り分けた。`plan.md`は変更していない。
+- i32 scalar用dependency viewをowner summaryへ流用すると、checked memory pointer wrapperになり得る`UnsafeMemory` user callのcallee summary依存が落ちる。`InternalAlloc`はowner summary適用を通らないため依存辺へ含めない。
+
+## 実装
+
+- owner summary専用のdirect-call dependency viewを追加した。通常のuser callと`UnsafeMemory`候補を追い、`InternalAlloc`を除外する。indirect callのfunction-value候補は従来どおり実際にindirect callを持つ関数だけへ限定した。
+- dependency graph単体回帰で、i32 scalar graphがraw-memory helperを除外したまま、owner graphだけが`UnsafeMemory`候補を保持し、`InternalAlloc`を保持しないことを固定した。
+
+## 検証状況
+
+- summary dependency単体テスト15件、compact owner/Vec topology ResourceIR回帰は通過した。F5nxo production fixture、trunk build、normal compile、CLI JSONは未実施であり、このcheckpointをフォントレンダリングエンジンやGUIライブラリの完成とは扱わない。
+
 # 2026-07-15 Selfhost non-generic Match arm retry
 
 ## 方針

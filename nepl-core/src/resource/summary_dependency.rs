@@ -43,6 +43,7 @@ pub(super) struct ResourceSummaryDependencyGraph {
 struct ResourceFunctionOpInventory {
     summary_dependency_names: BTreeSet<String>,
     direct_call_dependency_names: BTreeSet<String>,
+    owner_call_dependency_names: BTreeSet<String>,
     function_value_candidate_names: BTreeSet<String>,
     has_indirect_call: bool,
     has_direct_raw_initialization_summary_op: bool,
@@ -90,7 +91,11 @@ impl ResourceSummaryDependencyGraph {
             invert_function_summary_dependencies(module.functions.len(), &raw_init_dependencies);
         let raw_init_initial_order =
             summary_order_from_dependencies(module.functions.len(), &raw_init_dependencies);
-        let owner_dependencies = raw_init_dependencies.clone();
+        let owner_dependencies = owner_call_dependency_names_to_indices(
+            module.functions.len(),
+            &function_indices,
+            &inventories,
+        );
         let owner_dependents =
             invert_function_summary_dependencies(module.functions.len(), &owner_dependencies);
         let owner_initial_order =
@@ -210,10 +215,9 @@ impl ResourceSummaryDependencyGraph {
 
     /// owner return summary 専用依存辺の逆辺を返す。
     ///
-    /// owner summary は direct call と、同じ関数内で indirect call に流れ得る
-    /// function value からだけ callee summary を読む。単に function value を作るだけの
-    /// facade は owner summary の固定点探索には不要なので、raw-init / raw-alias と
-    /// 同じ依存辺 view から作った逆辺で full summary dependency より探索範囲を狭める。
+    /// owner summary は通常の direct call と checked memory pointer wrapper になり得る
+    /// unsafe-memory call の owner return / consume summary を読む。indirect call がある
+    /// 場合だけ同じ関数内の function value 候補も読むため、専用依存辺から逆辺を構築する。
     pub(super) fn owner_dependents(&self) -> &[Vec<usize>] {
         &self.owner_dependents
     }
@@ -344,6 +348,35 @@ fn direct_call_dependency_names_to_indices(
     dependencies
 }
 
+fn owner_call_dependency_names_to_indices(
+    function_count: usize,
+    function_indices: &BTreeMap<&str, usize>,
+    inventories: &[ResourceFunctionOpInventory],
+) -> Vec<Vec<usize>> {
+    let mut dependencies = vec![Vec::new(); function_count];
+    for (caller_index, inventory) in inventories.iter().enumerate() {
+        push_dependency_indices(
+            &mut dependencies[caller_index],
+            function_indices,
+            inventory
+                .owner_call_dependency_names
+                .iter()
+                .map(String::as_str),
+        );
+        if inventory.has_indirect_call {
+            push_dependency_indices(
+                &mut dependencies[caller_index],
+                function_indices,
+                inventory
+                    .function_value_candidate_names
+                    .iter()
+                    .map(String::as_str),
+            );
+        }
+    }
+    dependencies
+}
+
 fn push_dependency_indices<'a>(
     out: &mut Vec<usize>,
     function_indices: &BTreeMap<&str, usize>,
@@ -393,6 +426,9 @@ fn collect_op_inventory(op: &ResourceOp, inventory: &mut ResourceFunctionOpInven
             ..
         } => {
             inventory.summary_dependency_names.insert(name.clone());
+            if owner_call_reads_owner_summary(effect) {
+                inventory.owner_call_dependency_names.insert(name.clone());
+            }
             if direct_call_reads_i32_scalar_summary(effect) {
                 inventory.direct_call_dependency_names.insert(name.clone());
             }
@@ -468,6 +504,13 @@ fn direct_call_reads_i32_scalar_summary(effect: &EffectOp) -> bool {
         effect,
         EffectOp::InternalAlloc { .. } | EffectOp::UnsafeMemory { .. }
     )
+}
+
+fn owner_call_reads_owner_summary(effect: &EffectOp) -> bool {
+    // Internal allocation helpers bypass owner return summary application. Unsafe-memory calls can
+    // wrap checked memory pointers, but argument types are not part of this inventory, so retain
+    // those dependency edges conservatively.
+    !matches!(effect, EffectOp::InternalAlloc { .. })
 }
 
 fn call_directly_affects_owner_summary(effect: &EffectOp) -> bool {
@@ -584,6 +627,34 @@ mod tests {
 
         assert_eq!(graph.dependencies(), &[vec![1], vec![]]);
         assert_eq!(graph.direct_call_dependencies(), &[vec![], vec![]]);
+        assert_eq!(graph.owner_dependencies(), &[vec![], vec![]]);
+        assert_eq!(graph.owner_dependents(), &[vec![], vec![]]);
+    }
+
+    #[test]
+    fn owner_dependency_graph_keeps_unsafe_memory_wrapper_candidates() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops(
+                    "caller",
+                    vec![call_with_effect(
+                        "checked_memory_wrapper",
+                        EffectOp::UnsafeMemory {
+                            operation: RawMemoryOp::Load,
+                        },
+                    )],
+                ),
+                function_with_ops("checked_memory_wrapper", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.direct_call_dependencies(), &[vec![], vec![]]);
+        assert_eq!(graph.owner_dependencies(), &[vec![1], vec![]]);
+        assert_eq!(graph.owner_dependents(), &[vec![], vec![0]]);
     }
 
     #[test]
