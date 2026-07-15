@@ -42,6 +42,7 @@
 #import "neplg2/core/check/expr/value_evidence" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/module/graph" as *
+#import "neplg2/core/module/vfs" as *
 #import "neplg2/core/resolve/name_resolver/scope" as *
 #import "neplg2/core/resolve/name_resolver/qualified_enum_import" as *
 #import "neplg2/core/resolve/name_resolver/public_export_table" as *
@@ -110,47 +111,44 @@ fn selfhost_match_actual_export_count %fn &SelfhostPublicExportTable fn i32 fn s
 //: selfhost_match_actual_expected_nominal: arm originとborrowed constructor headerを再結合する
 //:
 //: [契約/けいやく]: exact qualified import、単一public enum export、元宣言spanと一致するconstructorのnominal identityとarityを返します。synthetic origin headerはnoneです。
-//: [owner boundary]: 一時qualified/export tableは全経路で閉じ、caller ownerは借用したままです。
+//: [owner boundary]: 一時export tableは全経路で閉じ、caller ownerは借用したままです。
 fn selfhost_match_actual_expected_nominal %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostMatchActualArmSpans impure fn &SelfhostTypeConstructorTable Option SelfhostMatchActualExpectedNominal \graph\vfs\order\path\spans\constructors:
-    match selfhost_qualified_enum_import_table_build graph vfs path spans.alias:
+    match selfhost_vfs_find_exact vfs path:
         Result::Err _e: none
-        Result::Ok qualified:
-            let source %str *selfhost_qualified_enum_import_table_source &qualified
-            let source_file_id %i32 selfhost_qualified_enum_import_table_source_file_id &qualified
+        Result::Ok source_file:
+            let source %str source_file.source
+            let source_file_id %i32 source_file.file_id
             let valid_span %bool and eq spans.enum_name.file_id source_file_id and le 0 spans.enum_name.start le spans.enum_name.end string_access::str_byte_len source
             if:
                 not valid_span
-                then:
-                    selfhost_qualified_enum_import_table_free qualified
-                    none
+                then: none
                 else:
                     let visible_name %str string_slice::str_slice source spans.enum_name.start spans.enum_name.end
-                    let owner %i32 selfhost_qualified_enum_import_table_target_node_index &qualified
-                    match selfhost_public_export_table_build graph vfs order:
-                        Result::Err _e:
-                            selfhost_qualified_enum_import_table_free qualified
-                            none
-                        Result::Ok exports:
-                            let expected %Option SelfhostMatchActualExpectedNominal if:
-                                ne selfhost_match_actual_export_count &exports owner visible_name 0 0 1
-                                then: none
-                                else:
-                                    match selfhost_public_export_table_lookup &exports owner visible_name:
-                                        Option::None: none
-                                        Option::Some entry:
-                                            match entry.kind:
-                                                SelfhostPublicExportKind::Enum:
-                                                    match selfhost_type_constructor_table_find constructors entry.original_name:
-                                                        Option::None: none
-                                                        Option::Some constructor:
-                                                            if:
-                                                                and selfhost_match_actual_span_eq constructor.span entry.original_name_span string_search::str_eq constructor.name entry.original_name
-                                                                then: some SelfhostMatchActualExpectedNominal constructor.nominal_id (selfhost_type_constructor_kind_arg_count constructor.kind) spans.enum_name
-                                                                else: none
-                                                _: none
-                            selfhost_public_export_table_free exports
-                            selfhost_qualified_enum_import_table_free qualified
-                            expected
+                    match selfhost_qualified_enum_import_target_node_index_from_reference graph vfs path spans.alias:
+                        Result::Err _e: none
+                        Result::Ok owner:
+                            match selfhost_public_export_table_build graph vfs order:
+                                Result::Err _e: none
+                                Result::Ok exports:
+                                    let expected %Option SelfhostMatchActualExpectedNominal if:
+                                        ne selfhost_match_actual_export_count &exports owner visible_name 0 0 1
+                                        then: none
+                                        else:
+                                            match selfhost_public_export_table_lookup &exports owner visible_name:
+                                                Option::None: none
+                                                Option::Some entry:
+                                                    match entry.kind:
+                                                        SelfhostPublicExportKind::Enum:
+                                                            match selfhost_type_constructor_table_find constructors entry.original_name:
+                                                                Option::None: none
+                                                                Option::Some constructor:
+                                                                    if:
+                                                                        and selfhost_match_actual_span_eq constructor.span entry.original_name_span string_search::str_eq constructor.name entry.original_name
+                                                                        then: some SelfhostMatchActualExpectedNominal constructor.nominal_id (selfhost_type_constructor_kind_arg_count constructor.kind) spans.enum_name
+                                                                        else: none
+                                                        _: none
+                                    selfhost_public_export_table_free exports
+                                    expected
 
 struct SelfhostMatchActualExpectedNominal:
     nominal_id %SelfhostNamedTypeId

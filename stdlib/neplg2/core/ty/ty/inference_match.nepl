@@ -65,7 +65,7 @@ fn selfhost_inference_binding_find_loop %fn &SelfhostInferenceBindingTable fn Se
                         then: some binding.concrete_type
                         else: selfhost_inference_binding_find_loop table variable_id add idx 1
 
-fn selfhost_inference_actual_applied_args_valid %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 fn i32 fn i32 Result unit SelfhostInferenceMatchErrorKind \arena\type_id\count\idx\fuel:
+fn selfhost_inference_actual_applied_args_valid %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 fn i32 Result unit SelfhostInferenceMatchErrorKind \arena\type_id\count\idx:
     if:
         ge idx count
         then: Result::Ok unit
@@ -73,45 +73,50 @@ fn selfhost_inference_actual_applied_args_valid %fn &SelfhostTypeArena fn Selfho
             match selfhost_type_arena_applied_arg arena type_id idx:
                 Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
                 Option::Some arg:
-                    match selfhost_inference_actual_type_valid arena arg fuel:
-                        Result::Err e: Result::Err e
-                        Result::Ok _unit: selfhost_inference_actual_applied_args_valid arena type_id count add idx 1 fuel
+                    if:
+                        ge selfhost_type_id_index arg selfhost_type_id_index type_id
+                        then: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                        else:
+                            match selfhost_inference_actual_type_valid arena arg:
+                                Result::Err e: Result::Err e
+                                Result::Ok _unit: selfhost_inference_actual_applied_args_valid arena type_id count add idx 1
 
-fn selfhost_inference_actual_function_args_valid %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 fn i32 fn i32 Result unit SelfhostInferenceMatchErrorKind \arena\type_id\count\idx\fuel:
+fn selfhost_inference_actual_function_args_valid %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 fn i32 Result unit SelfhostInferenceMatchErrorKind \arena\type_id\count\idx:
     if:
         ge idx count
         then:
             match selfhost_type_arena_function_result arena type_id:
                 Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
-                Option::Some result_type: selfhost_inference_actual_type_valid arena result_type fuel
+                Option::Some result_type:
+                    if ge selfhost_type_id_index result_type selfhost_type_id_index type_id (Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId) (selfhost_inference_actual_type_valid arena result_type)
         else:
             match selfhost_type_arena_function_arg arena type_id idx:
                 Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
                 Option::Some arg:
-                    match selfhost_inference_actual_type_valid arena arg fuel:
-                        Result::Err e: Result::Err e
-                        Result::Ok _unit: selfhost_inference_actual_function_args_valid arena type_id count add idx 1 fuel
+                    if:
+                        ge selfhost_type_id_index arg selfhost_type_id_index type_id
+                        then: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                        else:
+                            match selfhost_inference_actual_type_valid arena arg:
+                                Result::Err e: Result::Err e
+                                Result::Ok _unit: selfhost_inference_actual_function_args_valid arena type_id count add idx 1
 
-fn selfhost_inference_actual_type_valid %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 Result unit SelfhostInferenceMatchErrorKind \arena\type_id\fuel:
-    if:
-        le fuel 0
-        then: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
-        else:
-            match selfhost_type_arena_get_record arena type_id:
-                Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
-                Option::Some record:
-                    match record:
-                        SelfhostTypeRecord::InferenceVariable _variable: Result::Err SelfhostInferenceMatchErrorKind::UnresolvedActualInferenceVariable
-                        SelfhostTypeRecord::Applied applied:
-                            selfhost_inference_actual_applied_args_valid arena type_id (selfhost_applied_type_arg_range_count selfhost_applied_type_record_args applied) 0 sub fuel 1
-                        SelfhostTypeRecord::Function _function:
-                            match selfhost_type_arena_function_arg_count arena type_id:
-                                Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
-                                Option::Some count: selfhost_inference_actual_function_args_valid arena type_id count 0 sub fuel 1
-                        _: Result::Ok unit
+fn selfhost_inference_actual_type_valid %fn &SelfhostTypeArena fn SelfhostTypeId Result unit SelfhostInferenceMatchErrorKind \arena\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::InferenceVariable _variable: Result::Err SelfhostInferenceMatchErrorKind::UnresolvedActualInferenceVariable
+                SelfhostTypeRecord::Applied applied:
+                    selfhost_inference_actual_applied_args_valid arena type_id (selfhost_applied_type_arg_range_count selfhost_applied_type_record_args applied) 0
+                SelfhostTypeRecord::Function _function:
+                    match selfhost_type_arena_function_arg_count arena type_id:
+                        Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                        Option::Some count: selfhost_inference_actual_function_args_valid arena type_id count 0
+                _: Result::Ok unit
 
 fn selfhost_inference_binding_add_result %impure fn &SelfhostTypeArena impure fn SelfhostInferenceBindingTable impure fn SelfhostInferenceVariableId impure fn SelfhostTypeId Result SelfhostInferenceBindingTable SelfhostInferenceMatchErrorKind \arena\table\variable_id\concrete_type:
-    match selfhost_inference_actual_type_valid arena concrete_type 256:
+    match selfhost_inference_actual_type_valid arena concrete_type:
         Result::Err e:
             selfhost_inference_binding_table_free table
             Result::Err e

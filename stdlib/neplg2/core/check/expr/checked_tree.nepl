@@ -316,6 +316,97 @@ pub fn selfhost_checked_expr_tree_free %impure fn SelfhostCheckedExprTree unit \
     v::free field::get tree "arguments"
     v::free field::get tree "exprs"
 
+fn selfhost_checked_expr_tree_copy_nodes %impure fn Vec SelfhostCheckedExprNode impure fn &Vec SelfhostCheckedExprNode impure fn i32 impure fn i32 Result Vec SelfhostCheckedExprNode StdErrorKind \out\nodes\n\idx:
+    if:
+        ge idx n
+        then: Result::Ok out
+        else:
+            match v::get nodes idx:
+                Option::None:
+                    v::free out
+                    Result::Err StdErrorKind::IndexOutOfBounds
+                Option::Some node:
+                    match v::push out node:
+                        Result::Ok next: selfhost_checked_expr_tree_copy_nodes next nodes n add idx 1
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+
+fn selfhost_checked_expr_tree_copy_arguments %impure fn Vec SelfhostCheckedArgument impure fn &Vec SelfhostCheckedArgument impure fn i32 impure fn i32 Result Vec SelfhostCheckedArgument StdErrorKind \out\arguments\n\idx:
+    if:
+        ge idx n
+        then: Result::Ok out
+        else:
+            match v::get arguments idx:
+                Option::Some argument:
+                    match v::push out argument:
+                        Result::Ok next_out: selfhost_checked_expr_tree_copy_arguments next_out arguments n add idx 1
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Option::None:
+                    v::free out
+                    Result::Err StdErrorKind::IndexOutOfBounds
+
+fn selfhost_checked_expr_tree_copy_expr_ids %impure fn Vec SelfhostCheckedExprId impure fn &Vec SelfhostCheckedExprId impure fn i32 impure fn i32 Result Vec SelfhostCheckedExprId StdErrorKind \out\expr_ids\n\idx:
+    if:
+        ge idx n
+        then: Result::Ok out
+        else:
+            match v::get expr_ids idx:
+                Option::Some expr_id:
+                    match v::push out expr_id:
+                        Result::Ok next_out: selfhost_checked_expr_tree_copy_expr_ids next_out expr_ids n add idx 1
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Option::None:
+                    v::free out
+                    Result::Err StdErrorKind::IndexOutOfBounds
+
+//: selfhost_checked_expr_tree_fork: 候補transaction用にchecked treeをexact copyする
+//:
+//: 3つのtableを同じ順序で複製するため、既存node idとrangeはfork先でも同じpayloadを指します。失敗時は確保済みownerをすべて閉じます。
+pub fn selfhost_checked_expr_tree_fork %impure fn &SelfhostCheckedExprTree Result SelfhostCheckedExprTree StdErrorKind \tree:
+    let nodes %&Vec SelfhostCheckedExprNode field::get_ref tree "nodes"
+    let arguments %&Vec SelfhostCheckedArgument field::get_ref tree "arguments"
+    let exprs %&Vec SelfhostCheckedExprId field::get_ref tree "exprs"
+    let empty_nodes_result %Result Vec SelfhostCheckedExprNode StdErrorKind v::new
+    match empty_nodes_result:
+        Result::Err e: Result::Err e
+        Result::Ok empty_nodes:
+            match selfhost_checked_expr_tree_copy_nodes empty_nodes nodes v::len nodes 0:
+                Result::Err e: Result::Err e
+                Result::Ok copied_nodes:
+                    let empty_arguments_result %Result Vec SelfhostCheckedArgument StdErrorKind v::new
+                    match empty_arguments_result:
+                        Result::Err e:
+                            v::free copied_nodes
+                            Result::Err e
+                        Result::Ok empty_arguments:
+                            match selfhost_checked_expr_tree_copy_arguments empty_arguments arguments v::len arguments 0:
+                                Result::Err e:
+                                    v::free copied_nodes
+                                    Result::Err e
+                                Result::Ok copied_arguments:
+                                    let empty_exprs_result %Result Vec SelfhostCheckedExprId StdErrorKind v::new
+                                    match empty_exprs_result:
+                                        Result::Err e:
+                                            v::free copied_nodes
+                                            v::free copied_arguments
+                                            Result::Err e
+                                        Result::Ok empty_exprs:
+                                            match selfhost_checked_expr_tree_copy_expr_ids empty_exprs exprs v::len exprs 0:
+                                                Result::Err e:
+                                                    v::free copied_nodes
+                                                    v::free copied_arguments
+                                                    Result::Err e
+                                                Result::Ok copied_exprs:
+                                                    Result::Ok SelfhostCheckedExprTree copied_nodes copied_arguments copied_exprs
+
 //: selfhost_checked_expr_tree_node_len: checked expression node table の要素数を[返/かえ]す
 pub fn selfhost_checked_expr_tree_node_len %fn &SelfhostCheckedExprTree i32 \tree:
     let nodes %&Vec SelfhostCheckedExprNode field::get_ref tree "nodes"
@@ -575,66 +666,6 @@ fn selfhost_checked_expr_node_refs_existing_before_append %fn &SelfhostCheckedEx
                             selfhost_checked_expr_range_refs_existing_before_append tree body_exprs 0 node_count
                         Result::Err _e:
                             false
-
-//: selfhost_checked_expr_tree_copy_arguments: checked argument list を tree table へ[複製/ふくせい]する
-//:
-//: [目的/もくてき]:
-//: - nested direct call node が所有する checked argument list を、tree の平坦な argument table に移します。
-//:
-//: [契約/けいやく]:
-//: - `out` はこの関数が owner として受け取り、成功時は更新済み owner、失敗時は解放済み error を返します。
-//: - `arguments` は borrow で読み、解放は caller が行います。
-//:
-//: [計算量/けいさんりょう]:
-//: - `n` 個の checked argument を順に push するため O(n) です。
-fn selfhost_checked_expr_tree_copy_arguments %impure fn Vec SelfhostCheckedArgument impure fn &Vec SelfhostCheckedArgument impure fn i32 impure fn i32 Result Vec SelfhostCheckedArgument StdErrorKind \out\arguments\n\idx:
-    if:
-        ge idx n
-        then:
-            Result::Ok out
-        else:
-            match v::get arguments idx:
-                Option::Some argument:
-                    match v::push out argument:
-                        Result::Ok next_out:
-                            selfhost_checked_expr_tree_copy_arguments next_out arguments n add idx 1
-                        Result::Err e:
-                            let error %StdErrorKind field::get e "error"
-                            v::free v::vec_push_error_vec e
-                            Result::Err error
-                Option::None:
-                    v::free out
-                    Result::Err StdErrorKind::IndexOutOfBounds
-
-//: selfhost_checked_expr_tree_copy_expr_ids: checked expression id list を tree table へ[複製/ふくせい]する
-//:
-//: [目的/もくてき]:
-//: - block sequence node が所有する body root id list を、tree の平坦な expression id table に移します。
-//:
-//: [契約/けいやく]:
-//: - `out` はこの関数が owner として受け取り、成功時は更新済み owner、失敗時は解放済み error を返します。
-//: - `expr_ids` は borrow で読み、解放は caller が行います。
-//:
-//: [計算量/けいさんりょう]:
-//: - `n` 個の checked expression id を順に push するため O(n) です。
-fn selfhost_checked_expr_tree_copy_expr_ids %impure fn Vec SelfhostCheckedExprId impure fn &Vec SelfhostCheckedExprId impure fn i32 impure fn i32 Result Vec SelfhostCheckedExprId StdErrorKind \out\expr_ids\n\idx:
-    if:
-        ge idx n
-        then:
-            Result::Ok out
-        else:
-            match v::get expr_ids idx:
-                Option::Some expr_id:
-                    match v::push out expr_id:
-                        Result::Ok next_out:
-                            selfhost_checked_expr_tree_copy_expr_ids next_out expr_ids n add idx 1
-                        Result::Err e:
-                            let error %StdErrorKind field::get e "error"
-                            v::free v::vec_push_error_vec e
-                            Result::Err error
-                Option::None:
-                    v::free out
-                    Result::Err StdErrorKind::IndexOutOfBounds
 
 //: selfhost_checked_expr_tree_add_argument_range: checked argument list を tree に[追加/ついか]する
 //:

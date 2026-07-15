@@ -151,6 +151,7 @@
 #import "alloc/string/access" as string_access
 #import "alloc/string/byte_index" as string_byte_index
 #import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
 #import "alloc/string/utf8" as string_utf8
 #import "core/field" as field
 #import "core/math" as *
@@ -377,6 +378,42 @@ fn selfhost_qualified_alias_name_count %fn &Vec SelfhostImportRecord fn str fn i
                     selfhost_qualified_alias_name_count records alias add idx 1 if matches add count 1 count
                 Option::None: count
 
+fn selfhost_qualified_alias_name_find %fn &Vec SelfhostImportRecord fn str fn i32 Option SelfhostImportRecord \records\alias\idx:
+    if:
+        ge idx v::len records
+        then: none
+        else:
+            match v::get records idx:
+                Option::None: none
+                Option::Some record:
+                    if string_search::str_eq record.alias alias (some record) (selfhost_qualified_alias_name_find records alias add idx 1)
+
+fn selfhost_qualified_alias_record_from_reference %fn &Vec SelfhostImportRecord fn str fn SelfhostSourceSpan Result SelfhostImportRecord SelfhostQualifiedEnumImportErrorKind \records\source\alias_span:
+    let exact_count %i32 selfhost_qualified_alias_record_count records alias_span 0 0
+    if:
+        gt exact_count 1
+        then: Result::Err SelfhostQualifiedEnumImportErrorKind::AliasDuplicate
+        else:
+            if:
+                eq exact_count 1
+                then:
+                    match selfhost_qualified_alias_record_find records alias_span 0:
+                        Option::Some record: Result::Ok record
+                        Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                else:
+                    let alias %str string_slice::str_slice source alias_span.start alias_span.end
+                    let name_count %i32 selfhost_qualified_alias_name_count records alias 0 0
+                    if:
+                        eq name_count 0
+                        then: Result::Err SelfhostQualifiedEnumImportErrorKind::AliasMissing
+                        else:
+                            if:
+                                ne name_count 1
+                                then: Result::Err SelfhostQualifiedEnumImportErrorKind::AliasDuplicate
+                                else:
+                                    match selfhost_qualified_alias_name_find records alias 0:
+                                        Option::Some record: Result::Ok record
+                                        Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
 fn selfhost_qualified_edge_count %fn &SelfhostModuleGraph fn str fn str fn SelfhostSourceSpan fn i32 fn i32 i32 \graph\from\to\directive_span\idx\count:
     if:
         ge idx selfhost_module_graph_edge_len graph
@@ -465,6 +502,45 @@ fn selfhost_qualified_enum_import_target %impure fn &SelfhostModuleGraph impure 
                                         Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
                     Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::EdgeInvariant
 
+pub fn selfhost_qualified_enum_import_target_node_index_from_reference %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn str impure fn SelfhostSourceSpan Result i32 SelfhostQualifiedEnumImportErrorKind \graph\vfs\source_path\alias_span:
+    match selfhost_qualified_graph_node_find graph source_path 0:
+        Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::SourceNodeMissing
+        Option::Some source_node_index:
+            match selfhost_module_graph_node_at graph source_node_index:
+                Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                Option::Some source_node:
+                    match selfhost_vfs_find_exact vfs source_node.path:
+                        Result::Err _e: Result::Err SelfhostQualifiedEnumImportErrorKind::SourceFileMissing
+                        Result::Ok source_file:
+                            if:
+                                or ne source_file.file_id source_node.file_id not selfhost_qualified_span_in_source source_file.source source_file.file_id alias_span
+                                then: Result::Err SelfhostQualifiedEnumImportErrorKind::AliasSpanInvalid
+                                else:
+                                    match selfhost_scan_module_imports_with_file_id source_file.source source_file.file_id:
+                                        Result::Err _e: Result::Err SelfhostQualifiedEnumImportErrorKind::ImportScanFailed
+                                        Result::Ok records:
+                                            let resolved %Result i32 SelfhostQualifiedEnumImportErrorKind match selfhost_qualified_alias_record_from_reference &records source_file.source alias_span:
+                                                Result::Err e: Result::Err e
+                                                Result::Ok record:
+                                                    let edge_count %i32 selfhost_qualified_edge_count graph source_path record.path record.span 0 0
+                                                    if:
+                                                        ne edge_count 1
+                                                        then: Result::Err if eq edge_count 0 SelfhostQualifiedEnumImportErrorKind::EdgeMissing SelfhostQualifiedEnumImportErrorKind::EdgeDuplicate
+                                                        else:
+                                                            match selfhost_qualified_edge_find graph source_path record.path record.span 0:
+                                                                Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::EdgeInvariant
+                                                                Option::Some edge:
+                                                                    let target_count %i32 selfhost_qualified_graph_node_count graph edge.to 0 0
+                                                                    if:
+                                                                        ne target_count 1
+                                                                        then: Result::Err if eq target_count 0 SelfhostQualifiedEnumImportErrorKind::TargetNodeMissing SelfhostQualifiedEnumImportErrorKind::TargetNodeDuplicate
+                                                                        else:
+                                                                            match selfhost_qualified_graph_node_find graph edge.to 0:
+                                                                                Option::Some target: Result::Ok target
+                                                                                Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                                            v::free records
+                                            resolved
+
 //: selfhost_qualified_enum_import_table_build: explicit aliasのdirect target sessionをco-produceする
 //: [アルゴリズム]: source/target graph node、logical VFS path、import alias、from/to/span edgeをexactly-oneで結合し、targetをparse/hoistします。
 //: [制約]: exact-VFS graphだけを受理します。path-map graph、wildcard、重複alias/path/edge、parse/scope失敗をtyped errorで拒否します。計算量はgraph/VFS/import/target ASTの各要素数に線形です。
@@ -497,37 +573,25 @@ pub fn selfhost_qualified_enum_import_table_build %impure fn &SelfhostModuleGrap
                                                         else:
                                                             match selfhost_scan_module_imports_with_file_id source_file.source source_file.file_id:
                                                                 Result::Ok records:
-                                                                    let alias_count %i32 selfhost_qualified_alias_record_count &records alias_span 0 0
-                                                                    if:
-                                                                        eq alias_count 0
-                                                                        then:
+                                                                    match selfhost_qualified_alias_record_from_reference &records source_file.source alias_span:
+                                                                        Result::Err e:
                                                                             v::free records
-                                                                            Result::Err SelfhostQualifiedEnumImportErrorKind::AliasMissing
-                                                                        else if:
-                                                                            ne alias_count 1
-                                                                            then:
-                                                                                v::free records
-                                                                                Result::Err SelfhostQualifiedEnumImportErrorKind::AliasDuplicate
-                                                                            else:
-                                                                                match selfhost_qualified_alias_record_find &records alias_span 0:
-                                                                                    Option::Some record:
-                                                                                        if:
-                                                                                            record.is_wildcard
-                                                                                            then:
-                                                                                                v::free records
-                                                                                                Result::Err SelfhostQualifiedEnumImportErrorKind::AliasWildcard
-                                                                                            else if:
-                                                                                                ne selfhost_qualified_alias_name_count &records record.alias 0 0 1
-                                                                                                then:
-                                                                                                    v::free records
-                                                                                                    Result::Err SelfhostQualifiedEnumImportErrorKind::AliasDuplicate
-                                                                                                else:
-                                                                                                    let out %Result SelfhostQualifiedEnumImportTable SelfhostQualifiedEnumImportErrorKind selfhost_qualified_enum_import_target graph vfs source_path source_node_index source_file record
-                                                                                                    v::free records
-                                                                                                    out
-                                                                                    Option::None:
+                                                                            Result::Err e
+                                                                        Result::Ok record:
+                                                                            if:
+                                                                                record.is_wildcard
+                                                                                then:
+                                                                                    v::free records
+                                                                                    Result::Err SelfhostQualifiedEnumImportErrorKind::AliasWildcard
+                                                                                else if:
+                                                                                    ne selfhost_qualified_alias_name_count &records record.alias 0 0 1
+                                                                                    then:
                                                                                         v::free records
-                                                                                        Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                                                                                        Result::Err SelfhostQualifiedEnumImportErrorKind::AliasDuplicate
+                                                                                    else:
+                                                                                        let out %Result SelfhostQualifiedEnumImportTable SelfhostQualifiedEnumImportErrorKind selfhost_qualified_enum_import_target graph vfs source_path source_node_index source_file record
+                                                                                        v::free records
+                                                                                        out
                                                                 Result::Err _diag: Result::Err SelfhostQualifiedEnumImportErrorKind::ImportScanFailed
                                                 Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
                             Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant

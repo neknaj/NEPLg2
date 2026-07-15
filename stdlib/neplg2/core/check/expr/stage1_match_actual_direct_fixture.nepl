@@ -259,7 +259,7 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_pipe %impure fn void bool
 pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32 bool \mode:
     let choice_span %SelfhostSourceSpan source_span_new_unchecked 0 9 15
     let other_span %SelfhostSourceSpan source_span_new_unchecked 0 36 41
-    let generic_span %SelfhostSourceSpan source_span_new_unchecked 0 61 68
+    let generic_span %SelfhostSourceSpan source_span_new_unchecked 0 9 16
     let constructors0 %SelfhostTypeConstructorTable unwrap_ok selfhost_type_constructor_table_new
     let choice_added %SelfhostTypeConstructorAddResult unwrap_ok selfhost_type_constructor_table_add_checked constructors0 "Choice" 0 choice_span
     let choice_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &choice_added
@@ -308,7 +308,11 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn
     let candidates1 %Vec SelfhostCallableCandidate unwrap_ok v::push candidates0 selfhost_callable_candidate_new "make" choice_def choice_fn SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired choice_span
     let candidates %Vec SelfhostCallableCandidate unwrap_ok v::push candidates1 selfhost_callable_candidate_new "make" other_def other_fn SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired other_span
     let value_types %SelfhostValueTypeEvidenceTable unwrap_ok selfhost_value_type_evidence_table_new
-    let child_source "pub enum Choice:\n    First\npub enum Other:\n    Only\npub enum Generic<.T>:\n    Item %.T\n"
+    let child_source %str if:
+        eq mode 0
+        then: "pub enum Choice:\n    First\n"
+        else:
+            if eq mode 1 "pub enum Generic<.T>:\n    Item %.T\n" "pub enum Choice:\n    First\npub enum Other:\n    Only\n"
     let root_source %str if:
         eq mode 0
         then: "#import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match make:\n        child::Choice::First:\n            0\n"

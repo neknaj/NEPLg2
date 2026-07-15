@@ -1711,31 +1711,84 @@ fn selfhost_call_reduce_single_named_candidate_with_source %impure fn &Vec Selfh
             selfhost_checked_expr_tree_free checked_tree
             selfhost_call_reduce_free_existing_error arena e
 
-//: selfhost_call_reduce_expected_candidate_select_loop: expected resultでnamed候補を一意化する
+fn selfhost_call_reduce_owned_result_free %impure fn SelfhostCallReduceOwnedResult unit \owned:
+    selfhost_type_arena_free selfhost_call_reduce_owned_result_into_arena owned
+
+fn selfhost_call_reduce_candidate_error_is_retryable %fn SelfhostCallReduceError bool \error:
+    if:
+        selfhost_call_reduce_nested_candidate_error_is_no_match error
+        then: true
+        else:
+            match error.kind:
+                SelfhostCallReduceErrorKind::NotCallable: true
+                SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict: true
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueExpectedFunctionType: true
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueGenericUnsupported: true
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch: true
+                SelfhostCallReduceErrorKind::ArgumentNegativeLiteralTypeMismatch: true
+                SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument: true
+                _: false
+
+//: selfhost_call_reduce_expected_candidate_transaction_loop: 候補全体を独立owner上で検査する
 //:
-//: 各候補は独立したexpected照合transactionを使います。不一致候補の束縛ownerは照合内で閉じ、一致が1件だけならその候補を返し、0件は型不一致、複数件は曖昧として拒否します。
-fn selfhost_call_reduce_expected_candidate_select_loop %impure fn &SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn SelfhostTypeExpectation impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 impure fn Option SelfhostCallableCandidate Result SelfhostCallableCandidate SelfhostCallReduceError \arena\candidates\expectation\head\idx\candidate_count\selected:
+//: arenaとchecked treeを候補ごとにforkし、generic state、arity、source-backed argument、末尾block、result inference、root node追加までを同じtransactionに含めます。候補固有の不一致だけをrollbackし、内部失敗はfail-closedにします。
+fn selfhost_call_reduce_expected_candidate_transaction_loop %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostTypeArena impure fn &SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 impure fn i32 impure fn Option SelfhostCallReduceOwnedResult Result Option SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\expectation\trailing_block\head\item_count\idx\candidate_count\selected:
     if:
         ge idx candidate_count
-        then:
-            match selected:
-                Option::Some candidate: Result::Ok candidate
-                Option::None: Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ExpectedTypeMismatch expectation.span
+        then: Result::Ok selected
         else:
             match v::get candidates idx:
-                Option::None: Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+                Option::None:
+                    match selected:
+                        Option::Some owned: selfhost_call_reduce_owned_result_free owned
+                        Option::None: unit
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
                 Option::Some candidate:
-                    match selfhost_call_reduce_expected_result_with_match_inference arena candidate some expectation:
-                        Result::Ok _result_type:
+                    match selfhost_type_arena_fork arena:
+                        Result::Err _e:
                             match selected:
-                                Option::Some _previous: Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadAmbiguous head.span
-                                Option::None: selfhost_call_reduce_expected_candidate_select_loop arena candidates expectation head add idx 1 candidate_count some candidate
-                        Result::Err error:
-                            match error.kind:
-                                SelfhostCallReduceErrorKind::ExpectedTypeMismatch:
-                                    selfhost_call_reduce_expected_candidate_select_loop arena candidates expectation head add idx 1 candidate_count selected
-                                _:
-                                    Result::Err error
+                                Option::Some owned: selfhost_call_reduce_owned_result_free owned
+                                Option::None: unit
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory head.span
+                        Result::Ok candidate_arena:
+                            match selfhost_checked_expr_tree_fork checked_tree:
+                                Result::Err _e:
+                                    selfhost_type_arena_free candidate_arena
+                                    match selected:
+                                        Option::Some owned: selfhost_call_reduce_owned_result_free owned
+                                        Option::None: unit
+                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory head.span
+                                Result::Ok candidate_tree:
+                                    match selfhost_call_reduce_single_named_candidate_with_source tokens source candidate_arena candidate_tree prefix scope value_types signatures item_count head candidate some expectation trailing_block:
+                                        Result::Ok owned:
+                                            match selected:
+                                                Option::Some previous:
+                                                    selfhost_call_reduce_owned_result_free previous
+                                                    selfhost_call_reduce_owned_result_free owned
+                                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadAmbiguous head.span
+                                                Option::None:
+                                                    selfhost_call_reduce_expected_candidate_transaction_loop tokens source arena checked_tree prefix scope value_types signatures candidates expectation trailing_block head item_count add idx 1 candidate_count some owned
+                                        Result::Err e:
+                                            if:
+                                                selfhost_call_reduce_candidate_error_is_retryable e
+                                                then: selfhost_call_reduce_expected_candidate_transaction_loop tokens source arena checked_tree prefix scope value_types signatures candidates expectation trailing_block head item_count add idx 1 candidate_count selected
+                                                else:
+                                                    match selected:
+                                                        Option::Some owned: selfhost_call_reduce_owned_result_free owned
+                                                        Option::None: unit
+                                                    Result::Err e
+
+fn selfhost_call_reduce_expected_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\expectation\trailing_block\head\item_count:
+    let candidate_count %i32 v::len candidates
+    let selected %Result Option SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_expected_candidate_transaction_loop tokens source &arena &checked_tree prefix scope value_types signatures candidates expectation trailing_block head item_count 0 candidate_count none
+    selfhost_type_arena_free arena
+    selfhost_checked_expr_tree_free checked_tree
+    match selected:
+        Result::Err e: Result::Err e
+        Result::Ok value:
+            match value:
+                Option::Some owned: Result::Ok owned
+                Option::None: Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadNoCandidate head.span
 
 //: selfhost_call_reduce_named_prefix: source-less に named head の候補数を[確認/かくにん]する
 //:
@@ -1806,12 +1859,7 @@ fn selfhost_call_reduce_named_prefix_with_source_and_trailing_block %impure fn &
                         Option::Some expectation:
                             match expectation.source:
                                 SelfhostTypeExpectationSource::MatchArmDerived:
-                                    match selfhost_call_reduce_expected_candidate_select_loop &arena candidates expectation head 0 candidate_count none:
-                                        Result::Err e:
-                                            selfhost_checked_expr_tree_free checked_tree
-                                            selfhost_call_reduce_free_existing_error arena e
-                                        Result::Ok candidate:
-                                            selfhost_call_reduce_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures item_count head candidate expected trailing_block
+                                    selfhost_call_reduce_expected_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures candidates expectation trailing_block head item_count
                                 _:
                                     selfhost_checked_expr_tree_free checked_tree
                                     selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::OverloadAmbiguous head.span

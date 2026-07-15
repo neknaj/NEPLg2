@@ -21,6 +21,7 @@
 #import "neplg2/core/ty/ty/inference_match" as *
 #import "neplg2/core/ty/ty/key" as *
 #import "neplg2/core/ty/ty/kind/model" as *
+#import "neplg2/core/ty/ty/memo_trait" as *
 #import "neplg2/core/ty/ty/substitution" as *
 
 fn selfhost_inference_match_fixture_first_candidate %impure fn &SelfhostTypeArena impure fn SelfhostTypeId impure fn &Vec SelfhostTypeId impure fn i32 impure fn i32 Option SelfhostTypeId \arena\expected\actuals\idx\count:
@@ -125,5 +126,11 @@ pub fn selfhost_inference_match_fixture %impure fn void bool \void:
             SelfhostTypeSubstitutionErrorKind::InferenceVariableUnresolved rejected: selfhost_type_id_eq rejected variable_type
             _: false
     selfhost_type_substitution_binding_table_free bindings
+    let memo_key_rejected %bool match selfhost_memo_key_type_result &arena variable_type:
+        Result::Ok _unit: false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitRejectKind::ParameterUnresolved: true
+                _: false
     selfhost_type_arena_free arena
-    and and and good_ok bad_rejected and rollback_selected_good nested_unresolved_rejected and stable_key_rejected substitution_rejected
+    and and and and good_ok bad_rejected and rollback_selected_good nested_unresolved_rejected and stable_key_rejected substitution_rejected memo_key_rejected
