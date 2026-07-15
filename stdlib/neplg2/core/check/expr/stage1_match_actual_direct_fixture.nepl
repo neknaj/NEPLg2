@@ -256,7 +256,7 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_pipe %impure fn void bool
 //: fn main %impure fn void i32 \void:
 //:     if selfhost_check_expr_stage1_fixture_match_actual_arm_retry 0 1
 //: ```
-fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32 bool \mode:
+pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32 bool \mode:
     let choice_span %SelfhostSourceSpan source_span_new_unchecked 0 9 15
     let other_span %SelfhostSourceSpan source_span_new_unchecked 0 36 41
     let generic_span %SelfhostSourceSpan source_span_new_unchecked 0 61 68
@@ -268,6 +268,7 @@ fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32
     let other_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &other_added
     let constructors2 %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table other_added
     let generic_added %SelfhostTypeConstructorAddResult unwrap_ok selfhost_type_constructor_table_add_checked constructors2 "Generic" 1 generic_span
+    let generic_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &generic_added
     let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table generic_added
     let arena0 %SelfhostTypeArena unwrap_ok selfhost_type_arena_new
     let choice_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_named arena0 choice_id
@@ -276,12 +277,21 @@ fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32
     let other_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_named arena1 other_id
     let other_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &other_alloc
     let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena other_alloc
+    let i32_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_primitive arena2 SelfhostPrimitiveTypeKind::I32
+    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+    let generic_args0 %Vec SelfhostTypeId unwrap_ok v::new
+    let generic_args %Vec SelfhostTypeId unwrap_ok v::push generic_args0 i32_type
+    let generic_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena3 generic_id generic_args
+    let generic_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &generic_alloc
+    let arena4 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena generic_alloc
+    let first_result_type %SelfhostTypeId if eq mode 1 generic_type choice_type
     let choice_params %Vec SelfhostTypeId unwrap_ok v::new
-    let choice_fn_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena2 choice_params choice_type
+    let choice_fn_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena4 choice_params first_result_type
     let choice_fn %SelfhostTypeId selfhost_type_arena_alloc_type_id &choice_fn_alloc
-    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena choice_fn_alloc
+    let arena5 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena choice_fn_alloc
     let other_params %Vec SelfhostTypeId unwrap_ok v::new
-    let other_fn_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena3 other_params other_type
+    let other_fn_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena5 other_params other_type
     let other_fn %SelfhostTypeId selfhost_type_arena_alloc_type_id &other_fn_alloc
     let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena other_fn_alloc
     let scope0 %SelfhostNameScope unwrap_ok selfhost_name_scope_new
@@ -301,12 +311,12 @@ fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32
     let child_source "pub enum Choice:\n    First\npub enum Other:\n    Only\npub enum Generic<.T>:\n    Item %.T\n"
     let root_source %str if:
         eq mode 0
-        then: "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match make:\n        child::Choice::First:\n            0\n"
+        then: "#import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match make:\n        child::Choice::First:\n            0\n"
         else:
             if:
                 eq mode 1
-                then: "pub #import \"Child\" as child\nfn generic_first %fn void i32 \\void:\n    match make:\n        child::Generic::Item value:\n            0\n        child::Other::Only:\n            1\n"
-                else: "pub #import \"Child\" as child\nfn nondirect_first %fn void i32 \\void:\n    match make:\n        Choice::First:\n            0\n        child::Other::Only:\n            1\n"
+                then: "#import \"Child\" as child\nfn generic_first %fn void i32 \\void:\n    match make:\n        child::Generic::Item value:\n            0\n        child::Other::Only:\n            1\n"
+                else: "#import \"Child\" as child\nfn nondirect_first %fn void i32 \\void:\n    match make:\n        Choice::First:\n            0\n        child::Other::Only:\n            1\n"
     let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
     let vfs1 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs0 "Child" child_source
     let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs1 "Root" root_source
@@ -331,12 +341,12 @@ fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32
                                 SelfhostMatchCheckedScrutineeError::ExpressionCheck expression_error:
                                     selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadAmbiguous
                                 _: false
-    let selected_arm %i32 if eq mode 0 0 1
+    let selected_arm %i32 if eq mode 2 1 0
     let checked %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_check_match_checked_actual_member_result &graph &vfs &order "Root" 0 0 selected_arm &scope &value_types &signatures &candidates arena constructors
     let ok %bool match checked:
         Result::Err error:
             if:
-                eq mode 0
+                or eq mode 0 eq mode 1
                 then: false
                 else:
                     match error:
@@ -347,11 +357,12 @@ fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32
                                 _: false
                         _: false
         Result::Ok context:
-            let root_ok %bool selfhost_type_id_eq selfhost_match_checked_actual_member_context_root_type &context choice_type
+            let expected_root %SelfhostTypeId if eq mode 1 generic_type choice_type
+            let root_ok %bool selfhost_type_id_eq selfhost_match_checked_actual_member_context_root_type &context expected_root
             let member %SelfhostCheckedEnumMember selfhost_match_checked_actual_member_context_member &context
-            let member_ok %bool selfhost_type_id_eq member.scrutinee_type choice_type
+            let member_ok %bool selfhost_type_id_eq member.scrutinee_type expected_root
             selfhost_match_checked_actual_member_context_free context
-            and eq mode 0 and root_ok member_ok
+            and or eq mode 0 eq mode 1 and root_ok member_ok
     v::free candidates
     selfhost_value_type_evidence_table_free value_types
     selfhost_callable_signature_table_free signatures
@@ -363,6 +374,6 @@ fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32
 
 pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry %impure fn void bool \void:
     let positive %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 0
-    let generic_first_stays_ambiguous %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 1
+    let generic_retry %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 1
     let nondirect_first_stays_ambiguous %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 2
-    and positive and generic_first_stays_ambiguous nondirect_first_stays_ambiguous
+    and positive and generic_retry nondirect_first_stays_ambiguous

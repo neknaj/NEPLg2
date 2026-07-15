@@ -1,0 +1,198 @@
+#indent 4
+
+//: # ty/inference_match
+//: Match arm由来expected型を具体型へ照合するtransaction-local inference evidenceです。
+//:
+//: [契約/けいやく]: arena recordは変更しません。各候補は空binding tableから開始し、成功・失敗ともtable ownerを閉じることで候補間の束縛漏れを防ぎます。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "./id" as *
+#import "./record" as *
+#import "./arena" as *
+#import "./eq" as *
+
+pub struct SelfhostInferenceBinding:
+    variable_id %SelfhostInferenceVariableId
+    concrete_type %SelfhostTypeId
+
+impl Clone for SelfhostInferenceBinding:
+    fn clone %fn &SelfhostInferenceBinding SelfhostInferenceBinding \self: *self
+
+impl Copy for SelfhostInferenceBinding:
+    fn copy_mark %fn SelfhostInferenceBinding SelfhostInferenceBinding \self:
+        self
+
+pub struct SelfhostInferenceBindingTable:
+    bindings %Vec SelfhostInferenceBinding
+
+pub enum SelfhostInferenceMatchErrorKind:
+    InvalidTypeId
+    UnresolvedActualInferenceVariable
+    BindingConflict
+    OutOfMemory
+
+pub fn selfhost_inference_binding_table_new %impure fn void Result SelfhostInferenceBindingTable StdErrorKind \void:
+    let bindings_result %Result Vec SelfhostInferenceBinding StdErrorKind v::new
+    match bindings_result:
+        Result::Ok bindings: Result::Ok SelfhostInferenceBindingTable bindings
+        Result::Err e: Result::Err e
+
+pub fn selfhost_inference_binding_table_free %impure fn SelfhostInferenceBindingTable unit \table:
+    v::free field::get table "bindings"
+
+pub fn selfhost_inference_binding_table_len %fn &SelfhostInferenceBindingTable i32 \table:
+    let bindings %&Vec SelfhostInferenceBinding field::get_ref table "bindings"
+    v::len bindings
+
+pub fn selfhost_inference_binding_table_get %fn &SelfhostInferenceBindingTable fn i32 Option SelfhostInferenceBinding \table\idx:
+    let bindings %&Vec SelfhostInferenceBinding field::get_ref table "bindings"
+    v::get bindings idx
+
+fn selfhost_inference_binding_find_loop %fn &SelfhostInferenceBindingTable fn SelfhostInferenceVariableId fn i32 Option SelfhostTypeId \table\variable_id\idx:
+    if:
+        ge idx selfhost_inference_binding_table_len table
+        then: none
+        else:
+            match selfhost_inference_binding_table_get table idx:
+                Option::None: none
+                Option::Some binding:
+                    if:
+                        selfhost_inference_variable_id_eq binding.variable_id variable_id
+                        then: some binding.concrete_type
+                        else: selfhost_inference_binding_find_loop table variable_id add idx 1
+
+fn selfhost_inference_actual_applied_args_valid %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 fn i32 fn i32 Result unit SelfhostInferenceMatchErrorKind \arena\type_id\count\idx\fuel:
+    if:
+        ge idx count
+        then: Result::Ok unit
+        else:
+            match selfhost_type_arena_applied_arg arena type_id idx:
+                Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                Option::Some arg:
+                    match selfhost_inference_actual_type_valid arena arg fuel:
+                        Result::Err e: Result::Err e
+                        Result::Ok _unit: selfhost_inference_actual_applied_args_valid arena type_id count add idx 1 fuel
+
+fn selfhost_inference_actual_function_args_valid %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 fn i32 fn i32 Result unit SelfhostInferenceMatchErrorKind \arena\type_id\count\idx\fuel:
+    if:
+        ge idx count
+        then:
+            match selfhost_type_arena_function_result arena type_id:
+                Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                Option::Some result_type: selfhost_inference_actual_type_valid arena result_type fuel
+        else:
+            match selfhost_type_arena_function_arg arena type_id idx:
+                Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                Option::Some arg:
+                    match selfhost_inference_actual_type_valid arena arg fuel:
+                        Result::Err e: Result::Err e
+                        Result::Ok _unit: selfhost_inference_actual_function_args_valid arena type_id count add idx 1 fuel
+
+fn selfhost_inference_actual_type_valid %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 Result unit SelfhostInferenceMatchErrorKind \arena\type_id\fuel:
+    if:
+        le fuel 0
+        then: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+        else:
+            match selfhost_type_arena_get_record arena type_id:
+                Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                Option::Some record:
+                    match record:
+                        SelfhostTypeRecord::InferenceVariable _variable: Result::Err SelfhostInferenceMatchErrorKind::UnresolvedActualInferenceVariable
+                        SelfhostTypeRecord::Applied applied:
+                            selfhost_inference_actual_applied_args_valid arena type_id (selfhost_applied_type_arg_range_count selfhost_applied_type_record_args applied) 0 sub fuel 1
+                        SelfhostTypeRecord::Function _function:
+                            match selfhost_type_arena_function_arg_count arena type_id:
+                                Option::None: Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                                Option::Some count: selfhost_inference_actual_function_args_valid arena type_id count 0 sub fuel 1
+                        _: Result::Ok unit
+
+fn selfhost_inference_binding_add_result %impure fn &SelfhostTypeArena impure fn SelfhostInferenceBindingTable impure fn SelfhostInferenceVariableId impure fn SelfhostTypeId Result SelfhostInferenceBindingTable SelfhostInferenceMatchErrorKind \arena\table\variable_id\concrete_type:
+    match selfhost_inference_actual_type_valid arena concrete_type 256:
+        Result::Err e:
+            selfhost_inference_binding_table_free table
+            Result::Err e
+        Result::Ok _unit:
+            match selfhost_inference_binding_find_loop &table variable_id 0:
+                Option::Some bound:
+                    if:
+                        selfhost_type_arena_types_equal arena bound concrete_type
+                        then: Result::Ok table
+                        else:
+                            selfhost_inference_binding_table_free table
+                            Result::Err SelfhostInferenceMatchErrorKind::BindingConflict
+                Option::None:
+                    let bindings %Vec SelfhostInferenceBinding field::get table "bindings"
+                    match v::push bindings SelfhostInferenceBinding variable_id concrete_type:
+                        Result::Ok next: Result::Ok SelfhostInferenceBindingTable next
+                        Result::Err e:
+                            v::free v::vec_push_error_vec e
+                            Result::Err SelfhostInferenceMatchErrorKind::OutOfMemory
+
+fn selfhost_inference_match_applied_args_result %impure fn &SelfhostTypeArena impure fn SelfhostInferenceBindingTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn i32 impure fn i32 Result SelfhostInferenceBindingTable SelfhostInferenceMatchErrorKind \arena\table\expected\actual\count\idx:
+    if:
+        ge idx count
+        then: Result::Ok table
+        else:
+            match selfhost_type_arena_applied_arg arena expected idx:
+                Option::None:
+                    selfhost_inference_binding_table_free table
+                    Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                Option::Some expected_arg:
+                    match selfhost_type_arena_applied_arg arena actual idx:
+                        Option::None:
+                            selfhost_inference_binding_table_free table
+                            Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                        Option::Some actual_arg:
+                            match selfhost_inference_match_types_result arena table expected_arg actual_arg:
+                                Result::Err e: Result::Err e
+                                Result::Ok next: selfhost_inference_match_applied_args_result arena next expected actual count add idx 1
+
+pub fn selfhost_inference_match_types_result %impure fn &SelfhostTypeArena impure fn SelfhostInferenceBindingTable impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostInferenceBindingTable SelfhostInferenceMatchErrorKind \arena\table\expected\actual:
+    match selfhost_type_arena_get_record arena expected:
+        Option::None:
+            selfhost_inference_binding_table_free table
+            Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+        Option::Some expected_record:
+            match selfhost_type_arena_get_record arena actual:
+                Option::None:
+                    selfhost_inference_binding_table_free table
+                    Result::Err SelfhostInferenceMatchErrorKind::InvalidTypeId
+                Option::Some actual_record:
+                    match actual_record:
+                        SelfhostTypeRecord::InferenceVariable _actual_variable:
+                            selfhost_inference_binding_table_free table
+                            Result::Err SelfhostInferenceMatchErrorKind::UnresolvedActualInferenceVariable
+                        _:
+                            match expected_record:
+                                SelfhostTypeRecord::InferenceVariable variable:
+                                    selfhost_inference_binding_add_result arena table (selfhost_inference_variable_record_id variable) actual
+                                SelfhostTypeRecord::Applied expected_applied:
+                                    match actual_record:
+                                        SelfhostTypeRecord::Applied actual_applied:
+                                            let expected_count %i32 selfhost_applied_type_arg_range_count selfhost_applied_type_record_args expected_applied
+                                            let actual_count %i32 selfhost_applied_type_arg_range_count selfhost_applied_type_record_args actual_applied
+                                            if:
+                                                not and selfhost_named_type_id_eq (selfhost_applied_type_record_id expected_applied) (selfhost_applied_type_record_id actual_applied) eq expected_count actual_count
+                                                then:
+                                                    selfhost_inference_binding_table_free table
+                                                    Result::Err SelfhostInferenceMatchErrorKind::BindingConflict
+                                                else: selfhost_inference_match_applied_args_result arena table expected actual expected_count 0
+                                        _:
+                                            selfhost_inference_binding_table_free table
+                                            Result::Err SelfhostInferenceMatchErrorKind::BindingConflict
+                                _:
+                                    if:
+                                        selfhost_type_arena_types_equal arena expected actual
+                                        then: Result::Ok table
+                                        else:
+                                            selfhost_inference_binding_table_free table
+                                            Result::Err SelfhostInferenceMatchErrorKind::BindingConflict
+
+pub fn selfhost_inference_match_expected_result %impure fn &SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostInferenceBindingTable SelfhostInferenceMatchErrorKind \arena\expected\actual:
+    match selfhost_inference_binding_table_new:
+        Result::Err _e: Result::Err SelfhostInferenceMatchErrorKind::OutOfMemory
+        Result::Ok table: selfhost_inference_match_types_result arena table expected actual

@@ -477,6 +477,8 @@ pub fn selfhost_memo_key_type_result %fn &SelfhostTypeArena fn SelfhostTypeId Re
                     Result::Err SelfhostMemoTraitRejectKind::NamedLayoutUnknown
                 SelfhostTypeRecord::Parameter _parameter:
                     Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
                 SelfhostTypeRecord::Applied _applied:
                     Result::Err SelfhostMemoTraitRejectKind::AppliedLayoutUnknown
                 SelfhostTypeRecord::Function _function:
@@ -508,6 +510,8 @@ pub fn selfhost_memo_value_type_result %fn &SelfhostTypeArena fn SelfhostTypeId 
                 SelfhostTypeRecord::Named _named:
                     Result::Err SelfhostMemoTraitRejectKind::NamedLayoutUnknown
                 SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::InferenceVariable _variable:
                     Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
                 SelfhostTypeRecord::Applied _applied:
                     Result::Err SelfhostMemoTraitRejectKind::AppliedLayoutUnknown
@@ -541,6 +545,8 @@ pub fn selfhost_memo_key_type_result_with_evidence %fn &SelfhostTypeArena fn &Se
                         Option::None:
                             Result::Err SelfhostMemoTraitRejectKind::NamedLayoutUnknown
                 SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::InferenceVariable _variable:
                     Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
                 SelfhostTypeRecord::Applied _applied:
                     match selfhost_memo_trait_evidence_table_find evidence type_id:
@@ -578,6 +584,8 @@ pub fn selfhost_memo_value_type_result_with_evidence %fn &SelfhostTypeArena fn &
                         Option::None:
                             Result::Err SelfhostMemoTraitRejectKind::NamedLayoutUnknown
                 SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::InferenceVariable _variable:
                     Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
                 SelfhostTypeRecord::Applied _applied:
                     match selfhost_memo_trait_evidence_table_find evidence type_id:

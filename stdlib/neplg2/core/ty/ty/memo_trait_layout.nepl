@@ -399,6 +399,8 @@ fn selfhost_memo_trait_layout_validate_field_type %fn &SelfhostTypeArena fn Self
                     Result::Ok unit
                 SelfhostTypeRecord::Parameter _parameter:
                     Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
                 SelfhostTypeRecord::Applied _applied:
                     Result::Ok unit
                 SelfhostTypeRecord::Function _function:
@@ -473,6 +475,8 @@ fn selfhost_memo_trait_layout_validate_applied_args_loop %fn &SelfhostTypeArena 
                                     selfhost_memo_trait_layout_validate_applied_args_loop types type_id arg_count add idx 1
                                 SelfhostTypeRecord::Parameter _parameter:
                                     Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                                SelfhostTypeRecord::InferenceVariable _variable:
+                                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
                                 SelfhostTypeRecord::Applied _applied:
                                     selfhost_memo_trait_layout_validate_applied_args_loop types type_id arg_count add idx 1
                                 SelfhostTypeRecord::Function _function:
@@ -535,6 +539,8 @@ pub fn selfhost_memo_trait_layout_evidence_for_type_result %fn &SelfhostMemoTrai
                 SelfhostTypeRecord::Named named:
                     selfhost_memo_trait_layout_named_result table types selfhost_named_type_record_id named
                 SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                SelfhostTypeRecord::InferenceVariable _variable:
                     Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
                 SelfhostTypeRecord::Applied applied:
                     selfhost_memo_trait_layout_applied_result table types type_id applied

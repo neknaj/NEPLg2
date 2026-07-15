@@ -1,0 +1,129 @@
+#indent 4
+
+//: # ty/inference_match_fixture
+//: Match expected専用の束縛表が、同じ推論変数の再出現を同じ具体型へ制約し、候補間で束縛を共有しないことを検査します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/ty/ty/inference_match_fixture" as *
+//: fn main %impure fn void i32 \void:
+//:     if selfhost_inference_match_fixture 0 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty/arena" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/inference_match" as *
+#import "neplg2/core/ty/ty/key" as *
+#import "neplg2/core/ty/ty/kind/model" as *
+#import "neplg2/core/ty/ty/substitution" as *
+
+fn selfhost_inference_match_fixture_first_candidate %impure fn &SelfhostTypeArena impure fn SelfhostTypeId impure fn &Vec SelfhostTypeId impure fn i32 impure fn i32 Option SelfhostTypeId \arena\expected\actuals\idx\count:
+    if:
+        ge idx count
+        then: none
+        else:
+            match v::get actuals idx:
+                Option::None: none
+                Option::Some actual:
+                    match selfhost_inference_match_expected_result arena expected actual:
+                        Result::Ok table:
+                            selfhost_inference_binding_table_free table
+                            some actual
+                        Result::Err error:
+                            match error:
+                                SelfhostInferenceMatchErrorKind::BindingConflict:
+                                    selfhost_inference_match_fixture_first_candidate arena expected actuals add idx 1 count
+                                _: none
+
+//: selfhost_inference_match_fixture: 成功候補と衝突候補を独立した束縛ownerで照合する
+//:
+//: 最初の照合は `Pair<X, X>` と `Pair<i32, i32>` を一致させ、1件の束縛を返します。次の照合は新しい空表から開始し、`Pair<i32, bool>` を束縛衝突として拒否します。
+pub fn selfhost_inference_match_fixture %impure fn void bool \void:
+    let arena0 %SelfhostTypeArena unwrap_ok selfhost_type_arena_new
+    let variable_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_fresh_inference_variable arena0
+    let variable_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &variable_alloc
+    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena variable_alloc
+    let i32_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::I32
+    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+    let bool_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_primitive arena2 SelfhostPrimitiveTypeKind::Bool
+    let bool_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &bool_alloc
+    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena bool_alloc
+    let expected_args0 %Vec SelfhostTypeId unwrap_ok v::new
+    let expected_args1 %Vec SelfhostTypeId unwrap_ok v::push expected_args0 variable_type
+    let expected_args %Vec SelfhostTypeId unwrap_ok v::push expected_args1 variable_type
+    let expected_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena3 (selfhost_named_type_id_new 17) expected_args
+    let expected %SelfhostTypeId selfhost_type_arena_alloc_type_id &expected_alloc
+    let arena4 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena expected_alloc
+    let good_args0 %Vec SelfhostTypeId unwrap_ok v::new
+    let good_args1 %Vec SelfhostTypeId unwrap_ok v::push good_args0 i32_type
+    let good_args %Vec SelfhostTypeId unwrap_ok v::push good_args1 i32_type
+    let good_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena4 (selfhost_named_type_id_new 17) good_args
+    let good %SelfhostTypeId selfhost_type_arena_alloc_type_id &good_alloc
+    let arena5 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena good_alloc
+    let bad_args0 %Vec SelfhostTypeId unwrap_ok v::new
+    let bad_args1 %Vec SelfhostTypeId unwrap_ok v::push bad_args0 i32_type
+    let bad_args %Vec SelfhostTypeId unwrap_ok v::push bad_args1 bool_type
+    let bad_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena5 (selfhost_named_type_id_new 17) bad_args
+    let bad %SelfhostTypeId selfhost_type_arena_alloc_type_id &bad_alloc
+    let arena6 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena bad_alloc
+    let nested_variable_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_fresh_inference_variable arena6
+    let nested_variable %SelfhostTypeId selfhost_type_arena_alloc_type_id &nested_variable_alloc
+    let arena7 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena nested_variable_alloc
+    let nested_args0 %Vec SelfhostTypeId unwrap_ok v::new
+    let nested_args %Vec SelfhostTypeId unwrap_ok v::push nested_args0 nested_variable
+    let nested_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena7 (selfhost_named_type_id_new 23) nested_args
+    let nested_actual %SelfhostTypeId selfhost_type_arena_alloc_type_id &nested_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena nested_alloc
+    let good_ok %bool match selfhost_inference_match_expected_result &arena expected good:
+        Result::Err _e: false
+        Result::Ok table:
+            let one_binding %bool eq selfhost_inference_binding_table_len &table 1
+            selfhost_inference_binding_table_free table
+            one_binding
+    let bad_rejected %bool match selfhost_inference_match_expected_result &arena expected bad:
+        Result::Ok table:
+            selfhost_inference_binding_table_free table
+            false
+        Result::Err e: match e:
+            SelfhostInferenceMatchErrorKind::BindingConflict: true
+            _: false
+    let actuals0 %Vec SelfhostTypeId unwrap_ok v::new
+    let actuals1 %Vec SelfhostTypeId unwrap_ok v::push actuals0 bad
+    let actuals %Vec SelfhostTypeId unwrap_ok v::push actuals1 good
+    let rollback_selected_good %bool match selfhost_inference_match_fixture_first_candidate &arena expected &actuals 0 2:
+        Option::Some selected: selfhost_type_id_eq selected good
+        Option::None: false
+    v::free actuals
+    let nested_unresolved_rejected %bool match selfhost_inference_match_expected_result &arena variable_type nested_actual:
+        Result::Ok table:
+            selfhost_inference_binding_table_free table
+            false
+        Result::Err e: match e:
+            SelfhostInferenceMatchErrorKind::UnresolvedActualInferenceVariable: true
+            _: false
+    let stable_key_rejected %bool match selfhost_canonical_type_key_project_from_arena &arena variable_type:
+        Result::Ok allocated:
+            selfhost_canonical_type_key_arena_free selfhost_canonical_type_key_arena_alloc_into_arena allocated
+            false
+        Result::Err error: match error.kind:
+            SelfhostCanonicalTypeKeyProjectErrorKind::InferenceVariableUnresolved: true
+            _: false
+    let substitution_arena %SelfhostTypeArena unwrap_ok selfhost_type_arena_fork &arena
+    let bindings %SelfhostTypeSubstitutionBindingTable unwrap_ok selfhost_type_substitution_binding_table_new
+    let substitution_rejected %bool match selfhost_type_substitution_result substitution_arena &bindings variable_type:
+        Result::Ok result:
+            selfhost_type_substitution_result_free result
+            false
+        Result::Err error: match error:
+            SelfhostTypeSubstitutionErrorKind::InferenceVariableUnresolved rejected: selfhost_type_id_eq rejected variable_type
+            _: false
+    selfhost_type_substitution_binding_table_free bindings
+    selfhost_type_arena_free arena
+    and and and good_ok bad_rejected and rollback_selected_good nested_unresolved_rejected and stable_key_rejected substitution_rejected

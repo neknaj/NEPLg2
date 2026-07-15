@@ -55,6 +55,7 @@ pub struct SelfhostCanonicalTypeKeyArenaAlloc:
 
 pub enum SelfhostCanonicalTypeKeyProjectErrorKind:
     MissingTypeRecord
+    InferenceVariableUnresolved
     MissingTypeArgument
     MissingFunctionArgument
     InvalidAppliedArgumentRange
@@ -367,6 +368,8 @@ fn selfhost_canonical_type_key_project_node %impure fn &SelfhostTypeArena impure
                     let binding %SelfhostTypeParameterBinding selfhost_type_parameter_record_binding parameter
                     let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Parameter binding
                     selfhost_canonical_type_key_push_node key_arena node type_id
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    selfhost_canonical_type_key_project_fail key_arena SelfhostCanonicalTypeKeyProjectErrorKind::InferenceVariableUnresolved type_id
                 SelfhostTypeRecord::Applied applied:
                     selfhost_canonical_type_key_project_applied types key_arena type_id applied
                 SelfhostTypeRecord::Function function:

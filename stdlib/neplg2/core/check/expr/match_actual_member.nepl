@@ -107,11 +107,11 @@ fn selfhost_match_actual_export_count %fn &SelfhostPublicExportTable fn i32 fn s
                     let matches %bool and eq entry.owner_module_node_index owner string_search::str_eq entry.visible_name name
                     selfhost_match_actual_export_count table owner name add idx 1 if matches add count 1 count
 
-//: selfhost_match_actual_nongeneric_expected_nominal: arm originとborrowed constructor headerを再結合する
+//: selfhost_match_actual_expected_nominal: arm originとborrowed constructor headerを再結合する
 //:
-//: [契約/けいやく]: exact qualified import、単一public enum export、元宣言spanと一致するarity 0 constructorだけをexpected nominalとして返します。generic constructorやsynthetic origin headerはnoneです。
+//: [契約/けいやく]: exact qualified import、単一public enum export、元宣言spanと一致するconstructorのnominal identityとarityを返します。synthetic origin headerはnoneです。
 //: [owner boundary]: 一時qualified/export tableは全経路で閉じ、caller ownerは借用したままです。
-fn selfhost_match_actual_nongeneric_expected_nominal %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostMatchActualArmSpans impure fn &SelfhostTypeConstructorTable Option SelfhostNamedTypeId \graph\vfs\order\path\spans\constructors:
+fn selfhost_match_actual_expected_nominal %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostMatchActualArmSpans impure fn &SelfhostTypeConstructorTable Option SelfhostMatchActualExpectedNominal \graph\vfs\order\path\spans\constructors:
     match selfhost_qualified_enum_import_table_build graph vfs path spans.alias:
         Result::Err _e: none
         Result::Ok qualified:
@@ -131,7 +131,7 @@ fn selfhost_match_actual_nongeneric_expected_nominal %impure fn &SelfhostModuleG
                             selfhost_qualified_enum_import_table_free qualified
                             none
                         Result::Ok exports:
-                            let expected %Option SelfhostNamedTypeId if:
+                            let expected %Option SelfhostMatchActualExpectedNominal if:
                                 ne selfhost_match_actual_export_count &exports owner visible_name 0 0 1
                                 then: none
                                 else:
@@ -144,8 +144,8 @@ fn selfhost_match_actual_nongeneric_expected_nominal %impure fn &SelfhostModuleG
                                                         Option::None: none
                                                         Option::Some constructor:
                                                             if:
-                                                                and and selfhost_type_constructor_kind_eq constructor.kind SelfhostTypeConstructorKind::Type selfhost_match_actual_span_eq constructor.span entry.original_name_span string_search::str_eq constructor.name entry.original_name
-                                                                then: some constructor.nominal_id
+                                                                and selfhost_match_actual_span_eq constructor.span entry.original_name_span string_search::str_eq constructor.name entry.original_name
+                                                                then: some SelfhostMatchActualExpectedNominal constructor.nominal_id (selfhost_type_constructor_kind_arg_count constructor.kind) spans.enum_name
                                                                 else: none
                                                 _: none
                             selfhost_public_export_table_free exports
@@ -154,9 +154,18 @@ fn selfhost_match_actual_nongeneric_expected_nominal %impure fn &SelfhostModuleG
 
 struct SelfhostMatchActualExpectedNominal:
     nominal_id %SelfhostNamedTypeId
+    arity %i32
     source_span %SelfhostSourceSpan
 
-fn selfhost_match_actual_first_nongeneric_expected_nominal %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn &SelfhostMatchContext impure fn &SelfhostTypeConstructorTable Option SelfhostMatchActualExpectedNominal \graph\vfs\order\path\context\constructors:
+impl Clone for SelfhostMatchActualExpectedNominal:
+    fn clone %fn &SelfhostMatchActualExpectedNominal SelfhostMatchActualExpectedNominal \self:
+        *self
+
+impl Copy for SelfhostMatchActualExpectedNominal:
+    fn copy_mark %fn SelfhostMatchActualExpectedNominal SelfhostMatchActualExpectedNominal \self:
+        self
+
+fn selfhost_match_actual_first_expected_nominal %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn &SelfhostMatchContext impure fn &SelfhostTypeConstructorTable Option SelfhostMatchActualExpectedNominal \graph\vfs\order\path\context\constructors:
     if:
         eq selfhost_match_context_arm_len context 0
         then: none
@@ -164,9 +173,48 @@ fn selfhost_match_actual_first_nongeneric_expected_nominal %impure fn &SelfhostM
             match selfhost_match_actual_arm_spans context 0:
                 Result::Err _e: none
                 Result::Ok spans:
-                    match selfhost_match_actual_nongeneric_expected_nominal graph vfs order path spans constructors:
-                        Option::Some nominal_id: some SelfhostMatchActualExpectedNominal nominal_id spans.enum_name
-                        Option::None: none
+                    selfhost_match_actual_expected_nominal graph vfs order path spans constructors
+
+struct SelfhostMatchActualFreshArgs:
+    arena %SelfhostTypeArena
+    args %Vec SelfhostTypeId
+
+fn selfhost_match_actual_add_fresh_args %impure fn SelfhostTypeArena impure fn Vec SelfhostTypeId impure fn i32 impure fn i32 Result SelfhostMatchActualFreshArgs StdErrorKind \arena\args\arity\idx:
+    if:
+        ge idx arity
+        then: Result::Ok SelfhostMatchActualFreshArgs arena args
+        else:
+            match selfhost_type_arena_add_fresh_inference_variable arena:
+                Result::Err e:
+                    v::free args
+                    Result::Err e
+                Result::Ok allocated:
+                    let variable_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    match v::push args variable_type:
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            selfhost_type_arena_free next_arena
+                            Result::Err error
+                        Result::Ok next_args:
+                            selfhost_match_actual_add_fresh_args next_arena next_args arity add idx 1
+
+fn selfhost_match_actual_add_expected_type %impure fn SelfhostTypeArena impure fn SelfhostMatchActualExpectedNominal Result SelfhostTypeArenaAlloc StdErrorKind \arena\expected:
+    if:
+        eq expected.arity 0
+        then: selfhost_type_arena_add_named arena expected.nominal_id
+        else:
+            let args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+            match args_result:
+                Result::Err e:
+                    selfhost_type_arena_free arena
+                    Result::Err e
+                Result::Ok args:
+                    match selfhost_match_actual_add_fresh_args arena args expected.arity 0:
+                        Result::Err e: Result::Err e
+                        Result::Ok fresh:
+                            selfhost_type_arena_add_applied_named (field::get fresh "arena") expected.nominal_id (field::get fresh "args")
 
 fn selfhost_match_actual_arm_spans %fn &SelfhostMatchContext fn i32 Result SelfhostMatchActualArmSpans SelfhostMatchActualArmProjectionError \context\arm_ordinal:
     match selfhost_match_variant_arm_list_get selfhost_match_context_arms context arm_ordinal:
@@ -238,7 +286,7 @@ pub fn selfhost_check_match_single_named_value_actual_member_result %impure fn &
                                 Result::Ok result: Result::Ok result
 
 fn selfhost_match_checked_actual_member_with_spans %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostMatchContext impure fn SelfhostMatchActualArmSpans impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\context\spans\scope\value_types\signatures\candidates\arena\constructors:
-    match selfhost_match_actual_first_nongeneric_expected_nominal graph vfs order path &context &constructors:
+    match selfhost_match_actual_first_expected_nominal graph vfs order path &context &constructors:
         Option::None:
             match selfhost_match_checked_scrutinee_result &context &constructors arena scope value_types signatures candidates:
                 Result::Err e:
@@ -249,7 +297,7 @@ fn selfhost_match_checked_actual_member_with_spans %impure fn &SelfhostModuleGra
                     selfhost_match_context_free context
                     selfhost_match_checked_actual_member_connect graph vfs order path spans checked_root constructors
         Option::Some expected_nominal:
-            match selfhost_type_arena_add_named arena expected_nominal.nominal_id:
+            match selfhost_match_actual_add_expected_type arena expected_nominal:
                 Result::Err _e:
                     selfhost_match_context_free context
                     selfhost_type_constructor_table_free constructors

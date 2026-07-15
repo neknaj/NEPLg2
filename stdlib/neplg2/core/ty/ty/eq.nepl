@@ -137,6 +137,8 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                     false
                 SelfhostTypeRecord::Parameter _b_parameter:
                     false
+                SelfhostTypeRecord::InferenceVariable _b_variable:
+                    false
                 SelfhostTypeRecord::Applied _b_applied:
                     false
                 SelfhostTypeRecord::Function _b_function:
@@ -148,6 +150,8 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                 SelfhostTypeRecord::Named b_named:
                     selfhost_named_type_id_eq (selfhost_named_type_record_id a_named) (selfhost_named_type_record_id b_named)
                 SelfhostTypeRecord::Parameter _b_parameter:
+                    false
+                SelfhostTypeRecord::InferenceVariable _b_variable:
                     false
                 SelfhostTypeRecord::Applied _b_applied:
                     false
@@ -161,9 +165,17 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                     false
                 SelfhostTypeRecord::Parameter b_parameter:
                     selfhost_type_parameter_binding_eq (selfhost_type_parameter_record_binding a_parameter) (selfhost_type_parameter_record_binding b_parameter)
+                SelfhostTypeRecord::InferenceVariable _b_variable:
+                    false
                 SelfhostTypeRecord::Applied _b_applied:
                     false
                 SelfhostTypeRecord::Function _b_function:
+                    false
+        SelfhostTypeRecord::InferenceVariable a_variable:
+            match b:
+                SelfhostTypeRecord::InferenceVariable b_variable:
+                    selfhost_inference_variable_id_eq (selfhost_inference_variable_record_id a_variable) (selfhost_inference_variable_record_id b_variable)
+                _:
                     false
         SelfhostTypeRecord::Applied a_applied:
             match b:
@@ -172,6 +184,8 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                 SelfhostTypeRecord::Named _b_named:
                     false
                 SelfhostTypeRecord::Parameter _b_parameter:
+                    false
+                SelfhostTypeRecord::InferenceVariable _b_variable:
                     false
                 SelfhostTypeRecord::Applied b_applied:
                     and:
@@ -186,6 +200,8 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                 SelfhostTypeRecord::Named _b_named:
                     false
                 SelfhostTypeRecord::Parameter _b_parameter:
+                    false
+                SelfhostTypeRecord::InferenceVariable _b_variable:
                     false
                 SelfhostTypeRecord::Applied _b_applied:
                     false

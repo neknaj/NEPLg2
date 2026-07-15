@@ -42,8 +42,10 @@ for (const needle of [
   "SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type",
   "selfhost_checked_exported_enum_member_context_free",
   "selfhost_checked_expr_tree_free",
-  "selfhost_match_actual_nongeneric_expected_nominal",
-  "SelfhostMatchActualExpectedNominal nominal_id spans.enum_name",
+  "selfhost_match_actual_expected_nominal",
+  "SelfhostMatchActualExpectedNominal constructor.nominal_id (selfhost_type_constructor_kind_arg_count constructor.kind) spans.enum_name",
+  "selfhost_type_arena_add_fresh_inference_variable",
+  "selfhost_type_arena_add_applied_named",
   "SelfhostTypeExpectationSource::MatchArmDerived",
   "selfhost_match_checked_scrutinee_retry_result",
 ]) {
@@ -78,7 +80,7 @@ for (const needle of [
   "selfhost_type_arena_fork &arena",
   "pub enum Other:",
   "pub enum Generic<.T>:",
-  "generic_first_stays_ambiguous",
+  "generic_retry",
   "nondirect_first_stays_ambiguous",
 ]) {
   if (!fixture.includes(needle)) throw new Error(`actual Match runtime gate missing: ${needle}`);

@@ -178,6 +178,7 @@ pub enum SelfhostTypeSubstitutionErrorKind:
     DuplicateBinding %SelfhostTypeParameterBinding
     ReplacementTypeMissing %SelfhostTypeId
     MissingSourceTypeRecord %SelfhostTypeId
+    InferenceVariableUnresolved %SelfhostTypeId
     MissingAppliedTypeArgument %SelfhostTypeId
     MissingFunctionTypeArgument %SelfhostTypeId
     MissingFunctionResult %SelfhostTypeId
@@ -431,6 +432,8 @@ fn selfhost_type_substitution_error_kind_code %fn SelfhostTypeSubstitutionErrorK
             10
         SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord _id:
             11
+        SelfhostTypeSubstitutionErrorKind::InferenceVariableUnresolved _id:
+            20
         SelfhostTypeSubstitutionErrorKind::MissingAppliedTypeArgument _id:
             12
         SelfhostTypeSubstitutionErrorKind::MissingFunctionTypeArgument _id:
@@ -472,6 +475,8 @@ fn selfhost_type_substitution_error_kind_payload0 %fn SelfhostTypeSubstitutionEr
         SelfhostTypeSubstitutionErrorKind::ReplacementTypeMissing id:
             id.index
         SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord id:
+            id.index
+        SelfhostTypeSubstitutionErrorKind::InferenceVariableUnresolved id:
             id.index
         SelfhostTypeSubstitutionErrorKind::MissingAppliedTypeArgument id:
             id.index
@@ -515,6 +520,8 @@ fn selfhost_type_substitution_error_kind_payload1 %fn SelfhostTypeSubstitutionEr
             0
         SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord _id:
             0
+        SelfhostTypeSubstitutionErrorKind::InferenceVariableUnresolved _id:
+            0
         SelfhostTypeSubstitutionErrorKind::MissingAppliedTypeArgument _id:
             0
         SelfhostTypeSubstitutionErrorKind::MissingFunctionTypeArgument _id:
@@ -556,6 +563,8 @@ fn selfhost_type_substitution_error_kind_payload2 %fn SelfhostTypeSubstitutionEr
         SelfhostTypeSubstitutionErrorKind::ReplacementTypeMissing _id:
             0
         SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::InferenceVariableUnresolved _id:
             0
         SelfhostTypeSubstitutionErrorKind::MissingAppliedTypeArgument _id:
             0
@@ -763,6 +772,8 @@ fn selfhost_type_substitution_substitute_type_result %impure fn SelfhostTypeAren
                                             selfhost_type_substitution_push_leaf_result arena step_table type_id type_id SelfhostTypeSubstitutionStepKind::ParameterKept
                                 Result::Err e:
                                     selfhost_type_substitution_node_fail arena step_table e
+                        SelfhostTypeRecord::InferenceVariable _variable:
+                            selfhost_type_substitution_node_fail arena step_table SelfhostTypeSubstitutionErrorKind::InferenceVariableUnresolved type_id
                         SelfhostTypeRecord::Applied applied:
                             selfhost_type_substitution_substitute_applied_result arena step_table bindings type_id applied sub fuel 1
                         SelfhostTypeRecord::Function function:

@@ -444,6 +444,8 @@ fn selfhost_memo_trait_recursive_aggregate_visit_type_result %impure fn &Selfhos
                                     selfhost_memo_trait_recursive_aggregate_visit_known_aggregate_result types layout_table stack type_id depth max_depth
                                 SelfhostTypeRecord::Parameter _parameter:
                                     selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                                SelfhostTypeRecord::InferenceVariable _variable:
+                                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
                                 SelfhostTypeRecord::Applied _applied:
                                     selfhost_memo_trait_recursive_aggregate_visit_known_aggregate_result types layout_table stack type_id depth max_depth
                                 SelfhostTypeRecord::Function _function:
@@ -510,6 +512,8 @@ fn selfhost_memo_trait_recursive_aggregate_field_type_result %impure fn &Selfhos
                         Result::Err e:
                             Result::Err e
                 SelfhostTypeRecord::Parameter _parameter:
+                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                SelfhostTypeRecord::InferenceVariable _variable:
                     selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
                 SelfhostTypeRecord::Applied _applied:
                     match selfhost_memo_trait_recursive_aggregate_visit_type_result types layout_table stack field_type add depth 1 max_depth:

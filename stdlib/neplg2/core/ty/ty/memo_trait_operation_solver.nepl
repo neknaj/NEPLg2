@@ -244,6 +244,8 @@ fn selfhost_memo_trait_operation_solver_field_record_result %fn &SelfhostTypeAre
                     selfhost_memo_trait_operation_solver_record_result types layout_table field_type
                 SelfhostTypeRecord::Parameter _parameter:
                     Result::Ok selfhost_memo_trait_operation_solver_record_unknown field_type
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    Result::Err SelfhostMemoTraitOperationSolverErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
                 SelfhostTypeRecord::Function _function:
                     Result::Ok selfhost_memo_trait_operation_solver_record_unknown field_type
         Option::None:

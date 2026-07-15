@@ -296,6 +296,8 @@ fn selfhost_memo_trait_public_impl_generic_substitution_projection_project_error
     match kind:
         SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeRecord:
             1
+        SelfhostCanonicalTypeKeyProjectErrorKind::InferenceVariableUnresolved:
+            8
         SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeArgument:
             2
         SelfhostCanonicalTypeKeyProjectErrorKind::MissingFunctionArgument:

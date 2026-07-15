@@ -242,6 +242,24 @@ pub fn selfhost_type_arena_add_type_parameter %impure fn SelfhostTypeArena impur
         else:
             selfhost_type_arena_push_record arena selfhost_type_record_parameter binding
 
+//: selfhost_type_arena_add_fresh_inference_variable: transaction-local fresh型変数を追加する
+//:
+//: [契約/けいやく]: variable identityは追加前record長から作り、同じarena内で一意です。bindingはrecordへ書き込まず専用evidence ownerが保持します。
+pub fn selfhost_type_arena_add_fresh_inference_variable %impure fn SelfhostTypeArena Result SelfhostTypeArenaAlloc StdErrorKind \arena:
+    let variable_id %SelfhostInferenceVariableId selfhost_inference_variable_id_new_unchecked selfhost_type_arena_len &arena
+    selfhost_type_arena_push_record arena selfhost_type_record_inference_variable variable_id
+
+pub fn selfhost_type_arena_inference_variable_id %fn &SelfhostTypeArena fn SelfhostTypeId Option SelfhostInferenceVariableId \arena\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::InferenceVariable variable:
+                    some selfhost_inference_variable_record_id variable
+                _:
+                    none
+        Option::None:
+            none
+
 //: selfhost_type_arena_copy_type_args: applied type argument TypeId を arena argument table に[複製/ふくせい]する
 pub fn selfhost_type_arena_copy_type_args %impure fn Vec SelfhostTypeId impure fn &Vec SelfhostTypeId impure fn i32 impure fn i32 Result Vec SelfhostTypeId StdErrorKind \out\params\n\idx:
     if:
@@ -356,6 +374,8 @@ pub fn selfhost_type_arena_get_kind %fn &SelfhostTypeArena fn SelfhostTypeId Opt
                     some SelfhostTypeKind::Named
                 SelfhostTypeRecord::Parameter _parameter:
                     some SelfhostTypeKind::Parameter
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    none
                 SelfhostTypeRecord::Applied _applied:
                     some SelfhostTypeKind::Named
                 SelfhostTypeRecord::Function _function:
@@ -418,6 +438,8 @@ pub fn selfhost_type_arena_named_id %fn &SelfhostTypeArena fn SelfhostTypeId Opt
                     some selfhost_named_type_record_id named
                 SelfhostTypeRecord::Parameter _parameter:
                     none
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    none
                 SelfhostTypeRecord::Applied _applied:
                     none
                 SelfhostTypeRecord::Function _function:
@@ -443,6 +465,8 @@ pub fn selfhost_type_arena_type_parameter_binding %fn &SelfhostTypeArena fn Self
                     none
                 SelfhostTypeRecord::Parameter parameter:
                     some selfhost_type_parameter_record_binding parameter
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    none
                 SelfhostTypeRecord::Applied _applied:
                     none
                 SelfhostTypeRecord::Function _function:
@@ -460,6 +484,8 @@ pub fn selfhost_type_arena_applied_constructor_id %fn &SelfhostTypeArena fn Self
                 SelfhostTypeRecord::Named _named:
                     none
                 SelfhostTypeRecord::Parameter _parameter:
+                    none
+                SelfhostTypeRecord::InferenceVariable _variable:
                     none
                 SelfhostTypeRecord::Applied applied:
                     some selfhost_applied_type_record_id applied
@@ -479,6 +505,8 @@ pub fn selfhost_type_arena_applied_arg_count %fn &SelfhostTypeArena fn SelfhostT
                     none
                 SelfhostTypeRecord::Parameter _parameter:
                     none
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    none
                 SelfhostTypeRecord::Applied applied:
                     some selfhost_applied_type_arg_range_count selfhost_applied_type_record_args applied
                 SelfhostTypeRecord::Function _function:
@@ -496,6 +524,8 @@ pub fn selfhost_type_arena_applied_arg %fn &SelfhostTypeArena fn SelfhostTypeId 
                 SelfhostTypeRecord::Named _named:
                     none
                 SelfhostTypeRecord::Parameter _parameter:
+                    none
+                SelfhostTypeRecord::InferenceVariable _variable:
                     none
                 SelfhostTypeRecord::Applied applied:
                     let args %SelfhostAppliedTypeArgRange selfhost_applied_type_record_args applied
@@ -524,6 +554,8 @@ pub fn selfhost_type_arena_function_arg_count %fn &SelfhostTypeArena fn Selfhost
                     none
                 SelfhostTypeRecord::Parameter _parameter:
                     none
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    none
                 SelfhostTypeRecord::Applied _applied:
                     none
                 SelfhostTypeRecord::Function function:
@@ -541,6 +573,8 @@ pub fn selfhost_type_arena_function_arg %fn &SelfhostTypeArena fn SelfhostTypeId
                 SelfhostTypeRecord::Named _named:
                     none
                 SelfhostTypeRecord::Parameter _parameter:
+                    none
+                SelfhostTypeRecord::InferenceVariable _variable:
                     none
                 SelfhostTypeRecord::Applied _applied:
                     none
@@ -569,6 +603,8 @@ pub fn selfhost_type_arena_function_result %fn &SelfhostTypeArena fn SelfhostTyp
                 SelfhostTypeRecord::Named _named:
                     none
                 SelfhostTypeRecord::Parameter _parameter:
+                    none
+                SelfhostTypeRecord::InferenceVariable _variable:
                     none
                 SelfhostTypeRecord::Applied _applied:
                     none

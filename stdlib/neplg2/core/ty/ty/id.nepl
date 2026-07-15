@@ -14,6 +14,12 @@ pub struct SelfhostTypeId:
 pub struct SelfhostNamedTypeId:
     index %i32
 
+//: SelfhostInferenceVariableId: checker transaction内だけで有効なfresh型変数identity
+//:
+//: [契約/けいやく]: arena-local identityであり、永続keyや別arenaへ輸送しません。fork時点の同じindexだけがsnapshot間で対応します。
+pub struct SelfhostInferenceVariableId:
+    index %i32
+
 //: SelfhostTypeParameterBinding: generic binder 内の type parameter 参照
 //:
 //: [目的/もくてき]:
@@ -48,6 +54,14 @@ impl Copy for SelfhostNamedTypeId:
     fn copy_mark %fn SelfhostNamedTypeId SelfhostNamedTypeId \self:
         self
 
+impl Clone for SelfhostInferenceVariableId:
+    fn clone %fn &SelfhostInferenceVariableId SelfhostInferenceVariableId \self:
+        *self
+
+impl Copy for SelfhostInferenceVariableId:
+    fn copy_mark %fn SelfhostInferenceVariableId SelfhostInferenceVariableId \self:
+        self
+
 impl Clone for SelfhostTypeParameterBinding:
     fn clone %fn &SelfhostTypeParameterBinding SelfhostTypeParameterBinding \self:
         *self
@@ -63,6 +77,9 @@ pub fn selfhost_type_id_new %fn i32 SelfhostTypeId \index:
 //: selfhost_named_type_id_new: named type identity を[作/つく]る
 pub fn selfhost_named_type_id_new %fn i32 SelfhostNamedTypeId \index:
     SelfhostNamedTypeId index
+
+pub fn selfhost_inference_variable_id_new_unchecked %fn i32 SelfhostInferenceVariableId \index:
+    SelfhostInferenceVariableId index
 
 //: selfhost_type_parameter_binding_new_unchecked: type parameter binding を[作/つく]る
 //:
@@ -82,6 +99,15 @@ pub fn selfhost_type_id_index %fn SelfhostTypeId i32 \type_id:
 //: selfhost_named_type_id_index: named type identity の index を[返/かえ]す
 pub fn selfhost_named_type_id_index %fn SelfhostNamedTypeId i32 \named_id:
     named_id.index
+
+pub fn selfhost_inference_variable_id_index %fn SelfhostInferenceVariableId i32 \variable_id:
+    variable_id.index
+
+pub fn selfhost_inference_variable_id_is_valid %fn SelfhostInferenceVariableId bool \variable_id:
+    ge variable_id.index 0
+
+pub fn selfhost_inference_variable_id_eq %fn SelfhostInferenceVariableId fn SelfhostInferenceVariableId bool \a\b:
+    and and selfhost_inference_variable_id_is_valid a selfhost_inference_variable_id_is_valid b eq a.index b.index
 
 //: selfhost_type_parameter_binding_binder_depth: type parameter binding の binder depth を[返/かえ]す
 pub fn selfhost_type_parameter_binding_binder_depth %fn SelfhostTypeParameterBinding i32 \binding:

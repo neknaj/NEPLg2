@@ -1,3 +1,10 @@
+# 2026-07-15 Selfhost generic Match arm inference transaction
+
+- `SelfhostTypeRecord::InferenceVariable` と arena-local fresh ID producer を追加し、generic enum の先頭 direct variant armから `Applied<Enum, fresh...>` expected型を生成するようにした。期待型無しのscrutinee検査が失敗した場合だけ既存arena forkから一度再試行する。
+- `MatchArmDerived` expectation に限って、expected型内のfresh variableを候補resultの具体型へ照合する所有binding tableを使う。同じvariableの再出現は同じ具体型だけを許し、各候補は空tableから始め、成功・失敗のどちらでもownerを閉じるため候補間に束縛が漏れない。
+- 未解決inference variableはcanonical key、substitution、memo trait/layout/producer/recursive aggregateの安定境界で明示的に拒否する。現行selfhostには診断accumulatorやpending constraint tableが無いため、今回のtransaction対象はarena forkと候補ローカルbinding ownerであり、存在しない副作用列は導入していない。
+- runtime gateは `Pair<X, X>` と `Pair<i32, i32>` の1束縛成功、`Pair<i32, bool>` の衝突拒否、および先頭 `Generic<.T>::Item` armが `Generic<i32>` result候補を選ぶactual Match retryを検査する。payload substitution、bind検査、arm body統一、一般generic call推論は後続sliceである。
+
 # 2026-07-15 Selfhost non-generic Match arm retry
 
 ## 方針

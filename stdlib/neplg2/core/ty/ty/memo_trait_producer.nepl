@@ -545,6 +545,8 @@ pub fn selfhost_memo_trait_aggregate_proof_to_record %fn &SelfhostTypeArena fn S
                             Result::Ok selfhost_memo_trait_evidence_record_new proof.type_id key_result value_result
                 SelfhostTypeRecord::Parameter _parameter:
                     Result::Err SelfhostMemoTraitEvidenceProduceRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::InferenceVariable _variable:
+                    Result::Err SelfhostMemoTraitEvidenceProduceRejectKind::ParameterUnresolved
                 SelfhostTypeRecord::Applied _applied:
                     match selfhost_memo_trait_aggregate_record_reject proof:
                         Option::Some kind:

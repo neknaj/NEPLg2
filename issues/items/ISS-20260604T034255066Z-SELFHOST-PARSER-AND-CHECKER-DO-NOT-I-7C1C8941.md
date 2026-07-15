@@ -613,3 +613,6 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - Rust同様のarm-derived expected type推論、diagnostic/type context rollback、再試行、checked Match tree / HIR / Resource輸送は後続sliceであり、セルフホストコンパイラ全体は未完成である。
 - actual VFSからchecked rootとmember identityまでのruntime gateについて、WASI warning後も子processが継続していた実行を約29秒の完走と誤認していた。終了コードを監視した再検証ではcompiler analysisに長時間を要した後、matchしたOption payload越しのnested span projectionが`resource.cell.uninit`を3件報告した。enum variant headerとMatch arm spanを明示的なCopy境界で取り出し、borrowed payload越しにnested fieldを投影しない形へ修正した。direct / ascription / pipe / ambiguityは既存reducer component runtimeとcontractで維持し、Rust同様のarm-derived expected type推論とrollback/retryは次sliceである。
 - performance追跡では、予約名の純粋な固定集合判定をnested `if`で書いた2関数だけがResource path replayを約25秒生成していた。同じ13比較をeagerな`or`へ正規化し、contractで集合とbranch不在を固定した。full actual fixtureはCPU競合下の300秒上限ではなお完走せず、runtime gateとセルフホスト全体は未完成である。
+## 2026-07-15 generic Match arm inference slice
+
+先頭direct variant armがgeneric enum constructorを指す場合、constructor arityに対応するarena-local fresh inference variableと`Applied` expected型を生成し、期待型無しscrutinee検査失敗後の単回retryへ接続した。`MatchArmDerived` expectationだけが候補ローカルbinding transactionを使い、同一variableの反復を同じ具体型へ制約する。未解決variableはcanonical key、substitution、memo/layout/producer境界でfail-closedに拒否する。payload substitution、bind検査、arm body型統一と一般generic call推論は引き続き本issueの後続sliceである。

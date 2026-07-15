@@ -221,6 +221,8 @@ fn selfhost_memo_trait_stable_type_argument_identity_project_error_kind_code %fn
     match kind:
         SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeRecord:
             1
+        SelfhostCanonicalTypeKeyProjectErrorKind::InferenceVariableUnresolved:
+            8
         SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeArgument:
             2
         SelfhostCanonicalTypeKeyProjectErrorKind::MissingFunctionArgument:
