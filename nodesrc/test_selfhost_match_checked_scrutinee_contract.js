@@ -26,6 +26,10 @@ for (const needle of [
   "candidates none",
   "selfhost_checked_expr_tree_get_node &checked_tree root_expr",
   "selfhost_type_arena_get_record &arena root_type",
+  "selfhost_type_arena_fork &arena",
+  "selfhost_match_checked_scrutinee_result context constructors first_arena",
+  "selfhost_match_checked_scrutinee_result_with_expected context constructors arena",
+  "some expected",
 ]) {
   if (!scrutinee.includes(needle)) throw new Error(`checked scrutinee authority chain missing: ${needle}`);
 }
@@ -38,6 +42,10 @@ for (const needle of [
   "SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type",
   "selfhost_checked_exported_enum_member_context_free",
   "selfhost_checked_expr_tree_free",
+  "selfhost_match_actual_nongeneric_expected_nominal",
+  "SelfhostMatchActualExpectedNominal nominal_id spans.enum_name",
+  "SelfhostTypeExpectationSource::MatchArmDerived",
+  "selfhost_match_checked_scrutinee_retry_result",
 ]) {
   if (!composite.includes(needle)) throw new Error(`checked Match actual member owner wiring missing: ${needle}`);
 }
@@ -65,6 +73,13 @@ for (const needle of [
   "SelfhostCallReduceErrorKind::PipeTargetAmbiguous",
   "selfhost_name_scope_add_binding scope1 second_binding",
   "selfhost_callable_signature_table_add signatures1 second_signature",
+  "selfhost_check_expr_stage1_fixture_match_actual_arm_retry",
+  "SelfhostCallReduceErrorKind::OverloadAmbiguous",
+  "selfhost_type_arena_fork &arena",
+  "pub enum Other:",
+  "pub enum Generic<.T>:",
+  "generic_first_stays_ambiguous",
+  "nondirect_first_stays_ambiguous",
 ]) {
   if (!fixture.includes(needle)) throw new Error(`actual Match runtime gate missing: ${needle}`);
 }

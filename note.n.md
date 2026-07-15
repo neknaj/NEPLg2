@@ -1,3 +1,23 @@
+# 2026-07-15 Selfhost non-generic Match arm retry
+
+## 方針
+
+- Rust Match checkerのarm-derived expected推論、checkpoint、無期待試行、rollback、expected付き再試行と、selfhost actual Match/export/constructor ownerを再確認した。`plan.md`は変更していない。
+- generic fresh variableやdiagnostic/pending tableを捏造せず、exact public export originとconstructor宣言spanが一致するarity 0 enumだけを今回のretry対象にした。
+
+## 実装
+
+- expectation sourceへ`MatchArmDerived`を追加した。variant-only arm列の先頭direct alias armをqualified import、単一public enum export、元宣言name/span、borrowed constructor headerへ再結合し、non-generic exact originだけをexpected nominalと由来spanへ投影する。先頭armがgeneric・origin不明・非directなら後続armを採用せず単回検査へ閉じる。
+- expected追加後のarenaをforkし、fork側で期待型無し検査を実行する。成功なら元arenaを閉じ、失敗なら失敗側ownerが閉じた後、元arenaでexpected付き検査を一度だけ行う。synthetic span・別origin・genericは従来の単回検査を維持する。
+- runtime fixtureは`make : Choice`と`make : Other`の同名候補について、独立probeで期待型無し`OverloadAmbiguous`を確認し、actual connectorがChoice root/memberへ成功することを検査する。generic-firstとnon-direct-firstの後続non-generic armを誤採用せず、actual connectorが`OverloadAmbiguous`を維持する回帰も検査する。
+
+## 検証
+
+- focused doctest 4件は、3ケースをchecker authorityごと独立生成する最終形で4/4 passした。
+- `test_selfhost_match_checked_scrutinee_contract.js`と`git diff --check`はpassした。
+- `trunk build`は既知の`availability_state` dead-code warning 1件のみで成功し、続く`nodesrc/cli.js --playground-editor-tests`のJSON出力を確認して13/13 passした。
+- subagentの差分レビューと全体整合レビューで、先頭arm停止、expected由来span、cross-session fixture authorityを修正し、最終的にBlocker/Major/Minorなしの統合承認を得た。
+
 # 2026-07-15 Selfhost TypeArena transaction fork
 
 ## 方針

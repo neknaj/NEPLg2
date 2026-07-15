@@ -515,6 +515,8 @@ current-VFS Match contextはlogical pathをexactly-oneで引き、VFS ordinalと
 
 Match scrutinee再検査用のTypeArena forkはrecords、function arguments、type argumentsを同じ順序でdeep-copyし、fork時点までのTypeId index対応を保存する。これはfork由来snapshot間だけの対応であり、一般のarena間identityではない。現expression checkerは失敗時にarena ownerを解放するため、長さcheckpointやtruncateだけでは再試行できない。最初の試行へforkをmoveし、失敗時はtyped errorとforkを閉じ、未変更の元arenaをexpected付き試行へ渡す。fork後に片側へ追加されたTypeIdはもう片側のidentityではない。selfhostにはRustのfresh inference variable、diagnostic accumulator、pending trait constraint tableがまだないため、このforkだけをRustのTypeCtx rollback完成とは扱わない。
 
+actual Matchのarm-derived retryは、variant-only arm列の先頭armをcurrent qualified importとpublic export closureへ戻し、borrowed constructor headerの元宣言span・name・arityと照合する。先頭armがdirect aliasであり、arity 0のexact enum originである場合だけ、そのarmのspanを持つ`MatchArmDerived` expectationへ投影し、fork側の期待型無し試行が失敗した場合だけ元arenaで一度再検査する。先頭armが非direct、synthetic empty span、別origin、generic constructorの場合は後続armを期待型源にせず、従来の単回検査へ閉じる。generic enum用fresh variable、diagnostic accumulator、pending constraint rollbackは未接続である。
+
 各ステージは独立した `Result<_, Vec<Diagnostic>>` を返す。エラーがあっても可能な限り後段まで続行して診断をまとめる（エラー回復）。
 
 ---
