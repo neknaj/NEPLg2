@@ -106,3 +106,35 @@ pub fn selfhost_parser_declaration_header_start %fn &Vec SelfhostToken fn i32 fn
                     token.span.start
         SelfhostModuleDeclarationVisibility::Private:
             token.span.start
+
+fn selfhost_parser_angle_header_start_loop %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
+    if:
+        lt idx 0
+        then: false
+        else:
+            match v::get tokens idx:
+                Option::None: false
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline: false
+                        TokenKind::Indent: false
+                        TokenKind::Dedent: false
+                        TokenKind::Eof: false
+                        TokenKind::KwEnum: selfhost_parser_declaration_keyword_is_header_start tokens idx
+                        TokenKind::KwStruct: selfhost_parser_declaration_keyword_is_header_start tokens idx
+                        TokenKind::KwTrait: selfhost_parser_declaration_keyword_is_header_start tokens idx
+                        TokenKind::KwImpl: selfhost_parser_declaration_keyword_is_header_start tokens idx
+                        TokenKind::KwFn: selfhost_parser_declaration_keyword_is_header_start tokens idx
+                        _: selfhost_parser_angle_header_start_loop tokens sub idx 1
+
+//: selfhost_parser_legacy_angle_is_declaration_header: angle token が declaration generic header 内か[返/かえ]す
+//:
+//: 通常式の旧angle構文はtyped diagnosticで拒否したまま、Rust実装と現行sourceが使うdeclaration binderの`<.T>`だけをmodule item header evidenceへ通します。generic parameter自体のauthorityは後続resolverが同じtoken rangeから構築します。
+pub fn selfhost_parser_legacy_angle_is_declaration_header %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
+    match v::get tokens idx:
+        Option::None: false
+        Option::Some token:
+            match token.kind:
+                TokenKind::LAngle: selfhost_parser_angle_header_start_loop tokens sub idx 1
+                TokenKind::RAngle: selfhost_parser_angle_header_start_loop tokens sub idx 1
+                _: false

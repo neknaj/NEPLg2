@@ -168278,3 +168278,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - actual type inference の固定 fuel は廃止し、append-only TypeArena の composite child が parent より小さい TypeId を持つ rank invariant で停止性と malformed forward/self reference rejection を検査する。
 - qualified enum import は import declaration span だけでなく use-site alias span を explicit alias spelling へ一意に結び、graph edge の target node を返す。ただし generic target を含む actual Match fixture は compile 後に arm 選択値 1 となる未解決 failure が残るため、この checkpoint は main へ統合しない。
 - 通過済み: checked-tree / qualified-import / inference fixture 5 件、call-reduce / checked-scrutinee / actual-member static contract。focused actual Match gate は compile 成功・runtime expectation failure で、次の作業は generic public export/origin と production selector runtime 0/1/2 candidate gate の切り分けである。
+2026-07-16 selfhost generic Match actual origin fix
+
+- `SelfhostParserTokenAction::LegacySyntax` は通常式では従来どおり typed legacy diagnostic になる。declaration generic binder の angle token だけは statement-bound declaration keywordへ後方照合して parser loop と header end scanを通す。
+- enum definition の range authority を header-only span から header + body envelope の宣言全体 spanへ修正した。これにより same-session member lookup の variant containment invariant が実際のparser body evidenceと一致した。
+- fixture の child source と constructor span を全modeで同じsource originへ戻し、generic actual Match focused gateは1/1 passした。途中のstage分類用分岐/importは除去済みである。

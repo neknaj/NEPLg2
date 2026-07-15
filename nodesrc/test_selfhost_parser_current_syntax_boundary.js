@@ -62,8 +62,8 @@ assert.match(
 );
 assert.match(
     functionBlock(parser, "selfhost_parse_module_loop"),
-    /SelfhostParserTokenAction::LegacySyntax:\s*\n\s*selfhost_parser_legacy_syntax_token_error\s+&token\s+ast/,
-    "module parser loop must turn legacy syntax tokens into typed diagnostics",
+    /SelfhostParserTokenAction::LegacySyntax:[\s\S]*selfhost_parser_legacy_angle_is_declaration_header\s+tokens\s+idx[\s\S]*selfhost_parser_legacy_syntax_token_error\s+&token\s+ast/,
+    "module parser loop must admit declaration generic binders and diagnose other legacy syntax",
 );
 assert.match(
     functionBlock(token, "selfhost_token_is_expr_start"),

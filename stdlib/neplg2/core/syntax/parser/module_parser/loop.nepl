@@ -169,7 +169,10 @@ pub fn selfhost_parse_module_loop %impure fn str impure fn &Vec SelfhostToken im
                         SelfhostParserTokenAction::DirLlvmIr:
                             selfhost_parse_dir_llvmir source tokens n idx depth mode ast token
                         SelfhostParserTokenAction::LegacySyntax:
-                            selfhost_parser_legacy_syntax_token_error &token ast
+                            if:
+                                selfhost_parser_legacy_angle_is_declaration_header tokens idx
+                                then: selfhost_parse_module_loop source tokens n add idx 1 depth mode ast
+                                else: selfhost_parser_legacy_syntax_token_error &token ast
                         SelfhostParserTokenAction::Regular:
                             selfhost_parse_regular_token source tokens n idx depth mode ast token kind
                 Option::None:

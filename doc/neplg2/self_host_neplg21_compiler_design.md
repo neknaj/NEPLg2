@@ -3834,3 +3834,8 @@ type parameterとtype constructorの予約名集合は同じ13個の純粋なstr
 成功ownerはreduction、checked arguments、checked tree、root id、root typeとactual exported enum member contextを同時に保持する。arenaはscrutinee checkerからmember gateへmoveし、caller supplied range、span、TypeId、nominal、raw member nameをsemantic authorityにしない。scope、value evidence、signature、candidate、constructor tableが同じchecker phaseから来ることは現段階のpreconditionであり、このconnector単体はproduction checker authorityを発行しない。
 
 Rust checkerは最初のexpectedなし検査が失敗した場合、arm variant patternのqualified nameからexpected enum typeを導出し、diagnostic/type contextのcheckpointをrollbackしてscrutineeを再検査する。今回のsliceは最初の試行だけを接続し、arm-derived expected type推論、transaction rollback、overload再試行を実装済みと扱わない。checked Match tree、arm body型統一、payload bind、網羅性、HIR / Resource輸送も後続境界である。
+### Match generic declaration origin と宣言全体 range
+
+module parser は通常式に残る旧 angle 構文を拒否する一方、enum / struct / trait / impl / function declaration header の generic binder `<.T>` は resolver が検証する token evidence として通す。header range の終端計算も同じ contextual 判定を使い、generic binder と末尾 colon を欠落させない。
+
+resolved enum definition の `declaration_span` は header span ではなく、header 先頭から parser-owned body envelope 終端までの宣言全体 range である。variant name span はこの宣言全体 range に含まれることを member lookup が検証する。header range と宣言全体 range を混同したり、variant spellingから範囲を推測したりしない。

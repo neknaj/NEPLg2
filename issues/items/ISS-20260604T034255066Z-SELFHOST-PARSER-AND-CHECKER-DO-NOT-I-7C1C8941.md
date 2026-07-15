@@ -616,3 +616,8 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 ## 2026-07-15 generic Match arm inference slice
 
 先頭direct variant armがgeneric enum constructorを指す場合、constructor arityに対応するarena-local fresh inference variableと`Applied` expected型を生成し、期待型無しscrutinee検査失敗後の単回retryへ接続した。`MatchArmDerived` expectationだけが候補ローカルbinding transactionを使い、同一variableの反復を同じ具体型へ制約する。未解決variableはcanonical key、substitution、memo/layout/producer境界でfail-closedに拒否する。payload substitution、bind検査、arm body型統一と一般generic call推論は引き続き本issueの後続sliceである。
+### 2026-07-16 generic Match actual origin follow-up
+
+- module parser の legacy-angle rejection を declaration generic binder にまで適用していたため、`enum Generic<.T>:` が public export / enum surface 経路で失われていた。通常式の旧 angle syntax は拒否したまま、declaration header 内の `<` / `>` だけを contextual に通し、header end に含めるようにした。
+- enum surface は body envelope から variant を生成しながら definition の `declaration_span` に header span だけを保存していた。member lookup が variant span を header 内に要求する矛盾を、header 先頭から body envelope 終端までの宣言全体 span を保存することで解消した。
+- constructor seed と VFS source の origin identity を保つため、actual Match fixture は全 mode で同一 child source を使用する。generic first arm の `Generic<fresh>` expectation から `Generic<i32>` candidate を選択し、`Other` candidate を拒否する actual runtime gate は pass した。

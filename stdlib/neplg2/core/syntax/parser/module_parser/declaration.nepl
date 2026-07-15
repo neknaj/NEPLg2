@@ -54,7 +54,10 @@ fn selfhost_parser_header_end_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i
                         SelfhostParserTokenAction::Dedent:
                             last_end
                         SelfhostParserTokenAction::LegacySyntax:
-                            last_end
+                            if:
+                                selfhost_parser_legacy_angle_is_declaration_header tokens idx
+                                then: selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
+                                else: last_end
                         SelfhostParserTokenAction::WasmText:
                             selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
                         SelfhostParserTokenAction::LlvmIrText:

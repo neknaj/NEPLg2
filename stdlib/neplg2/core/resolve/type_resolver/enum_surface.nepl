@@ -1191,7 +1191,9 @@ fn selfhost_resolved_enum_surface_materialize_header_result %impure fn SelfhostR
                                                         Result::Ok name:
                                                             match selfhost_resolved_enum_surface_scan_variants source tokens body.envelope:
                                                                 Result::Ok variants:
-                                                                    selfhost_resolved_enum_surface_finish session name arity item.span head.span variants
+                                                                    let body_span %SelfhostSourceSpan selfhost_resolved_enum_surface_range_span body.envelope
+                                                                    let declaration_span %SelfhostSourceSpan source_span_new_unchecked header.header_span.file_id header.header_span.start body_span.end
+                                                                    selfhost_resolved_enum_surface_finish session name arity declaration_span head.span variants
                                                                 Result::Err e:
                                                                     selfhost_resolved_enum_session_free session
                                                                     Result::Err e
