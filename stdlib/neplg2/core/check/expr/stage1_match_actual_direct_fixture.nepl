@@ -17,11 +17,12 @@
 #import "alloc/collections/vec" as v
 #import "core/field" as field
 #import "core/result" as *
-#import "core/math/bool" as *
+#import "core/math" as *
 #import "neplg2/core/check/expr/call_candidate" as *
 #import "neplg2/core/check/expr/body_line" as *
 #import "neplg2/core/check/expr/candidate_collection" as *
 #import "neplg2/core/check/expr/match_actual_member" as *
+#import "neplg2/core/check/expr/match_checked_scrutinee" as *
 #import "neplg2/core/check/expr/model" as *
 #import "neplg2/core/check/expr/value_evidence" as *
 #import "neplg2/core/infra/span" as *
@@ -32,6 +33,7 @@
 #import "neplg2/core/resolve/name_resolver/module_order" as *
 #import "neplg2/core/resolve/name_resolver/scope" as *
 #import "neplg2/core/resolve/type_resolver/constructor" as *
+#import "neplg2/core/syntax/parser/match_context" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/ty/arena" as *
 #import "neplg2/core/ty/ty/eq" as *
@@ -240,3 +242,127 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_pipe %impure fn void bool
     let accepted %bool selfhost_check_expr_stage1_fixture_match_actual_pipe_source false
     let ambiguous %bool selfhost_check_expr_stage1_fixture_match_actual_pipe_source true
     and accepted ambiguous
+
+//: selfhost_check_expr_stage1_fixture_match_actual_arm_retry: 非generic arm expectedによる一度だけの再検査を実行する
+//:
+//: [目的/もくてき]: `make : Choice`と`make : Other`の同名候補を用意し、期待型無し初回が`OverloadAmbiguous`、`child::Choice::First`由来expected付き再検査がChoice root/member成功になることを同じactual connectorで確認します。
+//: [authority boundary]: constructor headerはChildのexact file/name spanを持ち、qualified importとpublic export originへ再結合されます。synthetic empty spanではretryを許可しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/check/expr/stage1_match_actual_direct_fixture" as *
+//: fn main %impure fn void i32 \void:
+//:     if selfhost_check_expr_stage1_fixture_match_actual_arm_retry 0 1
+//: ```
+fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case %impure fn i32 bool \mode:
+    let choice_span %SelfhostSourceSpan source_span_new_unchecked 0 9 15
+    let other_span %SelfhostSourceSpan source_span_new_unchecked 0 36 41
+    let generic_span %SelfhostSourceSpan source_span_new_unchecked 0 61 68
+    let constructors0 %SelfhostTypeConstructorTable unwrap_ok selfhost_type_constructor_table_new
+    let choice_added %SelfhostTypeConstructorAddResult unwrap_ok selfhost_type_constructor_table_add_checked constructors0 "Choice" 0 choice_span
+    let choice_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &choice_added
+    let constructors1 %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table choice_added
+    let other_added %SelfhostTypeConstructorAddResult unwrap_ok selfhost_type_constructor_table_add_checked constructors1 "Other" 0 other_span
+    let other_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &other_added
+    let constructors2 %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table other_added
+    let generic_added %SelfhostTypeConstructorAddResult unwrap_ok selfhost_type_constructor_table_add_checked constructors2 "Generic" 1 generic_span
+    let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table generic_added
+    let arena0 %SelfhostTypeArena unwrap_ok selfhost_type_arena_new
+    let choice_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_named arena0 choice_id
+    let choice_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &choice_alloc
+    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena choice_alloc
+    let other_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_named arena1 other_id
+    let other_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &other_alloc
+    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena other_alloc
+    let choice_params %Vec SelfhostTypeId unwrap_ok v::new
+    let choice_fn_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena2 choice_params choice_type
+    let choice_fn %SelfhostTypeId selfhost_type_arena_alloc_type_id &choice_fn_alloc
+    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena choice_fn_alloc
+    let other_params %Vec SelfhostTypeId unwrap_ok v::new
+    let other_fn_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena3 other_params other_type
+    let other_fn %SelfhostTypeId selfhost_type_arena_alloc_type_id &other_fn_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena other_fn_alloc
+    let scope0 %SelfhostNameScope unwrap_ok selfhost_name_scope_new
+    let first_added %SelfhostNameScopeAddResult unwrap_ok selfhost_name_scope_add_binding scope0 selfhost_name_binding_pending "make" SelfhostDefKind::Function choice_span
+    let choice_def %SelfhostDefId selfhost_name_scope_add_result_def_id &first_added
+    let scope1 %SelfhostNameScope selfhost_name_scope_add_result_into_scope first_added
+    let second_added %SelfhostNameScopeAddResult unwrap_ok selfhost_name_scope_add_binding scope1 selfhost_name_binding_pending "make" SelfhostDefKind::Function other_span
+    let other_def %SelfhostDefId selfhost_name_scope_add_result_def_id &second_added
+    let scope %SelfhostNameScope selfhost_name_scope_add_result_into_scope second_added
+    let signatures0 %SelfhostCallableSignatureTable unwrap_ok selfhost_callable_signature_table_new
+    let signatures1 %SelfhostCallableSignatureTable unwrap_ok selfhost_callable_signature_table_add signatures0 selfhost_callable_signature_new choice_def choice_fn SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired choice_span
+    let signatures %SelfhostCallableSignatureTable unwrap_ok selfhost_callable_signature_table_add signatures1 selfhost_callable_signature_new other_def other_fn SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired other_span
+    let candidates0 %Vec SelfhostCallableCandidate unwrap_ok v::new
+    let candidates1 %Vec SelfhostCallableCandidate unwrap_ok v::push candidates0 selfhost_callable_candidate_new "make" choice_def choice_fn SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired choice_span
+    let candidates %Vec SelfhostCallableCandidate unwrap_ok v::push candidates1 selfhost_callable_candidate_new "make" other_def other_fn SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired other_span
+    let value_types %SelfhostValueTypeEvidenceTable unwrap_ok selfhost_value_type_evidence_table_new
+    let child_source "pub enum Choice:\n    First\npub enum Other:\n    Only\npub enum Generic<.T>:\n    Item %.T\n"
+    let root_source %str if:
+        eq mode 0
+        then: "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match make:\n        child::Choice::First:\n            0\n"
+        else:
+            if:
+                eq mode 1
+                then: "pub #import \"Child\" as child\nfn generic_first %fn void i32 \\void:\n    match make:\n        child::Generic::Item value:\n            0\n        child::Other::Only:\n            1\n"
+                else: "pub #import \"Child\" as child\nfn nondirect_first %fn void i32 \\void:\n    match make:\n        Choice::First:\n            0\n        child::Other::Only:\n            1\n"
+    let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
+    let vfs1 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs0 "Child" child_source
+    let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs1 "Root" root_source
+    let graph %SelfhostModuleGraph unwrap_ok selfhost_build_module_graph &vfs "Root"
+    let order %SelfhostModuleOrder unwrap_ok selfhost_module_order_build &graph &vfs
+    let first_ambiguous %bool match selfhost_type_arena_fork &arena:
+        Result::Err _e: false
+        Result::Ok probe_arena:
+            match selfhost_match_context_from_vfs &vfs "Root" 0 0:
+                Result::Err _e:
+                    selfhost_type_arena_free probe_arena
+                    false
+                Result::Ok probe_context:
+                    let probed %Result SelfhostMatchCheckedScrutineeParts SelfhostMatchCheckedScrutineeError selfhost_match_checked_scrutinee_result &probe_context &constructors probe_arena &scope &value_types &signatures &candidates
+                    selfhost_match_context_free probe_context
+                    match probed:
+                        Result::Ok parts:
+                            selfhost_match_checked_scrutinee_parts_free parts
+                            false
+                        Result::Err error:
+                            match error:
+                                SelfhostMatchCheckedScrutineeError::ExpressionCheck expression_error:
+                                    selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadAmbiguous
+                                _: false
+    let selected_arm %i32 if eq mode 0 0 1
+    let checked %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_check_match_checked_actual_member_result &graph &vfs &order "Root" 0 0 selected_arm &scope &value_types &signatures &candidates arena constructors
+    let ok %bool match checked:
+        Result::Err error:
+            if:
+                eq mode 0
+                then: false
+                else:
+                    match error:
+                        SelfhostMatchCheckedActualMemberError::Scrutinee scrutinee_error:
+                            match scrutinee_error:
+                                SelfhostMatchCheckedScrutineeError::ExpressionCheck expression_error:
+                                    selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::OverloadAmbiguous
+                                _: false
+                        _: false
+        Result::Ok context:
+            let root_ok %bool selfhost_type_id_eq selfhost_match_checked_actual_member_context_root_type &context choice_type
+            let member %SelfhostCheckedEnumMember selfhost_match_checked_actual_member_context_member &context
+            let member_ok %bool selfhost_type_id_eq member.scrutinee_type choice_type
+            selfhost_match_checked_actual_member_context_free context
+            and eq mode 0 and root_ok member_ok
+    v::free candidates
+    selfhost_value_type_evidence_table_free value_types
+    selfhost_callable_signature_table_free signatures
+    selfhost_name_scope_free scope
+    selfhost_module_order_free order
+    selfhost_module_graph_free graph
+    selfhost_vfs_free vfs
+    and first_ambiguous ok
+
+pub fn selfhost_check_expr_stage1_fixture_match_actual_arm_retry %impure fn void bool \void:
+    let positive %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 0
+    let generic_first_stays_ambiguous %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 1
+    let nondirect_first_stays_ambiguous %bool selfhost_check_expr_stage1_fixture_match_actual_arm_retry_case 2
+    and positive and generic_first_stays_ambiguous nondirect_first_stays_ambiguous

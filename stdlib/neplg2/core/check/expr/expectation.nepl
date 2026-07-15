@@ -26,6 +26,7 @@ pub enum SelfhostTypeExpectationSource:
     BlockResult
     BlockSequenceDiscardedExpression
     OuterConsumerArgument
+    MatchArmDerived
 
 impl Clone for SelfhostTypeExpectationSource:
     fn clone %fn &SelfhostTypeExpectationSource SelfhostTypeExpectationSource \self:
@@ -83,6 +84,12 @@ pub fn selfhost_type_expectation_source_eq %fn SelfhostTypeExpectationSource fn 
         SelfhostTypeExpectationSource::OuterConsumerArgument:
             match b:
                 SelfhostTypeExpectationSource::OuterConsumerArgument:
+                    true
+                _:
+                    false
+        SelfhostTypeExpectationSource::MatchArmDerived:
+            match b:
+                SelfhostTypeExpectationSource::MatchArmDerived:
                     true
                 _:
                     false

@@ -33,6 +33,7 @@
 #import "neplg2/core/check/expr/call_candidate" as *
 #import "neplg2/core/check/expr/checked_tree" as *
 #import "neplg2/core/check/expr/checked_tree_id" as *
+#import "neplg2/core/check/expr/expectation" as *
 #import "neplg2/core/check/expr/model" as *
 #import "neplg2/core/check/expr/value_evidence" as *
 #import "neplg2/core/resolve/name_resolver/scope" as *
@@ -42,6 +43,7 @@
 
 pub enum SelfhostMatchCheckedScrutineeError:
     ExpressionCheck %SelfhostExpressionLineCheckError
+    ArenaFork %StdErrorKind
     RootMissing
     RootTypeMissing
 
@@ -95,14 +97,33 @@ fn selfhost_match_checked_scrutinee_validate_success %impure fn SelfhostExpressi
                     Result::Ok SelfhostMatchCheckedScrutineeParts arena result checked_arguments checked_tree root_expr root_type
 
 //: selfhost_match_checked_scrutinee_result: Match scrutineeをactual expression rootへ検査する
-pub fn selfhost_match_checked_scrutinee_result %impure fn &SelfhostMatchContext impure fn &SelfhostTypeConstructorTable impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate Result SelfhostMatchCheckedScrutineeParts SelfhostMatchCheckedScrutineeError \context\constructors\arena\scope\value_types\signatures\candidates:
+fn selfhost_match_checked_scrutinee_result_with_expected %impure fn &SelfhostMatchContext impure fn &SelfhostTypeConstructorTable impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostMatchCheckedScrutineeParts SelfhostMatchCheckedScrutineeError \context\constructors\arena\scope\value_types\signatures\candidates\expected:
     let range %SelfhostSyntaxRange selfhost_match_context_scrutinee_range context
     let segment %SelfhostBodySegment selfhost_body_segment_expression_line_from_range range
-    match selfhost_check_expr_reduce_body_segment_with_constructors_and_arena selfhost_match_context_tokens context selfhost_match_context_source context segment constructors arena scope value_types signatures candidates none:
+    match selfhost_check_expr_reduce_body_segment_with_constructors_and_arena selfhost_match_context_tokens context selfhost_match_context_source context segment constructors arena scope value_types signatures candidates expected:
         Result::Err e:
             Result::Err SelfhostMatchCheckedScrutineeError::ExpressionCheck e
         Result::Ok success:
             selfhost_match_checked_scrutinee_validate_success success
+
+pub fn selfhost_match_checked_scrutinee_result %impure fn &SelfhostMatchContext impure fn &SelfhostTypeConstructorTable impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate Result SelfhostMatchCheckedScrutineeParts SelfhostMatchCheckedScrutineeError \context\constructors\arena\scope\value_types\signatures\candidates:
+    selfhost_match_checked_scrutinee_result_with_expected context constructors arena scope value_types signatures candidates none
+
+//: selfhost_match_checked_scrutinee_retry_result: expected無し失敗時だけfork前arenaで一度再検査する
+pub fn selfhost_match_checked_scrutinee_retry_result %impure fn &SelfhostMatchContext impure fn &SelfhostTypeConstructorTable impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn SelfhostTypeExpectation Result SelfhostMatchCheckedScrutineeParts SelfhostMatchCheckedScrutineeError \context\constructors\arena\scope\value_types\signatures\candidates\expected:
+    match selfhost_type_arena_fork &arena:
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err SelfhostMatchCheckedScrutineeError::ArenaFork e
+        Result::Ok first_arena:
+            match selfhost_match_checked_scrutinee_result context constructors first_arena scope value_types signatures candidates:
+                Result::Ok checked:
+                    selfhost_type_arena_free arena
+                    Result::Ok checked
+                Result::Err _first_error:
+                    match selfhost_match_checked_scrutinee_result_with_expected context constructors arena scope value_types signatures candidates some expected:
+                        Result::Err e: Result::Err e
+                        Result::Ok checked: Result::Ok checked
 
 //: selfhost_match_checked_scrutinee_parts_free: checked scrutinee ownerを閉じる
 pub fn selfhost_match_checked_scrutinee_parts_free %impure fn SelfhostMatchCheckedScrutineeParts unit \parts:

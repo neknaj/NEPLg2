@@ -9,7 +9,7 @@
 //: - variantは選択armのexact 3-segment AST projectionだけを使い、actual arenaへsynthetic typeを追加しません。
 //: - scope、value evidence、arena、constructor tableが選択functionと同じchecker phaseから作られたことは、この段階ではcaller preconditionです。production authorityへの昇格にはmodule checker environmentとのco-productionが必要です。
 //:
-//: [制約/せいやく]: checked-root入口はexpected type無しの1回だけ検査します。arm由来expected type retry、reference deref、payload typing、exhaustiveness、arm body型統一は後続sliceです。
+//: [制約/せいやく]: exact export originと一致する非generic enum armだけはexpected typeを導出し、期待型無し失敗時に一度だけ再検査します。generic fresh inference、reference deref、payload typing、exhaustiveness、arm body型統一は後続sliceです。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -23,9 +23,14 @@
 //: ```
 
 #import "alloc/collections/vec" as v
+#import "alloc/string/access" as string_access
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
 #import "core/field" as field
+#import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 #import "neplg2/core/check/expr/call_candidate" as *
 #import "neplg2/core/check/expr/checked_tree" as *
 #import "neplg2/core/check/expr/checked_tree_id" as *
@@ -33,10 +38,13 @@
 #import "neplg2/core/check/expr/match_checked_scrutinee" as *
 #import "neplg2/core/check/expr/match_scrutinee" as *
 #import "neplg2/core/check/expr/model" as *
+#import "neplg2/core/check/expr/expectation" as *
 #import "neplg2/core/check/expr/value_evidence" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/resolve/name_resolver/scope" as *
+#import "neplg2/core/resolve/name_resolver/qualified_enum_import" as *
+#import "neplg2/core/resolve/name_resolver/public_export_table" as *
 #import "neplg2/core/resolve/type_resolver/constructor" as *
 #import "neplg2/core/syntax/parser/match_arm_segmenter" as *
 #import "neplg2/core/syntax/parser/match_context" as *
@@ -67,6 +75,7 @@ pub enum SelfhostMatchCheckedActualMemberError:
     Scrutinee %SelfhostMatchCheckedScrutineeError
     ArmOutOfBounds
     PatternNotDirectAlias
+    ExpectedOrigin
     Member %SelfhostCheckedExportedEnumMemberError
 
 struct SelfhostMatchActualArmSpans:
@@ -74,9 +83,90 @@ struct SelfhostMatchActualArmSpans:
     enum_name %SelfhostSourceSpan
     member %SelfhostSourceSpan
 
+impl Clone for SelfhostMatchActualArmSpans:
+    fn clone %fn &SelfhostMatchActualArmSpans SelfhostMatchActualArmSpans \self: *self
+
+impl Copy for SelfhostMatchActualArmSpans:
+    fn copy_mark %fn SelfhostMatchActualArmSpans SelfhostMatchActualArmSpans \self: self
+
 enum SelfhostMatchActualArmProjectionError:
     ArmOutOfBounds
     PatternNotDirectAlias
+
+fn selfhost_match_actual_span_eq %fn SelfhostSourceSpan fn SelfhostSourceSpan bool \a\b:
+    and and eq a.file_id b.file_id eq a.start b.start eq a.end b.end
+
+fn selfhost_match_actual_export_count %fn &SelfhostPublicExportTable fn i32 fn str fn i32 fn i32 i32 \table\owner\name\idx\count:
+    if:
+        ge idx selfhost_public_export_table_count table
+        then: count
+        else:
+            match selfhost_public_export_table_get table idx:
+                Option::None: count
+                Option::Some entry:
+                    let matches %bool and eq entry.owner_module_node_index owner string_search::str_eq entry.visible_name name
+                    selfhost_match_actual_export_count table owner name add idx 1 if matches add count 1 count
+
+//: selfhost_match_actual_nongeneric_expected_nominal: arm originとborrowed constructor headerを再結合する
+//:
+//: [契約/けいやく]: exact qualified import、単一public enum export、元宣言spanと一致するarity 0 constructorだけをexpected nominalとして返します。generic constructorやsynthetic origin headerはnoneです。
+//: [owner boundary]: 一時qualified/export tableは全経路で閉じ、caller ownerは借用したままです。
+fn selfhost_match_actual_nongeneric_expected_nominal %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostMatchActualArmSpans impure fn &SelfhostTypeConstructorTable Option SelfhostNamedTypeId \graph\vfs\order\path\spans\constructors:
+    match selfhost_qualified_enum_import_table_build graph vfs path spans.alias:
+        Result::Err _e: none
+        Result::Ok qualified:
+            let source %str *selfhost_qualified_enum_import_table_source &qualified
+            let source_file_id %i32 selfhost_qualified_enum_import_table_source_file_id &qualified
+            let valid_span %bool and eq spans.enum_name.file_id source_file_id and le 0 spans.enum_name.start le spans.enum_name.end string_access::str_byte_len source
+            if:
+                not valid_span
+                then:
+                    selfhost_qualified_enum_import_table_free qualified
+                    none
+                else:
+                    let visible_name %str string_slice::str_slice source spans.enum_name.start spans.enum_name.end
+                    let owner %i32 selfhost_qualified_enum_import_table_target_node_index &qualified
+                    match selfhost_public_export_table_build graph vfs order:
+                        Result::Err _e:
+                            selfhost_qualified_enum_import_table_free qualified
+                            none
+                        Result::Ok exports:
+                            let expected %Option SelfhostNamedTypeId if:
+                                ne selfhost_match_actual_export_count &exports owner visible_name 0 0 1
+                                then: none
+                                else:
+                                    match selfhost_public_export_table_lookup &exports owner visible_name:
+                                        Option::None: none
+                                        Option::Some entry:
+                                            match entry.kind:
+                                                SelfhostPublicExportKind::Enum:
+                                                    match selfhost_type_constructor_table_find constructors entry.original_name:
+                                                        Option::None: none
+                                                        Option::Some constructor:
+                                                            if:
+                                                                and and selfhost_type_constructor_kind_eq constructor.kind SelfhostTypeConstructorKind::Type selfhost_match_actual_span_eq constructor.span entry.original_name_span string_search::str_eq constructor.name entry.original_name
+                                                                then: some constructor.nominal_id
+                                                                else: none
+                                                _: none
+                            selfhost_public_export_table_free exports
+                            selfhost_qualified_enum_import_table_free qualified
+                            expected
+
+struct SelfhostMatchActualExpectedNominal:
+    nominal_id %SelfhostNamedTypeId
+    source_span %SelfhostSourceSpan
+
+fn selfhost_match_actual_first_nongeneric_expected_nominal %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn &SelfhostMatchContext impure fn &SelfhostTypeConstructorTable Option SelfhostMatchActualExpectedNominal \graph\vfs\order\path\context\constructors:
+    if:
+        eq selfhost_match_context_arm_len context 0
+        then: none
+        else:
+            match selfhost_match_actual_arm_spans context 0:
+                Result::Err _e: none
+                Result::Ok spans:
+                    match selfhost_match_actual_nongeneric_expected_nominal graph vfs order path spans constructors:
+                        Option::Some nominal_id: some SelfhostMatchActualExpectedNominal nominal_id spans.enum_name
+                        Option::None: none
 
 fn selfhost_match_actual_arm_spans %fn &SelfhostMatchContext fn i32 Result SelfhostMatchActualArmSpans SelfhostMatchActualArmProjectionError \context\arm_ordinal:
     match selfhost_match_variant_arm_list_get selfhost_match_context_arms context arm_ordinal:
@@ -147,9 +237,39 @@ pub fn selfhost_check_match_single_named_value_actual_member_result %impure fn &
                                 Result::Err e: Result::Err SelfhostMatchActualMemberError::Member e
                                 Result::Ok result: Result::Ok result
 
+fn selfhost_match_checked_actual_member_with_spans %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostMatchContext impure fn SelfhostMatchActualArmSpans impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\context\spans\scope\value_types\signatures\candidates\arena\constructors:
+    match selfhost_match_actual_first_nongeneric_expected_nominal graph vfs order path &context &constructors:
+        Option::None:
+            match selfhost_match_checked_scrutinee_result &context &constructors arena scope value_types signatures candidates:
+                Result::Err e:
+                    selfhost_match_context_free context
+                    selfhost_type_constructor_table_free constructors
+                    Result::Err SelfhostMatchCheckedActualMemberError::Scrutinee e
+                Result::Ok checked_root:
+                    selfhost_match_context_free context
+                    selfhost_match_checked_actual_member_connect graph vfs order path spans checked_root constructors
+        Option::Some expected_nominal:
+            match selfhost_type_arena_add_named arena expected_nominal.nominal_id:
+                Result::Err _e:
+                    selfhost_match_context_free context
+                    selfhost_type_constructor_table_free constructors
+                    Result::Err SelfhostMatchCheckedActualMemberError::ExpectedOrigin
+                Result::Ok allocated:
+                    let expected_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let expected_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    let expectation %SelfhostTypeExpectation selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::MatchArmDerived expected_nominal.source_span
+                    match selfhost_match_checked_scrutinee_retry_result &context &constructors expected_arena scope value_types signatures candidates expectation:
+                        Result::Err e:
+                            selfhost_match_context_free context
+                            selfhost_type_constructor_table_free constructors
+                            Result::Err SelfhostMatchCheckedActualMemberError::Scrutinee e
+                        Result::Ok checked_root:
+                            selfhost_match_context_free context
+                            selfhost_match_checked_actual_member_connect graph vfs order path spans checked_root constructors
+
 //: selfhost_check_match_checked_actual_member_result: checked reduction rootをactual member gateへ接続する
 //:
-//: [契約/けいやく]: scrutineeは既存body-line reducerでexpected type無しに1回だけ検査します。direct call、明示ascription、pipeのroot node型をtreeから再取得し、型を再割当しません。
+//: [契約/けいやく]: scrutineeはfork上でexpected type無しに検査し、exact origin付き非generic arm expectedがある場合だけ失敗後に元arenaで一度再検査します。成功root node型はtreeから再取得し、型を再割当しません。
 //: [authority boundary]: range/span/TypeId/nominal/raw member名をcallerから受けず、current VFS contextとchecked rootだけを使います。scope/value/signature/candidate/arena/constructorの同一checker phase由来はcaller preconditionです。
 //: [owner boundary]: arenaはscrutinee checkerからmember gateへmoveし、成功contextはmember ownerとchecked treeを同時に保持します。全失敗経路で到達済みownerを閉じます。
 pub fn selfhost_check_match_checked_actual_member_result %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn i32 impure fn i32 impure fn i32 impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\function_ordinal\segment_ordinal\arm_ordinal\scope\value_types\signatures\candidates\arena\constructors:
@@ -168,14 +288,7 @@ pub fn selfhost_check_match_checked_actual_member_result %impure fn &SelfhostMod
                         SelfhostMatchActualArmProjectionError::ArmOutOfBounds: Result::Err SelfhostMatchCheckedActualMemberError::ArmOutOfBounds
                         SelfhostMatchActualArmProjectionError::PatternNotDirectAlias: Result::Err SelfhostMatchCheckedActualMemberError::PatternNotDirectAlias
                 Result::Ok spans:
-                    match selfhost_match_checked_scrutinee_result &context &constructors arena scope value_types signatures candidates:
-                        Result::Err e:
-                            selfhost_match_context_free context
-                            selfhost_type_constructor_table_free constructors
-                            Result::Err SelfhostMatchCheckedActualMemberError::Scrutinee e
-                        Result::Ok checked_root:
-                            selfhost_match_context_free context
-                            selfhost_match_checked_actual_member_connect graph vfs order path spans checked_root constructors
+                    selfhost_match_checked_actual_member_with_spans graph vfs order path context spans scope value_types signatures candidates arena constructors
 
 //: selfhost_match_checked_actual_member_context_free: member ownerとchecked scrutinee treeを一度だけ閉じる
 pub fn selfhost_match_checked_actual_member_context_free %impure fn SelfhostMatchCheckedActualMemberContext unit \context:
