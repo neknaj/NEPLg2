@@ -168222,3 +168222,4 @@ MERGE_APPROVED
 
 - pipe focused doctest #3は`NEPL_TEST_CASE_TIMEOUT_MS=300000`で1/1通過した。Match checked scrutinee contract、stdlib unsafe helper policy、expression call reduction contract、line-count policy、issues check、`git diff --check`も通過した。
 - 初回差分reviewは外部candidate vectorにも2件目を追加するとscope/signature再収集の退行を識別できない点をMajorとして指摘した。外部vectorを1件に固定して再実行後、差分reviewと全体整合reviewはいずれもBlocker/Major/Lowなしで統合承認した。
+- `PATH=/tmp:$PATH CARGO_TARGET_DIR=/tmp/nepl-trunk-target NO_COLOR=false trunk build`は成功した。続くPlayground editor CLI JSONは13/13通過し、`failedCount`は0だった。
