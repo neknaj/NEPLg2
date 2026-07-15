@@ -11,6 +11,11 @@
 - runtime fixtureでNamed、Applied、Functionを含むarenaをforkし、三bufferの長さ、primitive kind、named nominal、applied constructor/argument、function argument/result、branch追記後の元arena不変を検査した。focused doctestは1/1通過した。
 - このcheckpointは再試行transactionのowner前提だけであり、セルフホストcompilerやMatch retryの完成ではない。次はactual public export originから非generic arm expected nominalを同一sessionへ生成し、専用expectation sourceと期待無し/expected付き二試行を接続する。generic fresh-variable推論とdiagnostic/pending rollbackは未完了としてtodoへ残した。
 
+## 検証
+
+- 差分reviewと全体整合reviewは、初版fixtureが三bufferの長さ中心で同長の誤record/function argument複製を検出できない点と、一般arena間identityに読める文言を指摘した。全record payloadと両argument bufferの直接検査、fork由来snapshot間だけのindex対応へ修正後、双方Blocker/Major/Minorなしで統合承認した。
+- `selfhost_type_arena_report_contract`、source-policy line-count guard、selfhost prototype design contractは通過した。`trunk build`はWSL上の`npm.cmd`と`web/node_modules`欠落を一時wrapperとlockfile準拠`npm ci`で補った後に成功し、正式`nodesrc/cli.js --playground-editor-tests` JSONは13/13通過した。project設定や依存lockfileは変更していない。
+
 # 2026-07-14 Selfhost actual Match NamedValue member connection
 
 ## 方針
