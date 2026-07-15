@@ -476,6 +476,7 @@ const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_comm
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontRegisteredFaceTests = read("tests/stdlib/gui_font_registered_face.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_metric_join.n.md");
+const guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell.n.md");
 const guiFontRegisteredJoinGeometryPolicyMatrixTests = read("tests/stdlib/gui_font_registered_join_geometry_policy_matrix.n.md");
 const guiFontSfntGlyfSpanIndexTests = read("tests/stdlib/gui_font_sfnt_glyf_span_index.n.md");
 const guiFontSfntGlyfIndexedPathTests = read("tests/stdlib/gui_font_sfnt_glyf_indexed_path.n.md");
@@ -4024,8 +4025,12 @@ for (const helper of ["line_side_edge", "quadratic_side_edge", "closure", "polic
 assertOrderedFragments(spec, ["F5nxp", "bevel", "line-only miter", "line-only round", "quadratic_bevel", "coverage、packed mask、raster"], "F5nxp spec must preserve geometry policy and later-phase boundaries");
 assertOrderedFragments(implementationPlan, ["Phase F5nxp", "completed F5nxo compact owner", "owner-neutral geometry projection helper", "coverage、packed mask、raster"], "F5nxp plan must preserve direct authority, shared geometry, and later phases");
 const registeredStrokeCoverageCellRegion = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokeCoverageCellRegionStart);
-const registeredStrokeCoverageCellRegionImpl = withoutComments(registeredStrokeCoverageCellRegion);
+const registeredStrokeCoverageCellProductionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokeCoverageCellRegionStart);
+const registeredStrokeCoverageCellRegionImpl = withoutComments(
+    allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokeCoverageCellRegionStart, registeredStrokeCoverageCellProductionEnd),
+);
 assert(registeredStrokeCoverageCellRegionStart >= 0, "F5nxq registered stroke coverage cell writer region must exist after completed F5nxp join geometry");
+assert(registeredStrokeCoverageCellProductionEnd > registeredStrokeCoverageCellRegionStart, "F5nxq production region must end before its test-only seams and factory");
 for (const fragment of [
     "pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner:",
     "join_geometry %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner",
@@ -4101,33 +4106,99 @@ assertOrderedFragments(
     "F5nxq completion must return the completed owner only at exact full coverage storage",
 );
 assert(
-    (registeredStrokeCoverageCellRegionImpl.match(/\bvec::with_capacity\b/g) || []).length === 1 &&
-        (registeredStrokeCoverageCellRegionImpl.match(/\bvec::push\b/g) || []).length === 1,
-    "F5nxq region must allocate the raw coverage Vec exactly once and expose one checked push boundary",
+    (registeredStrokeCoverageCellStart.match(/\bvec::with_capacity\b/g) || []).length === 1 &&
+        (registeredStrokeCoverageCellPush.match(/\bvec::push\b/g) || []).length === 1,
+    "F5nxq production start must allocate the raw coverage Vec once and production push must expose one checked push boundary",
 );
 assertNoMatch(
     registeredStrokeCoverageCellRegionImpl,
     /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_|stroke_join_geometry_step|stroke_edge_closure_step|stroke_side_edge_step|coverage_scan|packed_mask|PackedMask|RenderTarget|render2d|platform|fallback|compositor)\b/,
     "F5nxq writer must not rerun earlier registered steps or enter scan, packed, raster output, render, platform, fallback, or compositor phases",
 );
+const registeredStrokeCoverageNeutralLine = functionSlice(allocFontSfntGlyf, "gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge");
+const registeredStrokeCoverageCompletedFactory = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner");
 assertOrderedFragments(
-    guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests,
+    functionSlice(allocFontSfntGlyf, "gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge"),
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_projection source",
+        "gui_sfnt_simple_glyph_render_stroke_offset_projection_geometry &provenance &actual 4",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_projection &geometry side",
+    ],
+    "F5nxq test factory line edge must traverse production metric, offset geometry, and side-edge projection constructors",
+);
+assertOrderedFragments(registeredStrokeCoverageNeutralLine, ["gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge", "side"], "F5nxq neutral line helper must delegate to the production projection test path");
+assertOrderedFragments(
+    registeredStrokeCoverageCompletedFactory,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left",
+        "gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right",
+        "gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges 0 &left 0 &left &style",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 0 &left_join &left &left",
+        "vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection> 2",
+        "vec::push edges0 left",
+        "vec::push edges1 right",
+        "vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord> 2",
+        "vec::push joins0 left_join",
+        "vec::push joins1 right_join",
+        "vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord> 2",
+        "vec::push geometries0 left_geometry",
+        "vec::push geometries1 right_geometry",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_source_invariants &completed",
+    ],
+    "F5nxq test factory must build neutral closure/geometry records, exact-push all three Vec stores, and validate the final production invariant",
+);
+for (const helper of [
+    "gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge",
+    "gui_sfnt_simple_glyph_render_stroke_closure_test_style_projection",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_start_storage_failure",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_push_failure",
+]) {
+    const source = helper.startsWith("gui_sfnt_") ? allocFontSfntGlyf : allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour;
+    assertMatch(source, new RegExp(`#test\\s*\\r?\\n(?:\\s*//:[^\\r\\n]*\\r?\\n)*(?:pub\\s+)?fn\\s+${helper}\\b`), `F5nxq helper must remain test-only and absent from normal artifacts: ${helper}`);
+}
+assertNoMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests, /stroke_coverage_cell|join_stroke_coverage/, "F5nxp deep metric/join fixture must stop before F5nxq coverage writer");
+assertMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests, /gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free completed\b/, "F5nxp deep metric/join fixture must free its completed geometry owner");
+const registeredStrokeCoverageFixtureStart = functionSlice(guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellTests, "coverage_start");
+const registeredStrokeCoverageFixtureWrite = functionSlice(guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellTests, "coverage_write");
+const registeredStrokeCoverageFixtureFinish = functionSlice(guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellTests, "coverage_finish");
+assertMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellTests, /gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit/, "F5nxq focused runtime must obtain its source from the test-only invariant-valid F5nxp owner factory");
+assertOrderedFragments(
+    registeredStrokeCoverageFixtureStart,
     [
         "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_start_storage_failure completed config",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_kind &forced_start",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_config &forced_start",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_owner forced_start",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start recovered_completed recovered_config",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_push_failure owner0 1",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_kind &forced",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_value &forced",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_owner forced",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push recovered 1",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_complete written",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell_count &cell",
-        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free cell",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_config &forced",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_owner forced",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start recovered recovered_config",
+        "coverage_write writer start_ok",
     ],
-    "F5nxq 1x1 production fixture must recover forced start authority, recover and retry forced push, then complete exact storage",
+    "F5nxq focused runtime start must recover config and F5nxp authority before entering the writer matrix",
+);
+assertOrderedFragments(
+    registeredStrokeCoverageFixtureWrite,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push owner0 negative",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::CoverageNegative",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push owner1 5",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::CoverageExceedsMax",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_push_failure owner2 1",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_owner forced",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_complete partial",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind::MaskIncomplete",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_completion_error_owner incomplete",
+        "coverage_finish recovered prefix_ok",
+    ],
+    "F5nxq focused runtime writer matrix must recover negative, over-max, forced push, and incomplete failures",
+);
+assertOrderedFragments(
+    registeredStrokeCoverageFixtureFinish,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push owner 1",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_complete full",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free completed",
+    ],
+    "F5nxq focused runtime finish must retry the final cell and free the exact completed owner",
 );
 for (const fragment of [
     "gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset_owner0 0",

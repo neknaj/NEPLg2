@@ -2,8 +2,8 @@
 id: ISS-20260716T150000000Z-REGISTERED-STROKE-COVERAGE-WRITER-F5NXQ
 title: "Registered stroke join geometry lacks a coverage cell writer"
 area: GUI_FONT
-status: investigating
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-16
@@ -33,3 +33,10 @@ coverage scan computation、quadratic flattening、packed mask、paint compositi
 - diff review と全体整合 review に Blocker / Major がない。
 - focused runtime、registered module、glyf module、source-policy、normal compile、GUI contract、trunk build、Playground editor CLI JSON が通過する。
 - checkpoint は作業 branch に保持し、全 gate 後だけ lease 下で main へ一度統合する。
+
+## Verification
+
+- fixed test-only factoryはproduction metric / offset / side-edge / closure / join-geometry projectionからactual F5nxp completed ownerを作り、exact-capacity stores、checked push、cleanup、F5nxq invariantを維持する。
+- focused runtimeはstart/push failure recovery、negative/over-max、incomplete、exact completion/freeを1/1で検査した。
+- Web GUI contract、glyf 2477/2477、registered 52/52、normal compile isolation、trunk build、Playground editor 13/13を通過した。
+- deep fixtureはF5nxp completion/freeへ責務を戻した。今回の360秒再実行はcompile timeoutでありpassとは扱わないが、F5nxq専用runtimeとproduction module gateは独立に通過している。

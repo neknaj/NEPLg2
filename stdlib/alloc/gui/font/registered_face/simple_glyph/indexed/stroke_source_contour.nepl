@@ -1876,3 +1876,84 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_f
 //: pre-push ownerと拒否値を保持したpush failure seam
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_push_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner fn i32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError \owner\coverage_value:
     GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError owner coverage_value (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::StorageFailed StdErrorKind::CapacityExceeded)
+
+#test
+//: gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner: focused F5nxq fixture用のactual F5nxp completed ownerを作る
+//:
+//: [契約/けいやく]:
+//: - production projection経路から一つのlineに対するLeft/Right edge、self closure、Bevel geometryを各二件作ります。
+//: - exact-capacity Vecへのpush失敗ではreturned Vecを含む取得済みstorageを解放し、返却前にF5nxq source invariantを検査します。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner %impure fn unit Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner \_unit:
+    let left %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left
+    let right %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right
+    let style %GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection gui_sfnt_simple_glyph_render_stroke_closure_test_style_projection unit
+    match gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges 0 &left 0 &left &style:
+        Result::Err _: none
+        Result::Ok left_join:
+            match gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges 1 &right 1 &right &style:
+                Result::Err _: none
+                Result::Ok right_join:
+                    match gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 0 &left_join &left &left:
+                        Result::Err _: none
+                        Result::Ok left_geometry:
+                            match gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 1 &right_join &right &right:
+                                Result::Err _: none
+                                Result::Ok right_geometry:
+                                    match vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection> 2:
+                                        Result::Err _: none
+                                        Result::Ok edges0:
+                                            match vec::push edges0 left:
+                                                Result::Err error:
+                                                    vec::free vec::vec_push_error_vec error
+                                                    none
+                                                Result::Ok edges1:
+                                                    match vec::push edges1 right:
+                                                        Result::Err error:
+                                                            vec::free vec::vec_push_error_vec error
+                                                            none
+                                                        Result::Ok edges:
+                                                            match vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord> 2:
+                                                                Result::Err _:
+                                                                    vec::free edges
+                                                                    none
+                                                                Result::Ok joins0:
+                                                                    match vec::push joins0 left_join:
+                                                                        Result::Err error:
+                                                                            vec::free vec::vec_push_error_vec error
+                                                                            vec::free edges
+                                                                            none
+                                                                        Result::Ok joins1:
+                                                                            match vec::push joins1 right_join:
+                                                                                Result::Err error:
+                                                                                    vec::free vec::vec_push_error_vec error
+                                                                                    vec::free edges
+                                                                                    none
+                                                                                Result::Ok joins:
+                                                                                    match vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord> 2:
+                                                                                        Result::Err _:
+                                                                                            vec::free joins
+                                                                                            vec::free edges
+                                                                                            none
+                                                                                        Result::Ok geometries0:
+                                                                                            match vec::push geometries0 left_geometry:
+                                                                                                Result::Err error:
+                                                                                                    vec::free vec::vec_push_error_vec error
+                                                                                                    vec::free joins
+                                                                                                    vec::free edges
+                                                                                                    none
+                                                                                                Result::Ok geometries1:
+                                                                                                    match vec::push geometries1 right_geometry:
+                                                                                                        Result::Err error:
+                                                                                                            vec::free vec::vec_push_error_vec error
+                                                                                                            vec::free joins
+                                                                                                            vec::free edges
+                                                                                                            none
+                                                                                                        Result::Ok geometries:
+                                                                                                            let closure_source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner edges 1 2 2 0 1 1
+                                                                                                            let source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner closure_source joins 2 1 1 style GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution::ClosedContourNoCap
+                                                                                                            let completed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner source geometries 2 2 0 0
+                                                                                                            if gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_source_invariants &completed:
+                                                                                                                then some completed
+                                                                                                                else:
+                                                                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free completed
+                                                                                                                    none

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-14T23:26:43.505Z",
+  "generated_at": "2026-07-15T23:04:05.132Z",
   "counts": {
-    "total": 1374,
+    "total": 1376,
     "open": 60,
-    "resolved": 1314,
+    "resolved": 1316,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -90,6 +90,11 @@
         "total": 22,
         "open": 0,
         "resolved": 22
+      },
+      "GUI_FONT": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
       },
       "nodesrc": {
         "total": 16,
@@ -11138,6 +11143,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034207064Z-BREAKOUT-GUI-EXAMPLE-USES-TIMEOUT-NO-EA0E4163.md"
+    },
+    {
+      "id": "ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP",
+      "title": "Registered stroke closure lacks scan-ready join geometry",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-16",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP.md"
+    },
+    {
+      "id": "ISS-20260716T150000000Z-REGISTERED-STROKE-COVERAGE-WRITER-F5NXQ",
+      "title": "Registered stroke join geometry lacks a coverage cell writer",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-16",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T150000000Z-REGISTERED-STROKE-COVERAGE-WRITER-F5NXQ.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

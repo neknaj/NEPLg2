@@ -168373,3 +168373,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - shared coverage config / validated shape surfaceと、completed F5nxp ownerをsole authorityとするexact-capacity raw cell writerを実装した。start、push、completion failureはownerを回収し、push成功後だけcountを進める。reviewで指摘された分類count overflowはbounded subtractionへ修正し、start errorからconfigとF5nxp ownerを回収するaccessor/fixtureを追加した。再reviewはBlocker/Majorなし。
 - Web GUI contract、issues check、registered module 52/52、`git diff --check`は通過した。production registered chain fixtureは1x1へ縮小後もcompile phaseが300秒でtimeoutしruntimeへ到達していない。したがってissueはinvestigatingのまま、normal compile、full source-policy、glyf再gate、trunk、CLI、runtime 1/1、negative/incomplete runtime coverage、統合は未完了である。
 - 再開条件はdeep production fixtureのcompile完了、または同じpublic owner graphを保持しつつcompile負荷を分離できるfixture設計である。runtimeと残gate完了前にmainへ統合しない。
+
+### F5nxq fixture分離と最終gate
+
+- deep registered fixtureはbytesからF5nxp completed ownerを作ってfreeする上流end-to-end証拠へ戻した。F5nxqはproduction metric、offset geometry、Left/Right side edge、neutral closure、Bevel geometryを通してinvariant-validなactual F5nxp ownerを作る固定`#test` factoryと、専用focused fixtureで検査する。factoryは各storageをexact capacityで確保してchecked pushし、失敗時cleanupと返却前F5nxq invariantを行う。任意record注入やnormal artifactへのfixture API公開はない。
+- focused runtimeはforced start failureからconfig/ownerを回収し、negative/over-max拒否、forced push failure後のowner回収、partial completion拒否、exact completion/freeを1/1で通過した。normal compileではF5nxp policy matrixとF5nxq completed-owner factoryの両identifierが`resolve.identifier.undefined`になることを確認した。
+- pass: Web GUI font contract、glyf module 2477/2477、registered module 52/52、focused F5nxq runtime 1/1、normal compile isolation、`trunk build`、trunk後Playground editor CLI JSON 13/13、`git diff --check`。deep F5nxp fixtureの再実行は360秒compile timeoutだったが、F5nxq変更前のF5nxp統合gateと今回の同一module compileは通過しており、timeoutをF5nxq runtime成功の代替にはしていない。
+- F5nxq writer issueの実装・runtime・source-policy・normal compile・build条件は満たした。次はF5nxr coverage scanであり、packed mask、raster、runtime bridge、native/Web GUI表示、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。

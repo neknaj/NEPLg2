@@ -13576,3 +13576,4 @@ git diff --check
 - writerはwritten countとcell Vecを保持し、1 pushで1 cellだけをrange検査後にcommitする。push failureはreturned Vecとpre-push progressを持つownerを回収する。
 - exact fullだけをcompleted ownerへ進め、incomplete completionはwriterを失わない。owner-bearing型はClone / Copyを持たず、single freeを提供する。
 - F5nxqはcell writer boundaryで止め、coverage scan、quadratic flattening、packed mask、paint composition、raster、runtime/native/GUI表示は後続phaseに残す。
+- runtime evidenceは、deep fixtureをF5nxp completion/freeまでの上流証拠として維持し、production projectionだけでinvariant-validなF5nxp completed ownerを作る固定test-only factoryからF5nxq focused fixtureを開始する。factoryは任意record注入を許さず、normal artifactには公開しない。

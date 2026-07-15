@@ -41945,3 +41945,19 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary_drain
             Result::Err error
         Result::Ok summary:
             gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget bytes face_index &summary policy remaining_steps
+
+#test
+//: gui_sfnt_simple_glyph_render_stroke_closure_test_style_projection: test owner用のclosure style projectionを作る
+//:
+//: [契約/けいやく]:
+//: - production constructorを公開せず、登録済みstroke ownerのfocused fixtureだけへCopy style値を渡します。
+pub fn gui_sfnt_simple_glyph_render_stroke_closure_test_style_projection %fn unit GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection \_unit:
+    gui_sfnt_simple_glyph_render_stroke_closure_style_projection GuiStrokeCap::Butt GuiStrokeJoin::Bevel 4.0
+
+#test
+//: gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge: production metric、offset、side-edge projectionを通すtest用line edge
+pub fn gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \side:
+    let ten %i64 cast 10
+    let zero %i64 cast 0
+    let hundred %i64 cast 100
+    gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge 0 0 0 0 10 0 ten zero hundred side

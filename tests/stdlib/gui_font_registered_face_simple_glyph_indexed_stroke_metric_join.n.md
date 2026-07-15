@@ -629,48 +629,6 @@ fn join_stroke_edge_closure_join_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexed
     let endpoints_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_test_join_matches_source_endpoints owner join
     and index_ok (and source_ok (and side_ok (and adjacency_ok (and style_ok endpoints_ok))))
 
-fn join_stroke_coverage_cell_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner bool \completed:
-    let config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 1 1 1 1
-    let forced_start gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_start_storage_failure completed config
-    let forced_start_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_kind &forced_start:
-        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind::StorageFailed storage_kind:
-            match storage_kind:
-                StdErrorKind::CapacityExceeded: true
-                _: false
-        _: false
-    let recovered_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_config &forced_start
-    let config_ok %bool and eq 1 gui_sfnt_simple_glyph_raster_coverage_config_width_px &recovered_config eq 1 gui_sfnt_simple_glyph_raster_coverage_config_max_cell_count &recovered_config
-    let recovered_completed gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_owner forced_start
-    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start recovered_completed recovered_config:
-        Result::Err error:
-            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
-            false
-        Result::Ok owner0:
-            let initial_ok %bool and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_written_count &owner0 and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_cells_len &owner0 eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_cells_cap &owner0
-            let forced gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_push_failure owner0 1
-            let forced_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_kind &forced:
-                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::StorageFailed storage_kind:
-                            match storage_kind:
-                                StdErrorKind::CapacityExceeded: true
-                                _: false
-                        _: false
-            let forced_value_ok %bool eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_value &forced
-            let recovered gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_owner forced
-            let recovery_ok %bool and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_written_count &recovered eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_cells_len &recovered
-            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push recovered 1:
-                Result::Err error:
-                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_free error
-                    false
-                Result::Ok written:
-                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_complete written:
-                        Result::Err error:
-                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_completion_error_free error
-                            false
-                        Result::Ok cell:
-                            let exact_ok %bool and eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell_count &cell and eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cells_len &cell eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cells_cap &cell
-                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free cell
-                            and forced_start_ok and config_ok and initial_ok and forced_ok and forced_value_ok and recovery_ok exact_ok
-
 fn join_stroke_join_geometry_run %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryOwner impure fn i32 bool \owner\index:
     if lt index 6:
         then:
@@ -706,8 +664,8 @@ fn join_stroke_join_geometry_run %impure fn GuiFontRegisteredFaceSimpleGlyphInde
                             let miter %i32 gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_miter_count &completed
                             let round %i32 gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_round_count &completed
                             let exact_ok %bool and eq 6 gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_join_count &completed and eq 6 add bevel add miter round and eq 6 gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_geometries_len &completed eq 6 gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_geometries_cap &completed
-                            let coverage_ok %bool join_stroke_coverage_cell_start completed
-                            and exact_ok coverage_ok
+                            gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free completed
+                            exact_ok
 
 fn join_stroke_join_geometry_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner bool \completed:
     let forced_start gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_force_start_storage_failure completed

@@ -5,9 +5,14 @@ const path = require("node:path");
 const { loadCompilerFromDist } = require("./compiler_loader");
 const { compileWithLocalStdlib } = require("./cli");
 
-const testOnlyName = "gui_sfnt_simple_glyph_render_stroke_join_geometry_test_policy_matrix";
+const testOnlyNames = [
+    "gui_sfnt_simple_glyph_render_stroke_join_geometry_test_policy_matrix",
+    "gui_sfnt_simple_glyph_render_stroke_closure_test_style_projection",
+    "gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner",
+];
 
-const probe = `#entry main
+const probe = (testOnlyName) => `#entry main
 #indent 4
 #target std
 #import "alloc/gui/font" as *
@@ -20,17 +25,19 @@ fn main %fn void i32 \\void:
 async function main() {
     const distDir = path.resolve(__dirname, "..", "web", "dist");
     const { api } = await loadCompilerFromDist(distDir);
-    try {
-        compileWithLocalStdlib(api, { source: probe });
-    } catch (error) {
-        const message = String(error?.message || error);
-        if (message.includes("resolve.identifier.undefined") && message.includes(testOnlyName)) {
-            console.log("F5nxp normal compile excludes the test-only policy matrix");
-            return;
+    for (const testOnlyName of testOnlyNames) {
+        try {
+            compileWithLocalStdlib(api, { source: probe(testOnlyName) });
+        } catch (error) {
+            const message = String(error?.message || error);
+            if (message.includes("resolve.identifier.undefined") && message.includes(testOnlyName)) {
+                continue;
+            }
+            throw error;
         }
-        throw error;
+        throw new Error(`F5nxp/F5nxq test-only helper unexpectedly compiled in normal mode: ${testOnlyName}`);
     }
-    throw new Error(`F5nxp test-only policy matrix unexpectedly compiled in normal mode: ${testOnlyName}`);
+    console.log("F5nxp/F5nxq normal compile excludes test-only join geometry helpers");
 }
 
 main().catch((error) => {
