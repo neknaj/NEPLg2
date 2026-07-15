@@ -6,6 +6,7 @@ const readImplementation = (file) => fs.readFileSync(path.join(root, file), "utf
 const bodyLine = readImplementation("stdlib/neplg2/core/check/expr/body_line.nepl");
 const scrutinee = readImplementation("stdlib/neplg2/core/check/expr/match_checked_scrutinee.nepl");
 const composite = readImplementation("stdlib/neplg2/core/check/expr/match_actual_member.nepl");
+const fixture = readImplementation("stdlib/neplg2/core/check/expr/stage1_match_actual_direct_fixture.nepl");
 
 for (const needle of [
   "pub struct SelfhostExpressionLineCheckSuccessParts",
@@ -49,6 +50,18 @@ for (const forbiddenName of ["source", "tokens", "range", "span", "actual_type",
   if (new RegExp(`\\\\${forbiddenName}(?:\\\\|:|$)`).test(signature)) {
     throw new Error(`caller-supplied semantic parameter in checked composite: ${forbiddenName}`);
   }
+}
+
+for (const needle of [
+  "selfhost_check_expr_stage1_fixture_match_actual_source",
+  "match %Choice i32 make:",
+  "match %Choice bool make:",
+  "selfhost_check_expr_stage1_fixture_match_actual_ascription",
+  "SelfhostCallReduceErrorKind::ExpectedTypeMismatch",
+  "selfhost_match_checked_actual_member_context_root_type &context",
+  "selfhost_match_checked_actual_member_context_member &context",
+]) {
+  if (!fixture.includes(needle)) throw new Error(`actual Match ascription runtime gate missing: ${needle}`);
 }
 
 console.log("selfhost Match checked scrutinee contract: pass");

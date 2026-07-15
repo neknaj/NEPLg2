@@ -1,7 +1,7 @@
 #indent 4
 
 //: # check/expr/stage1_match_actual_direct_fixture
-//: actual VFS Match の引数なし direct call だけを検証するstage1専用fixtureです。
+//: actual VFS Match のdirect callと明示ascriptionを検証するstage1専用fixtureです。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -18,8 +18,10 @@
 #import "core/result" as *
 #import "core/math/bool" as *
 #import "neplg2/core/check/expr/call_candidate" as *
+#import "neplg2/core/check/expr/body_line" as *
 #import "neplg2/core/check/expr/candidate_collection" as *
 #import "neplg2/core/check/expr/match_actual_member" as *
+#import "neplg2/core/check/expr/model" as *
 #import "neplg2/core/check/expr/value_evidence" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/module/graph" as *
@@ -35,7 +37,7 @@
 #import "neplg2/core/ty/ty/id" as *
 #import "neplg2/core/ty/ty/kind/model" as *
 
-pub fn selfhost_check_expr_stage1_fixture_match_actual_direct_only %impure fn void bool \void:
+fn selfhost_check_expr_stage1_fixture_match_actual_source %impure fn str impure fn bool bool \source\expect_mismatch:
     let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
     let constructors0 %SelfhostTypeConstructorTable unwrap_ok selfhost_type_constructor_table_new
     let constructor_added %SelfhostTypeConstructorAddResult unwrap_ok selfhost_type_constructor_table_add_checked constructors0 "Choice" 1 span
@@ -45,13 +47,15 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_direct_only %impure fn vo
     let primitive_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32
     let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &primitive_alloc
     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena primitive_alloc
+    let bool_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::Bool
+    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena bool_alloc
     let type_args0 %Vec SelfhostTypeId unwrap_ok v::new
     let type_args %Vec SelfhostTypeId unwrap_ok v::push type_args0 i32_type
-    let applied_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena1 choice_id type_args
+    let applied_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena2 choice_id type_args
     let applied_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &applied_alloc
-    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena applied_alloc
+    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena applied_alloc
     let params %Vec SelfhostTypeId unwrap_ok v::new
-    let function_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena2 params applied_type
+    let function_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena3 params applied_type
     let function_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &function_alloc
     let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena function_alloc
     let scope0 %SelfhostNameScope unwrap_ok selfhost_name_scope_new
@@ -68,7 +72,6 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_direct_only %impure fn vo
     let candidates %Vec SelfhostCallableCandidate unwrap_ok v::push candidates0 candidate
     let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
     let vfs1 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs0 "Child" "pub enum Choice<.T>:\n    First %.T\n    Last\n"
-    let source "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match make:\n        child::Choice::First:\n            0\n        child::Choice::Last:\n            1\n"
     let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs1 "Root" source
     let graph %SelfhostModuleGraph unwrap_ok selfhost_build_module_graph &vfs "Root"
     let order %SelfhostModuleOrder unwrap_ok selfhost_module_order_build &graph &vfs
@@ -81,8 +84,19 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_direct_only %impure fn vo
             let member_preserved %bool selfhost_type_id_eq member.scrutinee_type applied_type
             let preserved %bool and root_preserved member_preserved
             selfhost_match_checked_actual_member_context_free context
-            preserved
-        Result::Err _: false
+            and preserved not expect_mismatch
+        Result::Err error:
+            if:
+                expect_mismatch
+                then:
+                    match error:
+                        SelfhostMatchCheckedActualMemberError::Scrutinee scrutinee_error:
+                            match scrutinee_error:
+                                SelfhostMatchCheckedScrutineeError::ExpressionCheck expression_error:
+                                    selfhost_expression_line_check_error_is_call_reduce_kind expression_error SelfhostCallReduceErrorKind::ExpectedTypeMismatch
+                                _: false
+                        _: false
+                else: false
     v::free candidates
     selfhost_value_type_evidence_table_free value_types
     selfhost_callable_signature_table_free signatures
@@ -91,3 +105,27 @@ pub fn selfhost_check_expr_stage1_fixture_match_actual_direct_only %impure fn vo
     selfhost_module_graph_free graph
     selfhost_vfs_free vfs
     ok
+
+//: selfhost_check_expr_stage1_fixture_match_actual_direct_only: direct call scrutineeをactual member gateまで検査する
+pub fn selfhost_check_expr_stage1_fixture_match_actual_direct_only %impure fn void bool \void:
+    selfhost_check_expr_stage1_fixture_match_actual_source "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match make:\n        child::Choice::First:\n            0\n        child::Choice::Last:\n            1\n" false
+
+//: selfhost_check_expr_stage1_fixture_match_actual_ascription: 明示ascriptionをactual member gateまで検査する
+//:
+//: [目的/もくてき]: `%Choice i32 make`をcurrent VFSのMatch contextからbody-line checkerへ渡し、注釈が作ったexpected typeの下でもchecked rootとexported enum memberが同じApplied typeを保持することを確認します。
+//: [authority boundary]: source rangeやTypeIdをfixture結果へ直接渡さず、公開actual Match connectorが再取得したroot typeだけを検査します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/check/expr/stage1_match_actual_direct_fixture" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_check_expr_stage1_fixture_match_actual_ascription:
+//:         true: 0
+//:         false: 1
+//: ```
+pub fn selfhost_check_expr_stage1_fixture_match_actual_ascription %impure fn void bool \void:
+    let accepted %bool selfhost_check_expr_stage1_fixture_match_actual_source "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match %Choice i32 make:\n        child::Choice::First:\n            0\n        child::Choice::Last:\n            1\n" false
+    let rejected %bool selfhost_check_expr_stage1_fixture_match_actual_source "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match %Choice bool make:\n        child::Choice::First:\n            0\n        child::Choice::Last:\n            1\n" true
+    and accepted rejected

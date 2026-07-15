@@ -128,6 +128,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 
 ## 検証
 
+- 2026-07-15: actual leading Match connectorのwhole-scrutinee明示ascription runtime gateを追加した。current VFSの`match %Choice i32 make:`をconstructor-aware ascription projectorと通常body-line reducerへ通し、checked rootとqualified exported memberのscrutinee typeが同じ`Choice<i32>` arena recordを保持する。`match %Choice bool make:`はconnectorのtyped `ExpectedTypeMismatch`として拒否し、ascriptionを無視する退行を検出する。fixtureのconstructor tableはsynthetic preseedであり、qualified importからconstructorを構築するactual name-resolution originは証明しない。source range / TypeIdをfixtureからconnectorへ注入しない。pipe success / ambiguityとRust同様のarm-derived expected retry / rollbackは後続sliceである。
+
 Add normal tests for prefix argument extent, %TypeExpr extent, nested block arguments, malformed prefix calls, and checker diagnostics once cfg-test-style tests are available.
 
 2026-06-05 checkpoint:

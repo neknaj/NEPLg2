@@ -168176,10 +168176,30 @@ MERGE_APPROVED
 - same/different family、generic内qualified name、qualified family、unqualified memberの既存意味論をunit回帰で固定した。owner alias/exclusive siblingのproof契約は変更していない。セルフホストコンパイラ全体は未完成である。`plan.md`は変更していない。
 - subagent全体整合レビューを受け、local split禁止に加えて`place_utils.rs`がshared `variant_family_name`を使用するpositive responsibility assertionを追加した。
 - focused 6件、nepl-core全877件、`cargo check -p nepl-core`、resource responsibility policy、rustfmt、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13を通過した。
-
 2026-07-15 GUI font Bare / Headless resource provider
 
 - Windows secure resource lookup後の依存として、Bare embedded blob snapshot providerとHeadless explicit fixture providerを追加した。
 - Bareはopen/len/read/closeを同一handleへ結合し、Headlessはborrowed canonical pathとowned bytesを使う。semantic ownership gateでfixture用の別owned pathが解放不能になる設計を避け、request側のpath ownerだけをresourceへ移す。
 - semantic fixture、Bare injected-host runtime harness、source-policy、`trunk build`、playground editor CLI 13/13を通過した。
 - 個別sliceであり、font rendering engineとGUI library全体は未完成。
+
+# 2026-07-15 Selfhost actual Match ascription runtime gate
+
+## 方針
+
+- `plan.md`、todo、対象issue、Rust `match_check.rs`、selfhost Match connectorとbody-line ascription経路を再確認した。`plan.md`は変更していない。
+- connectorは既にascriptionを通常reducerへ渡していたが、actual VFSからchecked rootとqualified member identityまで横断するruntime証拠がdirect callだけだった。component契約をproduction接続の証拠と取り違えないため、同じactual入口を通るgateを追加した。
+
+## 実装
+
+- direct fixtureのsetupをsource入力のprivate helperへまとめ、従来direct callとwhole-scrutinee `%Choice i32 make` がそれぞれfresh arena / constructor / scope ownerでactual connectorを実行するようにした。
+- ascription successはconstructor-aware type projectionが作るexpected typeの下でcallを検査し、connectorがchecked treeから再取得したroot typeとexported enum memberのscrutinee typeが同じApplied typeであることを確認する。`%Choice bool make`のnegative caseはtyped `ExpectedTypeMismatch`を要求し、ascriptionを迂回して通常縮約する退行を検出する。range / span / TypeIdをcaller authorityとして追加していない。
+- fixtureのconstructor tableはsynthetic preseedであり、qualified importからconstructorを構築するactual name-resolution originは証明しない。このproduction authority制約は従来どおりcaller preconditionとして維持する。
+- pipe success / ambiguity、arm-derived expected type推論、diagnostic/type context rollbackとretryは未完了でtodoに維持した。
+
+## 検証
+
+- focused doctestはdirect / ascription shardを分離し、`NEPL_TEST_CASE_TIMEOUT_MS=300000`で各1/1通過した。ascription shardはsuccessとtyped mismatch rejectionを同じpublic smokeで実行する。
+- Match checked scrutinee contract、stdlib unsafe helper policy、expression call reduction contract、line-count policy、issues check、`git diff --check`は通過した。
+- documentation contractは既存baseline `moduleNoDoc: 68 > 59`、Zenn review gateは今回未変更の`test_selfhost_resource_ir_place_projection_contract.js`未登録を報告した。今回の差分による新規public doc欠落やtest登録漏れではないため既存全体baselineとして記録し、残りのfull gateと統合前状態を継続確認する。
+- 差分reviewはsuccessだけではascription無視でも通る点をMajorとして指摘した。typed mismatch negativeを追加後、差分reviewと全体整合reviewはいずれもBlocker/Majorなしで統合承認した。全体reviewのLow指摘に従いsynthetic constructor authority制約も文書化した。
