@@ -396,6 +396,8 @@ F5nwのcomplexityはindex build O(p + c)、全contour event traversal O(c + a)�
 
 F5nxは1つの巨大なouter owner型ではなく、phase-specific non-Copy ownerを連続的に消費するowner chainである。各ownerはregistered source authorityとそのphaseのmutable resourceを分離不能に保持する。遷移は前phase ownerを消費して次phase ownerを返し、失敗時は入力phase ownerを再構成してerrorへ保持する。
 
+F5nxq writerはF5nxp completed owner、validated coverage shape、cell Vec、written countを分離不能に保持する。F5laのlegacy owner型を再利用せず、owner非依存のcoverage config / shape validation contractだけを共有する。これによりregistered authorityをlegacy F5lc ownerへ偽装せず、後続F5nxr scanがregistered side-edge / join geometryをwriter内部からborrowできる。
+
 F5nxa単体はRegisteredIndexedOwnerからRegisteredIndexedActionOwnerを作るdiagnostic / lower boundaryである。canonical F5nxb以降のowner DAGはRegisteredIndexedOwnerからActionSummaryOwner Runningを直接開始し、内部でF5nxa ownerを作る。そこからActionSummaryCompletedOwnerを経てF5nxc OutlineStorageOwnerへ進むsuccess branchと、ActionSummaryRejectedOwnerからdiagnostics / freeへ進むrejected branchに分かれる。F5nxc ownerはcompleted ownerを分解せずnested authorityとして保持する。その後RegisteredIndexedEndpointOwner、PointXOwner、PointYOwner、EdgeOwner、CommandTagOwner、CommandStreamOwner、CommandWriterOwner、StrokeSourceOwnerへ進む。
 
 canonical F5nxb source authorityはregistered indexed ownerから始まり、start内部でF5nxa action ownerへmoveされる。F5nxa単体のlower path ownerはsummary owner内部にnestedされた実行authorityであり、canonical public rootではない。各phase ownerはprivate transitionで次へmoveする。公開APIはphase owner全体のconsume / recovery / freeだけを提供し、raw collection、span index、lower path owner、outline storage、command storageを単独でtakeできない。read-only処理はphase owner内部のborrowed indexed sourceからcollectionまたはO(1) span lookupを行い、callerから別collectionを受け取らない。

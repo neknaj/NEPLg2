@@ -13568,3 +13568,11 @@ git diff --check
 - `join_count` exact-capacity Vec、budget 0不変、1 budget 1 push、terminal-before-budget、push後commit、typed owner-bearing recovery、single freeを実装する。
 - runtime fixtureでbevel/miter/clip/round/quadratic bevel、Left/Right、forced failure retry、exact counts/capacity/terminalを検査し、F5lc focused regressionも通す。
 - source policy、normal compile、spec/design/todo/note、trunk、CLI、GUI contractを同時更新し、coverage、packed mask、raster、runtime/native/GUI表示を未完了として残す。
+
+## Phase F5nxq: registered simple glyph stroke coverage cell writer owner boundary
+
+- completed F5nxp ownerをsole direct authorityとし、shared coverage config / shape validationを使ってexact-capacity cell storage ownerを開始する。
+- startはF5nxp source、geometry Vec len/cap、join count、bevel / miter / round count合計をallocation前に再検査する。
+- writerはwritten countとcell Vecを保持し、1 pushで1 cellだけをrange検査後にcommitする。push failureはreturned Vecとpre-push progressを持つownerを回収する。
+- exact fullだけをcompleted ownerへ進め、incomplete completionはwriterを失わない。owner-bearing型はClone / Copyを持たず、single freeを提供する。
+- F5nxqはcell writer boundaryで止め、coverage scan、quadratic flattening、packed mask、paint composition、raster、runtime/native/GUI表示は後続phaseに残す。

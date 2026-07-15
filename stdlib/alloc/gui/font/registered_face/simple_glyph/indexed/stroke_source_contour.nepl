@@ -1668,3 +1668,211 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_f
                             match gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges index &join &from_edge &to_edge:
                                 Result::Err kind: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::ProjectionFailed kind) none
                                 Result::Ok rejected: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryErrorKind::StorageFailed StdErrorKind::CapacityExceeded) (some rejected)
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner: F5nxq registered stroke coverage cell writer
+//:
+//: [目的/もくてき]:
+//: - completed F5nxp ownerを唯一のsource authorityとして保持し、validated shapeとexact-capacity cell Vecを所有します。
+//: - coverage値の書き込みだけを担当し、scan conversion、packed mask、raster、platform表示へ進みません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner:
+    join_geometry %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner
+    shape %GuiSfntSimpleGlyphRasterCoverageShape
+    cells %Vec i32
+    written_cell_count %i32
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner: 全cellが埋まったF5nxq completed owner
+//:
+//: [契約/けいやく]:
+//: - cell Vecのlen/capはshapeのcell countと一致します。
+//: - packed変換やcoverage scanの完了を表さず、raw coverage cell authorityだけを保持します。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner:
+    join_geometry %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner
+    shape %GuiSfntSimpleGlyphRasterCoverageShape
+    cells %Vec i32
+    cell_count %i32
+
+//: F5nxq start failure reason
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind:
+    ShapeRejected %GuiSfntSimpleGlyphRasterCoverageStartErrorKind
+    SourceInvariantInvalid
+    StorageFailed %StdErrorKind
+    StorageInitialLenMismatch
+    StorageCapacityMismatch
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind \value: value
+
+//: F5nxq start failureでF5nxp ownerとconfigを回収するpayload
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError:
+    join_geometry %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner
+    config %GuiSfntSimpleGlyphRasterCoverageConfig
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind
+
+//: F5nxq push failure reason
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind:
+    ProgressInvariantInvalid
+    StorageCapacityMismatch
+    MaskFull
+    CoverageNegative
+    CoverageExceedsMax
+    StorageFailed %StdErrorKind
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind \value: value
+
+//: F5nxq push failureでreturned Vec、pre-push count、拒否値を回収するpayload
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner
+    coverage_value %i32
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind
+
+//: F5nxq completion failure reason
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind:
+    ProgressInvariantInvalid
+    StorageCapacityMismatch
+    MaskIncomplete
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind \value: value
+
+//: F5nxq completion failureでwriter ownerを回収するpayload
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind
+
+//: completed F5nxp source/geometries/countの一致を再検査する
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_source_invariants %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner bool \owner:
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner field::get_ref owner "source"
+    let join_count %i32 *field::get_ref owner "join_count"
+    let bevel_count %i32 *field::get_ref owner "bevel_count"
+    let miter_count %i32 *field::get_ref owner "miter_count"
+    let round_count %i32 *field::get_ref owner "round_count"
+    let geometries %&Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord field::get_ref owner "geometries"
+    let bevel_within %bool and ge bevel_count 0 le bevel_count join_count
+    let after_bevel %i32 if bevel_within then sub join_count bevel_count else 0
+    let miter_within %bool and ge miter_count 0 le miter_count after_bevel
+    let remaining %i32 if miter_within then sub after_bevel miter_count else 0
+    and gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_source_invariants source and ge join_count 0 and bevel_within and miter_within and eq round_count remaining and eq vec::len geometries join_count eq vec::cap geometries join_count
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start: F5nxq writerを開始する
+//:
+//: [契約/けいやく]:
+//: - shape validationとF5nxp invariantをowner消費前に検査します。
+//: - shape cell countと同じcapacityを一度だけ確保し、失敗時はF5nxp owner全体を返します。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner impure fn GuiSfntSimpleGlyphRasterCoverageConfig Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError \join_geometry\config:
+    match gui_sfnt_simple_glyph_raster_coverage_shape_from_config &config:
+        Result::Err kind:
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError join_geometry config (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind::ShapeRejected kind)
+        Result::Ok shape:
+            if not gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_source_invariants &join_geometry:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError join_geometry config GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind::SourceInvariantInvalid
+                else:
+                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                    match vec::with_capacity<i32> cell_count:
+                        Result::Err kind:
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError join_geometry config (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind::StorageFailed kind)
+                        Result::Ok cells:
+                            if ne vec::len &cells 0:
+                                then:
+                                    vec::free cells
+                                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError join_geometry config GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind::StorageInitialLenMismatch
+                                else if ne vec::cap &cells cell_count:
+                                    then:
+                                        vec::free cells
+                                        Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError join_geometry config GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind::StorageCapacityMismatch
+                                    else Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner join_geometry shape cells 0
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push: coverage cellを一件積む
+//:
+//: [契約/けいやく]:
+//: - written count、Vec len/cap、coverage range、full状態をpush前に検査します。
+//: - push失敗ではreturned Vecとpre-push countからownerを復元し、拒否値を保持します。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError \owner\coverage_value:
+    let written %i32 *field::get_ref &owner "written_cell_count"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref &owner "shape"
+    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+    let cells_ref %&Vec i32 field::get_ref &owner "cells"
+    if or lt written 0 ne vec::len cells_ref written:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError owner coverage_value GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::ProgressInvariantInvalid
+        else if ne vec::cap cells_ref cell_count:
+            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError owner coverage_value GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::StorageCapacityMismatch
+            else if ge written cell_count:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError owner coverage_value GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::MaskFull
+                else if lt coverage_value 0:
+                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError owner coverage_value GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::CoverageNegative
+                    else if gt coverage_value gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape:
+                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError owner coverage_value GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::CoverageExceedsMax
+                        else:
+                            let join_geometry %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner field::get owner "join_geometry"
+                            let cells %Vec i32 field::get owner "cells"
+                            match vec::push cells coverage_value:
+                                Result::Err push_error:
+                                    let kind %StdErrorKind vec::vec_push_error_kind &push_error
+                                    let returned %Vec i32 vec::vec_push_error_vec push_error
+                                    let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner join_geometry shape returned written
+                                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError recovered coverage_value (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::StorageFailed kind)
+                                Result::Ok next:
+                                    Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner join_geometry shape next (add written 1)
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_complete: exact full writerだけをcompleted ownerへ進める
+//:
+//: [契約/けいやく]:
+//: - lenとwritten count、capとcell countを再検査します。
+//: - 未充填ownerをcompletedと偽装せず、owner-bearing errorとして返します。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_complete %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionError \owner:
+    let written %i32 *field::get_ref &owner "written_cell_count"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref &owner "shape"
+    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+    let cells_ref %&Vec i32 field::get_ref &owner "cells"
+    if or lt written 0 ne vec::len cells_ref written:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind::ProgressInvariantInvalid
+        else if ne vec::cap cells_ref cell_count:
+            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind::StorageCapacityMismatch
+            else if ne written cell_count:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind::MaskIncomplete
+                else Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner (field::get owner "join_geometry") shape (field::get owner "cells") written
+
+//: F5nxq writer/completed ownerのshapeと進捗を読むaccessor
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_written_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner i32 \owner: *field::get_ref owner "written_cell_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_cells_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner i32 \owner: vec::len field::get_ref owner "cells"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_cells_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner i32 \owner: vec::cap field::get_ref owner "cells"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_shape %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner GuiSfntSimpleGlyphRasterCoverageShape \owner: *field::get_ref owner "shape"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner i32 \owner: *field::get_ref owner "cell_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cells_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner i32 \owner: vec::len field::get_ref owner "cells"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cells_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner i32 \owner: vec::cap field::get_ref owner "cells"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_shape %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner GuiSfntSimpleGlyphRasterCoverageShape \owner: *field::get_ref owner "shape"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner \error: field::get error "join_geometry"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_config %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError GuiSfntSimpleGlyphRasterCoverageConfig \error: *field::get_ref error "config"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner \error: field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError i32 \error: *field::get_ref error "coverage_value"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_completion_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner \error: field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_completion_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind \error: *field::get_ref error "kind"
+
+//: F5nxq owner-bearing payloadを一度だけ解放する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner unit \owner:
+    vec::free field::get owner "cells"
+    gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free field::get owner "join_geometry"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner unit \owner:
+    vec::free field::get owner "cells"
+    gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free field::get owner "join_geometry"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free field::get error "join_geometry"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_free field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_completion_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_free field::get error "owner"
+
+#test
+//: allocation前のF5nxp ownerを保持したstart failure seam
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_start_storage_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner fn GuiSfntSimpleGlyphRasterCoverageConfig GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError \join_geometry\config:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartError join_geometry config (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellStartErrorKind::StorageFailed StdErrorKind::CapacityExceeded)
+
+#test
+//: pre-push ownerと拒否値を保持したpush failure seam
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_push_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner fn i32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError \owner\coverage_value:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushError owner coverage_value (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::StorageFailed StdErrorKind::CapacityExceeded)

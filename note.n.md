@@ -168361,3 +168361,15 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 初回差分reviewはtest directiveが1 statementにしか効かないため3 helperがnormal artifactへ漏れること、policy variantだけでpayload全体を検査していないことをMajorとして指摘した。個別`#test`と全payload検査へ修正後、再reviewはBlocker/Majorなしとなった。
 - pass: focused matrix 1/1、paint-bound production registered chain 1/1、glyf module 2477/2477、registered owner module 52/52、Web GUI font contract、F5nxp normal compile isolation、issues check、`git diff --check`、一時`npm.cmd` shim経由の`trunk build`、trunk後Playground editor CLI JSON 13/13。full source-policy runnerは今回関連gateを通過し、scope外の既存selfhost/doctest/documentation drift 9件を`--warn-only` warningとして報告して終了コード0で完走した。stdlib documentation contractのrepository-wide既知baselineは2970 > 2756であり、新規4宣言には日本語docを付与している。
 - F5nxp issueの実装・runtime・source-policy・normal compile・build・review条件は満たしたためresolvedとした。ただしregistered coverage、packed mask、raster、runtime bridge、native/Web GUI表示とフォントレンダリングエンジン／GUIライブラリ全体は未完成であり、本issueのcheckpointを全体完成とは扱わない。
+
+## 2026-07-16 F5nxq registered coverage cell writer設計開始
+
+- `origin/main`のF5nxp統合済み`a44ebe019`から専用branchを作成した。F5nxqはcompleted F5nxp ownerをsole direct authorityとし、shared coverage shape validationとexact-capacity cell storage、recoverable push、exact-full completionだけを実装する。
+- subagent設計reviewはF5la相当のwriter boundaryだけを次の最小統合可能sliceとし、F5lb/F5le相当のscanをF5nxrへ、packed maskをさらに後続へ分離する案を承認した。
+- coverage scan、quadratic flattening、packed mask、raster、runtime bridge、native/Web GUI表示と全体目標は未完成である。この設計開始をissue完了または統合可能状態とは扱わない。
+
+### F5nxq writer implementation checkpoint
+
+- shared coverage config / validated shape surfaceと、completed F5nxp ownerをsole authorityとするexact-capacity raw cell writerを実装した。start、push、completion failureはownerを回収し、push成功後だけcountを進める。reviewで指摘された分類count overflowはbounded subtractionへ修正し、start errorからconfigとF5nxp ownerを回収するaccessor/fixtureを追加した。再reviewはBlocker/Majorなし。
+- Web GUI contract、issues check、registered module 52/52、`git diff --check`は通過した。production registered chain fixtureは1x1へ縮小後もcompile phaseが300秒でtimeoutしruntimeへ到達していない。したがってissueはinvestigatingのまま、normal compile、full source-policy、glyf再gate、trunk、CLI、runtime 1/1、negative/incomplete runtime coverage、統合は未完了である。
+- 再開条件はdeep production fixtureのcompile完了、または同じpublic owner graphを保持しつつcompile負荷を分離できるfixture設計である。runtimeと残gate完了前にmainへ統合しない。

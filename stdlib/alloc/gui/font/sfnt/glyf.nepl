@@ -16085,7 +16085,7 @@ fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_
 //: - この値だけでは owner を[保持/ほじ]しないため `Clone` / `Copy` を[許可/きょか]します。
 //:
 //: neplg2:test[skip]
-struct GuiSfntSimpleGlyphRasterCoverageConfig:
+pub struct GuiSfntSimpleGlyphRasterCoverageConfig:
     origin_x2 %i32
     origin_y2 %i32
     width_px %i32
@@ -16101,31 +16101,31 @@ impl Copy for GuiSfntSimpleGlyphRasterCoverageConfig:
     fn copy_mark %fn GuiSfntSimpleGlyphRasterCoverageConfig GuiSfntSimpleGlyphRasterCoverageConfig \config:
         config
 
-fn gui_sfnt_simple_glyph_raster_coverage_config %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRasterCoverageConfig \origin_x2\origin_y2\width_px\height_px\sample_scale\max_cell_count:
+pub fn gui_sfnt_simple_glyph_raster_coverage_config %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRasterCoverageConfig \origin_x2\origin_y2\width_px\height_px\sample_scale\max_cell_count:
     GuiSfntSimpleGlyphRasterCoverageConfig origin_x2 origin_y2 width_px height_px sample_scale max_cell_count
 
-fn gui_sfnt_simple_glyph_raster_coverage_config_origin_x2 %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
+pub fn gui_sfnt_simple_glyph_raster_coverage_config_origin_x2 %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
     *field::get_ref config "origin_x2"
 
-fn gui_sfnt_simple_glyph_raster_coverage_config_origin_y2 %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
+pub fn gui_sfnt_simple_glyph_raster_coverage_config_origin_y2 %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
     *field::get_ref config "origin_y2"
 
-fn gui_sfnt_simple_glyph_raster_coverage_config_width_px %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
+pub fn gui_sfnt_simple_glyph_raster_coverage_config_width_px %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
     *field::get_ref config "width_px"
 
-fn gui_sfnt_simple_glyph_raster_coverage_config_height_px %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
+pub fn gui_sfnt_simple_glyph_raster_coverage_config_height_px %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
     *field::get_ref config "height_px"
 
-fn gui_sfnt_simple_glyph_raster_coverage_config_sample_scale %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
+pub fn gui_sfnt_simple_glyph_raster_coverage_config_sample_scale %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
     *field::get_ref config "sample_scale"
 
-fn gui_sfnt_simple_glyph_raster_coverage_config_max_cell_count %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
+pub fn gui_sfnt_simple_glyph_raster_coverage_config_max_cell_count %fn &GuiSfntSimpleGlyphRasterCoverageConfig i32 \config:
     *field::get_ref config "max_cell_count"
 
 //: GuiSfntSimpleGlyphRasterCoverageShape: validated coverage mask shape
 //:
 //: neplg2:test[skip]
-struct GuiSfntSimpleGlyphRasterCoverageShape:
+pub struct GuiSfntSimpleGlyphRasterCoverageShape:
     origin_x2 %i32
     origin_y2 %i32
     width_px %i32
@@ -16145,31 +16145,31 @@ impl Copy for GuiSfntSimpleGlyphRasterCoverageShape:
 fn gui_sfnt_simple_glyph_raster_coverage_shape %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRasterCoverageShape \origin_x2\origin_y2\width_px\height_px\sample_scale\coverage_max\cell_count:
     GuiSfntSimpleGlyphRasterCoverageShape origin_x2 origin_y2 width_px height_px sample_scale coverage_max cell_count
 
-fn gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
+pub fn gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
     *field::get_ref shape "origin_x2"
 
-fn gui_sfnt_simple_glyph_raster_coverage_shape_origin_y2 %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
+pub fn gui_sfnt_simple_glyph_raster_coverage_shape_origin_y2 %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
     *field::get_ref shape "origin_y2"
 
-fn gui_sfnt_simple_glyph_raster_coverage_shape_width_px %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
+pub fn gui_sfnt_simple_glyph_raster_coverage_shape_width_px %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
     *field::get_ref shape "width_px"
 
-fn gui_sfnt_simple_glyph_raster_coverage_shape_height_px %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
+pub fn gui_sfnt_simple_glyph_raster_coverage_shape_height_px %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
     *field::get_ref shape "height_px"
 
-fn gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
+pub fn gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
     *field::get_ref shape "sample_scale"
 
-fn gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
+pub fn gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
     *field::get_ref shape "coverage_max"
 
-fn gui_sfnt_simple_glyph_raster_coverage_shape_cell_count %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
+pub fn gui_sfnt_simple_glyph_raster_coverage_shape_cell_count %fn &GuiSfntSimpleGlyphRasterCoverageShape i32 \shape:
     *field::get_ref shape "cell_count"
 
 //: GuiSfntSimpleGlyphRasterCoverageStartErrorKind: coverage mask writer start failure reason
 //:
 //: neplg2:test[skip]
-enum GuiSfntSimpleGlyphRasterCoverageStartErrorKind:
+pub enum GuiSfntSimpleGlyphRasterCoverageStartErrorKind:
     InvalidWidth
     InvalidHeight
     InvalidSampleScale
@@ -16200,7 +16200,7 @@ fn gui_sfnt_simple_glyph_raster_coverage_shape_count_checked_mul %fn i32 fn i32 
         then Result::Err overflow_kind
         else Result::Ok mul left right
 
-fn gui_sfnt_simple_glyph_raster_coverage_shape_from_config %fn &GuiSfntSimpleGlyphRasterCoverageConfig Result GuiSfntSimpleGlyphRasterCoverageShape GuiSfntSimpleGlyphRasterCoverageStartErrorKind \config:
+pub fn gui_sfnt_simple_glyph_raster_coverage_shape_from_config %fn &GuiSfntSimpleGlyphRasterCoverageConfig Result GuiSfntSimpleGlyphRasterCoverageShape GuiSfntSimpleGlyphRasterCoverageStartErrorKind \config:
     let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_config_width_px config
     if le width_px 0:
         then Result::Err GuiSfntSimpleGlyphRasterCoverageStartErrorKind::InvalidWidth

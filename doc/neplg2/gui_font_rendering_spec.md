@@ -8515,3 +8515,7 @@ F5nxp は completed F5nxo compact owner を唯一のdirect authorityとして消
 bevelはclosure chordを保持する。line-only miterは両side edgeの交点を使い、parallelまたは`stroke_width * miter_limit`超過では`miter_clipped`付きbevelへ落とす。line-only roundは一致するdirected source centerと半径から二分chordを作る。quadraticを含むmiter/roundは`quadratic_bevel`付きbevelとし、line geometryを捏造しない。非finite座標、width/side/center/radius/policy不整合はtyped errorとしてfail closedにする。
 
 F5nxp ownerは移譲済みside-edge/join storage、exact-capacity geometry Vec、cursor、bevel/miter/round countを所有する。budget 0は不変、1 budgetは1 source joinのread/project/pushだけ、terminal probeはbudget非消費、push成功後だけcursor/countをcommitする。start/step/push failureは元owner、returned Vec、rejected geometryを回収可能にする。coverage、packed mask、raster、runtime bridge、native/Web表示は後続phaseである。
+
+F5nxqはcompleted F5nxp owner全体を唯一のdirect authorityとして消費し、registered stroke coverage scan用cell writer ownerを作る。shared coverage configから検証済みshapeを導出し、F5nxp source invariant、geometry Vec exact len/cap、join countとbevel/miter/round count合計をallocation前に再検査する。cell Vecはshape cell countのexact capacityで一度だけ確保する。
+
+F5nxq pushはwriter count、Vec len/cap、full、`0 <= coverage <= coverage_max`を検査し、成功後だけ1 cellをcommitする。storage failureではreturned Vecとpre-push countを持つwriter ownerを回収する。completionはexact fullだけをcompleted ownerへ進め、不足時はwriter ownerを返す。coverage scan computation、quadratic flattening、packed mask、paint composition、raster、runtime bridge、native/Web表示は後続phaseである。
