@@ -14,6 +14,7 @@ const testOnlyNames = [
     "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_normal_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_work_bound_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_quadratic_direction_contract",
 ];
 
 const probe = (testOnlyName) => `#entry main

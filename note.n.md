@@ -168405,3 +168405,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - writerだけをresource-bearingに保ち、CellBegin、SampleBegin、Edge、QuadraticSegment、JoinSegment、SampleCommit、CellCommitと各index/parity/coverageをCopy cursorへ移す。pollはterminal-before-budgetを維持し、budget 0は不変、budget 1は一つの数値またはwriter transitionだけを進め、1超をowner-bearing errorにする。
 - Lineは1 crossing、Quadraticは1 chord、Bevel/Miter/Roundは1 connector、SampleCommitは1 sample、CellCommitはF5nxq push 1回に限定する。push failureは同じCellCommit cursorを返し、completionはterminal-readyなCellBeginだけが行う。
 - migrationはcursor型とphase invariant、pure one-segment helper、micro-step、push/completion recovery、0/1 poll、differential fixtureの順とし、最後に再帰samples/edges/quadratic/joins/drainを削除する。この設計checkpointはruntime成功やissue完成ではない。
+
+### F5nxr micro-step cursor implementation
+
+- recursive samples/edges/quadratic/joins/drainを削除し、7 phase cursor、one-chord/one-connector transition、terminal-first 0/1 pollへ置換した。central invariantはwriter written/len/cap、cell/coverage/index、phase固有の到達可能状態をterminalとstepの前に検査する。
+- normal testはproduction pollをbounded whileで全phase進行し、direct CellCommit seamはpush recovery専用へ分離した。reviewで検出したinvalid seamはshape scaleを使うreachable CellCommitへ修正し、Quadratic Left/Right ordinal contractも追加した。
+- module 52/52、Web GUI/source-policy contract、normal compile isolation、issues check、`git diff --check`は通過した。subagentのcorrectness reviewを通し、残っていた旧drain文言をCopy cursorとterminal-first 0/1 poll契約へ統一した。一方、focused target 3件は各60秒compile timeoutでruntimeへ到達していない。cursor実装をruntime成功やissue完成とは扱わず、compilerのtest-mode deep factory/public cursor summary境界を引き続き調査する。

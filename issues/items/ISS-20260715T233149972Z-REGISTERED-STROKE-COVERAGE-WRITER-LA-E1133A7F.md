@@ -40,14 +40,16 @@ Add an F5nxr scan owner that consumes the F5nxq writer, borrows registered geome
 
 - quadratic subdivisionをboundedにし、Right source reversalとendpoint normal interpolationを維持する。
 - crossingをparityで畳み、sample座標とprogressをoverflow-safeに検査する。
-- terminal-before-budget、1 step 1 push、exact completion、single freeを固定する。
-- 一cell workを1,048,576以下、一回のdrainを4096 step以下、f32座標を±2^24以内に制限し、違反時はowner-bearing errorで回収する。
+- terminal-before-budget、budget 0不変、budget 1の1 micro-step、exact completion、single freeを固定する。
+- 一cell workを1,048,576以下、f32座標を±2^24以内に制限し、違反時はowner-bearing errorで回収する。旧recursive drainはCopy phase cursorに置換する。
 
 ## 検証
 
 Focused runtime, module, source-policy, normal compile, docs, trunk, CLI, and subagent reviews.
 
 productionと固定test contractはmodule 52/52、source-policy contract、normal compile isolationを通過した。umbrella fixtureをfactory一回のnormal/work-bound/coordinate entryへ分離すると、work-bound start rejectionは49.4秒でruntime 1/1を通過したが、scan drainへ到達するnormalとcoordinateは各90秒compile timeoutだった。factoryとscan startは成立し、残る停滞はscan/drain reachable graphのresource summaryに局在する。このtimeoutをruntime成功の代替にはしない。
+
+再帰scan/drainは7-phase Copy cursorとterminal-first 0/1 pollへ置換し、central invariant、one-chord/connector transition、CellCommit recoveryをmodule 52/52で検証した。旧再帰symbolは削除済みである。Web/source-policy contract、normal compile isolation、issues check、diff checkも通過し、subagentのcorrectness/docs再reviewはcheckpoint可とした。ただし分離したnormal/work-bound/coordinateの3外部entryはいずれも60秒compile timeoutとなり、cursor版runtimeへ到達していないためissueは引き続きinvestigatingとする。
 
 ## Out of scope
 

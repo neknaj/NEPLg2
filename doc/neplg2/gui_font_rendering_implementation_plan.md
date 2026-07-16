@@ -13581,9 +13581,9 @@ git diff --check
 ## Phase F5nxr: registered simple glyph stroke coverage scan converter boundary
 
 - F5nxq writer ownerだけをdirect authorityとして消費し、nested F5nxp side-edge projectionとjoin geometryをborrowして1 stepで1 cellのraw coverageを計算する。
-- scan ownerはwriter、value-only quadratic subdivision config、cell indexを分離不能に保持する。startはfresh writer、shape、storage、nested source invariantを再検査し、失敗時はwriterとconfigを回収する。
+- scan ownerはwriter、value-only quadratic subdivision config、phase/cell/sample/edge/quadratic/join progressを表すCopy cursorを分離不能に保持する。startはfresh writer、shape、storage、nested source invariantを再検査し、失敗時はwriterとconfigを回収する。
 - registered projectionをlegacy F5ky/F5la/F5lb ownerへ詰め替えない。Lineはdirected endpoint、Quadraticはbounded subdivision、source curve評価、endpoint normal補間、Left加算／Right減算とsource順反転を用いる。
 - crossingはparityで畳み、Bevelは1 line、MiterとRoundは2 chordを検査する。finite値、±2^24外の整数sample座標と幾何中間値、quadratic segment upper boundをfail-closedに扱う。edge/join countは各4096以下、一cell work積は1,048,576以下に制限する。
-- terminal-before-budget、budget 0不変、一回のdrainは4096 step以下、push成功後だけcell indexとwritten countを同時に1進め、push/completion failureではF5nxq ownerを回収する。exact fullだけをF5nxq completed coverage ownerへ進める。
+- terminal-before-budget、budget 0不変、budget 1の1 micro-stepだけを受理し、push成功後だけcell indexとwritten countを同時に1進める。push/completion failureではF5nxq ownerを回収し、exact fullだけをF5nxq completed coverage ownerへ進める。旧recursive drainは削除する。
 - F5nxrはraw coverage scanで止め、packed mask、paint composition、raster、runtime bridge、native/Web GUI表示へ進まない。
 - compile/resource summary gateのため、既存のcell単位再帰drainをphase cursorへ置換する。poll budgetは0/1 micro-stepで、Lineは1 crossing、Quadraticは1 chord、Bevel/Miter/Roundは1 connector、SampleCommitは1 sample、CellCommitはF5nxq push 1回だけを進める。push失敗は同じCellCommit cursorを回収し、terminal-readyなCellBeginはbudget 0でもF5nxq completionへ進む。
