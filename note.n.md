@@ -168508,3 +168508,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - F5ma/F5nyb後のentryはcursorが進行済みでbatch descriptorを失うため、payload経路をF5nya entryから既存F5mbへ直接分岐した。first rangeのbatch index 0、row start 3/count 1とmetadata、invalid configのowner recoveryを確認した。
 - focused doctest、Web GUI contract、normal compile isolation、issues/diff checkを通過し、subagentの最終差分・全体整合・履歴粒度reviewはいずれもPASSだった。F5mb固有failure recoveryは既存F5mb contractへ委譲し、focused fixtureはhonestなentry failure recoveryを固定する。F5nycはrange metadataまでであり全体は未完成、次は既存F5mc byte storage bridgeである。
+
+## 2026-07-16 F5nyd registered direct compositor byte-storage checkpoint
+
+- F5nycを1回、既存F5mcを1回だけ呼ぶdirect bridgeを追加し、F5nya/F5mbの再実装とF5ma/F5nyb経由を禁止した。error/recoveryはlower error全体とCompleted/DirtyOwner/Entry/Range authorityを保持する。
+- focused successはframe id 261、width 16、row start 3/count 1、byte count 64、checked offsets 28..31のRGBA `(11,22,33,21)`を固定する。invalid configはnested frame-entry errorとDirtyOwner recoveryを固定し、自然に到達不能なF5mc failure fixtureは偽造せず既存F5mc regressionへ委譲する。
+- focused doctest、Web GUI contract、normal compile isolation、既存F5mc regression、trunk build、playground editor JSON 13/13、issues/diff checkを通過した。subagent実装reviewと差分reviewの指摘を反映し、段階別lower error/recovery mappingもsource-policyで固定した。F5nydはcopied row bytesまでで全体は未完成、次は既存F5md tile-plan bridgeである。

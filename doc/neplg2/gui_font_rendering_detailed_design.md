@@ -11041,3 +11041,9 @@ The affine error stores either the complete F5nya owner-bearing error or the com
 F5nyc takes the registered completed owner and existing compositor entry config. It invokes F5nya once, then passes the untouched entry directly to F5mb `gui_rgba8888_compositor_batch_range_prepare` once. The success owner therefore retains the first descriptor at batch index 0 together with the original frame and row metadata.
 
 The two owner-bearing lower errors remain distinct stages, and consuming recovery preserves completed, dirty-owner, or entry authority. This direct branch must not follow F5ma or F5nyb: either drain path advances the cursor and can discard the descriptor needed by F5mb. F5nyc stops before F5mc row-byte storage, tile/RLE encoding, presentation, transport, host/platform/backend work, or fallback.
+
+### F5nyd registered direct compositor byte-storage bridge
+
+F5nyd consumes the registered completed owner with the existing entry config, calls the public F5nyc bridge exactly once, and passes its untouched range owner to F5mc `gui_rgba8888_compositor_byte_storage_prepare` exactly once. Success returns the existing byte-storage owner, preserving the batch 0 row bytes and the original frame/row metadata.
+
+The affine wrapper stores either the complete F5nyc error or complete F5mc prepare error. Borrowed diagnostics precede consuming recovery; recovery returns completed, dirty-owner, entry, or range authority without reconstructing lower owners. F5nya/F5mb are not duplicated, F5ma/F5nyb are excluded, and raw/lower byte storage is not exposed. F5nyd stops before F5md tile planning, tile/RLE encoding, presentation, transport, host/platform/backend work, or fallback.

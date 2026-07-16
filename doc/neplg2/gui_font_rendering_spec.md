@@ -8605,3 +8605,9 @@ F5nybはF5mb以降のrange/row byte/tile/RLE、scheduler loop、present、transp
 F5nycはregistered completed ownerと既存F5lz configを受け、F5nya frame-entry bridge、既存F5mb `gui_rgba8888_compositor_batch_range_prepare`を各1回、この順で呼ぶ。成功時は既存range ownerを返し、最初のrangeはbatch index 0とframe/row metadataを保持する。
 
 frame-entry failureとbatch-range prepare failureはlower owner-bearing errorを段階別variantに保持し、consuming recoveryはcompleted/dirty/entry authorityを返す。F5ma/F5nybを先に通すとcursor進行によりdescriptorを失うため、このpayload経路では経由してはならない。F5nycはF5mc row byte storage、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。
+
+### F5nyd registered stroke direct compositor byte-storage bridge
+
+F5nydはregistered completed ownerと既存F5lz configを受け、public F5nyc batch-range bridge、既存F5mc `gui_rgba8888_compositor_byte_storage_prepare`を各1回、この順で呼ぶ。successは既存byte-storage ownerをそのまま返し、batch 0由来のrow bytesとframe/row metadataを保持する。
+
+batch-range bridge failureとbyte-storage prepare failureはlower owner-bearing error全体を段階別variantに保持する。consuming recoveryはcompleted/dirty/entryまたはrange authorityを返す。F5nya/F5mbを再実装せず、F5ma/F5nybを経由せず、raw storageやlower row-byte APIを公開しない。F5nydはF5md tile plan、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。

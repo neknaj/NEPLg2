@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-16T09:13:21.268Z",
+  "generated_at": "2026-07-16T09:43:17.285Z",
   "counts": {
-    "total": 1388,
+    "total": 1389,
     "open": 60,
-    "resolved": 1328,
+    "resolved": 1329,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 14,
+        "total": 15,
         "open": 0,
-        "resolved": 14
+        "resolved": 15
       },
       "nodesrc": {
         "total": 16,
@@ -11323,6 +11323,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260716T085822333Z-REGISTERED-STROKE-COMPOSITOR-ENTRY-L-BE89E2CB.md"
+    },
+    {
+      "id": "ISS-20260716T091612069Z-REGISTERED-STROKE-COMPOSITOR-RANGE-L-BDC5FB9B",
+      "title": "Registered stroke compositor range lacks byte-storage bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-16",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T091612069Z-REGISTERED-STROKE-COMPOSITOR-RANGE-L-BDC5FB9B.md"
     },
     {
       "id": "ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP",

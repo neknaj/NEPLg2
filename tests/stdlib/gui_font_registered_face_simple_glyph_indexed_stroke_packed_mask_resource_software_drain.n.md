@@ -1,5 +1,39 @@
 # GUI font registered simple glyph indexed stroke packed mask software drain start
 
+## Registered completion enters checked compositor byte storage
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_byte_storage\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"storage preserves exact row bytes and frame metadata\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_test_normal_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_byte_storage"
+    test_report_finish test_report_bool report "storage preserves exact row bytes and frame metadata" true result
+```
+
+## Invalid entry config preserves dirty owner before byte storage
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_byte_storage_recovery\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"entry failure remains typed and dirty-owner bearing\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_test_entry_recovery_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_byte_storage_recovery"
+    test_report_finish test_report_bool report "entry failure remains typed and dirty-owner bearing" true result
+```
+
 ## Registered completion enters first compositor batch range
 
 ```neplg2

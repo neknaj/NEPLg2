@@ -13673,3 +13673,10 @@ git diff --check
 - F5nxy completed ownerと既存F5lz configを受け、F5nyaを1回呼んだ直後のentryを既存F5mb `gui_rgba8888_compositor_batch_range_prepare`へ1回渡す。
 - success fixtureは最初のbatch index 0、row start/count、frame metadataを検証し、entry failure fixtureはtyped stage/categoryとowner recoveryを検証する。
 - F5ma/F5nyb後はdescriptor authorityが失われ得るためpayload経路に使用しない。F5nycはF5mc row byte storage、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。
+
+## Phase F5nyd: registered stroke direct compositor byte-storage bridge boundary
+
+- F5nxy completed ownerと既存F5lz configを受け、public F5nycを1回呼び、success rangeを既存F5mc `gui_rgba8888_compositor_byte_storage_prepare`へ1回渡す。F5nya/F5mbを再実装せず、F5ma/F5nybを経由しない。
+- errorは`BatchRangeBridgeFailed`または`ByteStoragePrepareFailed`としてlower owner-bearing error全体を保持し、borrowed diagnostic後のconsuming recoveryだけがCompleted/DirtyOwner/Entry/Range authorityへ変換する。
+- success fixtureはframe id 261、width 16、row start 3/count 1、byte count 64、checked offsets 28..31のRGBA `(11,22,33,21)`を検証する。invalid config fixtureはF5nyc stage/categoryとDirtyOwner recoveryを検証する。自然に到達不能なF5mc failureを偽造せず、既存F5mc regressionとsource policyで委譲契約を固定する。
+- focused runtime、Web GUI source policy、normal compile isolation、F5nyc/F5mc regression、issues/diff check、subagent reviewを通す。F5nydはF5md tile plan、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。
