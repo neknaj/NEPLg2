@@ -168444,3 +168444,11 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 正常系はoriginとshapeからrectを導出してmask id/paintとownerを移譲する。拒否系はownerとconfigを保持し、0/negative idの回収後retry、Copy blend、storage length不整合をruntime fixtureで検査した。
 - focused 2件は個別doctestでruntime通過した。focused matrix runnerは各compileが既定60秒を超えて2件timeoutしたが、個別実行をruntime evidenceとした。registered module matrixは51/52を通過し、唯一timeoutしたdoctest #1も個別実行で通過したため、全52 runtime contractを確認した。normal compile isolationとWeb GUI source-policyも通過しており、timeoutをruntime成功の代替にはしていない。
 - F5nxtはresource reservationまでであり、idの一意性/登録済み/host-visible/renderableは証明しない。次はF5nxu metadata-only resource tableで、prepared command、software drain、native/Web表示、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+
+# 2026-07-16 F5nxu registered mask metadata-only table design checkpoint
+
+- F5nxtは`f4368760f`までorigin/mainへ統合済みで、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+- 次phaseをF5nxu registered stroke packed alpha-mask metadata-only resource table boundaryとし、issue `ISS-20260716T054858471Z-REGISTERED-PACKED-STROKE-MASK-LACKS--F0A84E95`を作成した。
+- F5nxt reservationをsole storage authorityとして保持し、table VecにはCopy metadata recordだけを入れる。成功はupdated table+registered resource、失敗はtable+original reservationのpair recoveryとし、split consuming accessorを禁止する。
+- positive id、nested F5nxs shape/storage、shapeと一致するrect width/height、duplicate idをpush前に検査する。F5nxtが保持しないblendや独立paint authorityを再検証したとは主張しない。private table内の一意性だけを証明し、host-visible upload/renderabilityを主張しない。
+- metadata-only record/table、registered resource、paired success/error recoveryを実装した。normal/recovery focused runtime、registered module 50/50、normal compile、Web GUI source-policy、issues/diff checkは通過した。subagent review、checkpoint commit、統合は未完了である。後続はF5nxv sealed prepared command、F5nxw drain/transportである。

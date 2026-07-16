@@ -10967,3 +10967,13 @@ F5nxs pack ownerはcompleted F5nxq/F5nxr raw coverage owner全体、exact-capaci
 start invariantはpositive alpha max、valid shape、raw count/len/cap exact、checked alpha scale、alpha Vec initial len 0/exact capである。step invariantはindex range、alpha len==index、raw/alpha cap exactを再検査し、borrowed raw slotをrange検査してfloor normalization後にpushする。terminal probe、budget 0、budget 1の順を固定し、budget 1超を拒否する。start/poll/storage errorはowner-bearingで、kind/configだけがCopy可能である。recovery/freeはnested authorityと両storageを一度だけ閉じる。
 
 runtime fixtureはactual F5nxr completionからの`[0,0]`、production F5nxq push/completeからの`[0,4] -> [0,255]`とfloor値、0/1/>1 budget、invalid alpha、raw range seam、forced push recoveryを固定する。normal compileとsource policyはlegacy packed owner呼出、authority reconstruction、public raw/take accessor、recursive drain、paint/render/platform接続がないことも検査する。
+
+## Registered stroke packed alpha-mask metadata-only resource table boundary
+
+F5nxu is the internal registration boundary after F5nxt. It consumes the reservation owner and inserts a Copy metadata record into a private table. The table Vec must not store the F5nxt reservation, F5nxs packed owner, alpha cells, or another owner-bearing payload. Storage authority remains nested in a separate registered resource owner.
+
+The registration owner keeps updated table and registered resource together. Its Copy record contains mask id, rect, paint, width, height, cell count, and alpha max. Table len, contains, and lookup observe records only; lookup does not establish storage availability, host upload, renderability, backend support, or presentation readiness.
+
+Registration reads reservation metadata, rejects non-positive id, revalidates nested F5nxs shape/storage, compares rect width/height with the nested shape, rejects duplicate id before mutation, pushes one Copy record, then returns the pair. F5nxt did not retain blend or a separate paint authority, so F5nxu treats the reservation type as prior SourceOver evidence and does not claim an independent blend or paint revalidation. Push failure keeps returned table storage and original reservation together. Success and error recovery use pair-shaped callbacks; split consuming accessors are forbidden.
+
+F5nxu must not reconstruct F5bm/F5lt owners, call render command constructors, expose or copy alpha storage, store owner-bearing values in the table Vec, or call DrawTarget, RenderTarget, software-surface, platform, host, backend, fallback, shadow, or compositor APIs. F5nxv may later consume the registered resource to prepare a sealed command.

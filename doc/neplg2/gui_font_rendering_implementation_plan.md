@@ -13602,3 +13602,13 @@ git diff --check
 - configはpositive `AlphaMaskId`、origin、paint、blendを持つ。rectはcallerから受けず、originとnested shape width/heightから導出する。blendはSourceOverだけを許可する。
 - shape、cell count、alpha max、alpha Vec len/capをF5nxs accessorで再検査し、全failureでoriginal packed ownerとunchanged configを回収する。
 - F5nxtはreservationだけで止め、idの一意性/登録済み/host-visible/renderableを主張せず、resource table、prepared command、software drain、platform upload、fallback、shadow、compositorへ進まない。
+
+## Phase F5nxu: registered stroke packed alpha-mask metadata-only resource table boundary
+
+- F5nxt reservationを消費し、mask id、rect、paint、width/height、cell count、alpha maxのCopy recordをprivate metadata-only tableへ登録する。
+- table VecはCopy recordだけを持ち、packed storage authorityはF5nxt reservationをnested保持するregistered resource ownerに残す。successはupdated table+registered resource、failureはtable+original reservationのpair recoveryにする。
+- positive id、F5nxs invariant、shapeと一致するrect width/height、duplicate idをpush前に検査する。F5nxtが保持しないblendや独立paint authorityをF5nxuで再検証したとは主張しない。push failureはreturned table storageとreservationを同時回収し、split consuming accessorを追加しない。
+- table new/len/contains/lookup/free、pair-shaped continuation/free、typed owner-bearing error、focused success/duplicate/push-failure fixtureを追加する。lookupはCopy metadataだけを返す。
+- source policyはmetadata-only table、owner-bearing typeのno Clone/Copy、no owner-bearing Vec payload、no alpha copy、no command/platform/fallback/compositor依存を固定する。
+- registered module、normal compile、Web GUI contract、issues/diff check、subagent差分/全体整合reviewを通す。checkpointを全体完成と扱わず、全gate後だけ統合する。
+- F5nxuはprepared command、command emission、host-visible upload、software drain、platform表示へ進まない。後続はF5nxv sealed prepared command、F5nxw drain/transportとする。

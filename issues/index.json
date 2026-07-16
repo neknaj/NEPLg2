@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-16T05:34:45.305Z",
+  "generated_at": "2026-07-16T06:07:39.201Z",
   "counts": {
-    "total": 1379,
+    "total": 1380,
     "open": 60,
-    "resolved": 1319,
+    "resolved": 1320,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 5,
+        "total": 6,
         "open": 0,
-        "resolved": 5
+        "resolved": 6
       },
       "nodesrc": {
         "total": 16,
@@ -11188,6 +11188,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260716T051343036Z-REGISTERED-PACKED-STROKE-MASK-LACKS--D22ED820.md"
+    },
+    {
+      "id": "ISS-20260716T054858471Z-REGISTERED-PACKED-STROKE-MASK-LACKS--F0A84E95",
+      "title": "Registered packed stroke mask lacks metadata-only resource table registration",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-16",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T054858471Z-REGISTERED-PACKED-STROKE-MASK-LACKS--F0A84E95.md"
     },
     {
       "id": "ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP",

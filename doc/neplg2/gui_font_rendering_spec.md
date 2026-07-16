@@ -8535,3 +8535,11 @@ pollはterminalをbudgetより先に判定する。budget 0は不変、budget 1�
 F5nxtはcompleted F5nxs packed mask owner全体を唯一のstorage/geometry authorityとして、positive `AlphaMaskId`、caller supplied origin/paint、SourceOver blendと同じowner-bearing reservationへ束ねる。rectはcaller入力にせず、originとF5nxs shapeから導出する。legacy fill/shadow reservation ownerを再構築しない。
 
 この境界はmask idがnonzeroでownerと結び付いていることだけを証明する。一意性、resource table登録、host upload、renderability、prepared command、pixel write、platform表示は後続phaseの責務である。
+
+### Registered stroke packed alpha-mask metadata-only resource table boundary
+
+F5nxuはF5nxt reservation ownerを消費し、registered stroke packed mask idと描画metadataをprivate metadata-only tableへ登録する。tableの`Vec`が保持するのはCopy recordだけであり、F5nxs packed storage authorityを含むreservation ownerはseparate registered resource ownerに保持する。登録結果はupdated table ownerとregistered resource ownerを同時に所有するpairとして返し、片側だけを取り出す専用consuming accessorは公開しない。
+
+recordはmask id、rect、paint、width、height、cell count、alpha maxを保持する。lookupはCopy recordだけを返し、storage borrow、host upload、renderability、backend availabilityを証明しない。registrationはpositive id、F5nxs invariant、shapeと一致するrect width/height、既存id重複をpush前に検査する。SourceOverはF5nxt reservation型の構築済みevidenceであり、blendを保持しないF5nxuが再検証したとは主張しない。duplicateはtableを変更せず拒否し、push failureはreturned table storageとoriginal reservation ownerをpairで回収可能にする。success/errorとも片側だけを取り出すconsuming accessorを公開しない。
+
+F5nxuはprepared `RenderCommand::AlphaMaskRect`、command stream emission、resource upload、software pixel drain、DrawTarget/RenderTarget、platform/backend API、fallback、shadow、compositorへ進まない。一意性はこのprivate table内のrecord idについてだけ証明する。
