@@ -400,7 +400,7 @@ F5nxq writerはF5nxp completed owner、validated coverage shape、cell Vec、wri
 
 F5nxr scan ownerはF5nxq writer、quadratic subdivision config、cell indexを保持する。side edgeはnested F5nxp sourceの`Vec<GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection>`、joinはF5nxp geometry Vecからexact count/len/cap検査付きで読む。legacy F5lb ownerはauthority型が異なるため利用しない。
 
-Quadratic projectionはsource quadraticを`0..N`のbounded parameterで評価し、endpoint normalを同じparameterで補間する。Leftはnormalを加算し、Rightはnormalを減算してdirected ordinalを`N-i`へ反転する。crossingはcount加算ではなくparityで畳み、巨大edge/join countによるi32 overflowを避ける。sample座標はwide arithmeticからf32へ変換し、edge、join、quadratic intermediateをfinite検査する。
+Quadratic projectionはsource quadraticを`0..N`のbounded parameterで評価し、endpoint normalを同じparameterで補間する。Leftはnormalを加算し、Rightはnormalを減算してdirected ordinalを`N-i`へ反転する。crossingはcount加算ではなくparityで畳み、巨大edge/join countによるi32 overflowを避ける。sample座標はwide arithmeticからf32へ変換し、整数sampleは±2^24内で厳密変換し、edge、join、quadratic intermediateはfiniteかつ同範囲として検査する。startはedge/join countを各4096以下、`sample_scale^2 * (edge_count * N + join_count * 2 + 1)`をi64で事前検査して1,048,576以下に固定し、drainは一回4096 step以下に制限する。
 
 bounded drainはowner invariantとterminalをbudgetより先に検査する。非terminalの1 stepはcoverageをF5nxq pushへ一度だけ渡し、成功後にcell indexとwritten countがともに1進んだことを要求する。push/completion failureはwriterをscan ownerへ戻し、exact fullだけをcompleted raw coverage ownerへ進める。
 

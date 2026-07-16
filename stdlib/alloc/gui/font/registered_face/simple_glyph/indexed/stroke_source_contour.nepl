@@ -22,6 +22,7 @@
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream" as *
 #import "alloc/gui/font/sfnt" as *
 #import "alloc/collections/vec" as vec
+#import "core/cast" as *
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
@@ -1957,3 +1958,519 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_c
                                                                                                                 else:
                                                                                                                     gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free completed
                                                                                                                     none
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig: F5nxr の quadratic 分割 policy
+//:
+//: [制約/せいやく]: 分割数は 1..1024 です。上限により一 cell の計算量を明示的に制限します。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig:
+    quadratic_segment_count %i32
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_config %fn i32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig \quadratic_segment_count:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig quadratic_segment_count
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner:
+    writer %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner
+    config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig
+    cell_index %i32
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind:
+    InvalidQuadraticSegmentCount
+    WorkBoundExceeded
+    WriterAlreadyStarted
+    ShapeInvariantInvalid
+    StorageInvariantInvalid
+    SourceInvariantInvalid
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner
+    config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind:
+    ProgressInvariantInvalid
+    StepBudgetExceedsLimit
+    SourceSlotMissing
+    CoordinateInvalid
+    WriterPushFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind
+    WriterCompletionFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal:
+    Completed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner
+    StepBudgetExhausted %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner
+
+//: F5nxr の一 cell work 上限
+//:
+//: sample 数と projection chord 数の積を 1,048,576 以下に制限し、開始後の一 cell 計算量を有限に保ちます。
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_work_limit %fn unit i64 \_unit:
+    let value %i64 cast 1048576
+    value
+
+//: F5nxr の一回の drain step 上限
+//:
+//: 再帰深さを 4096 以下に固定し、超過時は owner-bearing error で回収します。
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_drain_budget_limit %fn unit i32 \_unit: 4096
+
+//: F5nxq writer を唯一の cell authority として scan を開始する
+//:
+//: [回復/かいふく]: config または source invariant が不正でも writer と config を error から回収できます。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError \writer\config:
+    let segment_count %i32 *field::get_ref &config "quadratic_segment_count"
+    if or le segment_count 0 gt segment_count 1024:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError writer config GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind::InvalidQuadraticSegmentCount
+        else if or ne gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_written_count &writer 0 ne gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_cells_len &writer 0:
+            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError writer config GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind::WriterAlreadyStarted
+            else:
+                let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_shape &writer
+                let width %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shape
+                let height %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px &shape
+                let scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale &shape
+                let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+                let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                let width_wide %i64 cast width
+                let height_wide %i64 cast height
+                let scale_wide %i64 cast scale
+                let coverage_wide %i64 cast coverage_max
+                let cell_wide %i64 cast cell_count
+                let shape_valid %bool and gt width 0 and gt height 0 and gt scale 0 and eq coverage_wide mul scale_wide scale_wide eq cell_wide mul width_wide height_wide
+                if not shape_valid:
+                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError writer config GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind::ShapeInvariantInvalid
+                    else if ne gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_cells_cap &writer cell_count:
+                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError writer config GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind::StorageInvariantInvalid
+                        else:
+                            let source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner field::get_ref &writer "join_geometry"
+                            if not gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_source_invariants source:
+                                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError writer config GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind::SourceInvariantInvalid
+                                else:
+                                    let geometry_source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner field::get_ref source "source"
+                                    let closure %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner field::get_ref geometry_source "closure_source"
+                                    let edge_count %i32 *field::get_ref closure "side_edge_count"
+                                    let join_count %i32 *field::get_ref source "join_count"
+                                    let sample_work %i64 mul scale_wide scale_wide
+                                    let edge_work %i64 mul %i64 cast edge_count %i64 cast segment_count
+                                    let join_work %i64 mul %i64 cast join_count %i64 cast 2
+                                    let geometry_work %i64 add add edge_work join_work %i64 cast 1
+                                    let work_limit %i64 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_work_limit unit
+                                    let edge_count_valid %bool and ge edge_count 0 le edge_count 4096
+                                    let join_count_valid %bool and ge join_count 0 le join_count 4096
+                                    let sample_work_valid %bool and ge sample_work %i64 cast 0 le sample_work work_limit
+                                    let geometry_work_valid %bool and ge geometry_work %i64 cast 0 le geometry_work work_limit
+                                    let factors_valid %bool and edge_count_valid and join_count_valid and sample_work_valid geometry_work_valid
+                                    let total_work %i64 if factors_valid then mul sample_work geometry_work else add work_limit %i64 cast 1
+                                    if gt total_work work_limit:
+                                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError writer config GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind::WorkBoundExceeded
+                                        else Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner writer config 0
+
+//: scan 座標が finite かつ f32 で整数を厳密表現できる ±2^24 内か判定する
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite %fn f32 bool \value:
+    let bits %i32 bitcast_f32_to_i32 value
+    let finite %bool lt and bits 0x7fffffff 0x7f800000
+    and finite and ge value -16777216.0 le value 16777216.0
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 %fn i32 f32 \value:
+    let wide %i64 cast value
+    cast wide
+
+//: origin と cell/sample offset は i64 で合成して i32 overflow を避ける
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_sample %fn i32 fn i32 fn i32 fn i32 Result f32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \origin_x2\cell_axis\sample_axis\scale:
+    let origin %i64 cast origin_x2
+    let cell %i64 cast cell_axis
+    let sample %i64 cast sample_axis
+    let scale_wide %i64 cast scale
+    let two %i64 cast 2
+    let one %i64 cast 1
+    let base %i64 add origin mul cell two
+    let scaled %i64 mul base scale_wide
+    let offset %i64 add mul sample two one
+    let coordinate %i64 add scaled offset
+    let exact_limit %i64 cast 16777216
+    let zero %i64 cast 0
+    let negative_limit %i64 sub zero exact_limit
+    if or lt coordinate negative_limit gt coordinate exact_limit:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::CoordinateInvalid
+        else:
+            let converted %f32 cast coordinate
+            Result::Ok converted
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_line %fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 Result bool GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \sample_x\sample_y\x0\y0\x1\y1:
+    if not and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite x0 and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite y0 and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite x1 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite y1:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::CoordinateInvalid
+        else:
+            let above0 %bool gt y0 sample_y
+            let above1 %bool gt y1 sample_y
+            let same_side %bool if above0 then above1 else not above1
+            if same_side:
+                then Result::Ok false
+                else:
+                    let dy %f32 sub y1 y0
+                    let left %f32 mul sub sample_x x0 dy
+                    let right %f32 mul sub x1 x0 sub sample_y y0
+                    if not and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite dy and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite left gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite right:
+                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::CoordinateInvalid
+                        else Result::Ok if gt dy 0.0 then lt left right else gt left right
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_toggle_line %fn bool fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 Result bool GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \parity\sample_x\sample_y\x0\y0\x1\y1:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_line sample_x sample_y x0 y0 x1 y1:
+        Result::Err kind: Result::Err kind
+        Result::Ok crosses: Result::Ok if crosses then not parity else parity
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_quad_axis %fn i32 fn i32 fn i32 fn f32 fn f32 fn i32 fn i32 f32 \p0\p1\p2\offset0\offset2\index\count:
+    let p0_f %f32 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 p0
+    let p1_f %f32 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 p1
+    let p2_f %f32 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 p2
+    let t %f32 div gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 index gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 count
+    let inv %f32 sub 1.0 t
+    let term0 %f32 mul mul inv inv p0_f
+    let term1 %f32 mul mul mul 2.0 inv t p1_f
+    let term2 %f32 mul mul t t p2_f
+    let source %f32 add add term0 term1 term2
+    let offset_term0 %f32 mul inv offset0
+    let offset_term2 %f32 mul t offset2
+    let result %f32 add source add offset_term0 offset_term2
+    let inputs_valid %bool and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite p0_f and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite p1_f and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite p2_f and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite offset0 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite offset2
+    let terms_valid %bool and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite term0 and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite term1 and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite term2 and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite source and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite offset_term0 and gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite offset_term2 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_finite result
+    if and inputs_valid terms_valid then result else 33554432.0
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_quadratic_segments %fn &GuiSfntSimpleGlyphRenderOffsetQuadraticGeometryProjection fn GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide fn i32 fn i32 fn f32 fn f32 fn i32 fn i32 fn bool Result bool GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \quadratic\side\scale\segment_count\sample_x\sample_y\index\source_index\parity:
+    if ge index segment_count:
+        then Result::Ok parity
+        else:
+            let next_index %i32 add index 1
+            let source_next %i32 match side:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: next_index
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: sub segment_count next_index
+            let p0x %i32 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_start_x2 quadratic
+            let p0y %i32 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_start_y2 quadratic
+            let p1x %i32 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_control_x2 quadratic
+            let p1y %i32 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_control_y2 quadratic
+            let p2x %i32 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_end_x2 quadratic
+            let p2y %i32 gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_end_y2 quadratic
+            let start_x %f32 match side:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: *field::get_ref quadratic "left_start_x2"
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: *field::get_ref quadratic "right_start_x2"
+            let start_y %f32 match side:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: *field::get_ref quadratic "left_start_y2"
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: *field::get_ref quadratic "right_start_y2"
+            let end_x %f32 match side:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: *field::get_ref quadratic "left_end_x2"
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: *field::get_ref quadratic "right_end_x2"
+            let end_y %f32 match side:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: *field::get_ref quadratic "left_end_y2"
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: *field::get_ref quadratic "right_end_y2"
+            let offset0x %f32 sub start_x gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 p0x
+            let offset0y %f32 sub start_y gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 p0y
+            let offset2x %f32 sub end_x gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 p2x
+            let offset2y %f32 sub end_y gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 p2y
+            let x0 %f32 mul gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_quad_axis p0x p1x p2x offset0x offset2x source_index segment_count gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 scale
+            let y0 %f32 mul gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_quad_axis p0y p1y p2y offset0y offset2y source_index segment_count gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 scale
+            let x1 %f32 mul gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_quad_axis p0x p1x p2x offset0x offset2x source_next segment_count gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 scale
+            let y1 %f32 mul gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_quad_axis p0y p1y p2y offset0y offset2y source_next segment_count gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 scale
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_toggle_line parity sample_x sample_y x0 y0 x1 y1:
+                Result::Err kind: Result::Err kind
+                Result::Ok next_parity: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_quadratic_segments quadratic side scale segment_count sample_x sample_y next_index source_next next_parity
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_edges %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner fn f32 fn f32 fn i32 fn bool Result bool GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \owner\sample_x\sample_y\index\parity:
+    let writer %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner field::get_ref owner "writer"
+    let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner field::get_ref writer "join_geometry"
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner field::get_ref completed "source"
+    let closure %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner field::get_ref source "closure_source"
+    let count %i32 *field::get_ref closure "side_edge_count"
+    if ge index count:
+        then Result::Ok parity
+        else:
+            match vec::get field::get_ref closure "edges" index:
+                Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::SourceSlotMissing
+                Option::Some edge:
+                    let shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref writer "shape"
+                    let scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale &shape
+                    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection gui_sfnt_simple_glyph_render_stroke_side_edge_projection_geometry &edge
+                    let side %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side &edge
+                    match geometry:
+                        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line _:
+                            let scale_f %f32 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 scale
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_toggle_line parity sample_x sample_y (mul gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 &edge scale_f) (mul gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 &edge scale_f) (mul gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 &edge scale_f) (mul gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 &edge scale_f):
+                                Result::Err kind: Result::Err kind
+                                Result::Ok next: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_edges owner sample_x sample_y (add index 1) next
+                        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic:
+                            let segments %i32 *field::get_ref field::get_ref owner "config" "quadratic_segment_count"
+                            let source_index %i32 match side:
+                                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: 0
+                                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: segments
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_quadratic_segments &quadratic side scale segments sample_x sample_y 0 source_index parity:
+                                Result::Err kind: Result::Err kind
+                                Result::Ok next: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_edges owner sample_x sample_y (add index 1) next
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_join_lines %fn &GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord fn &GuiSfntSimpleGlyphRasterCoverageShape fn f32 fn f32 fn bool Result bool GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \join\shape\sample_x\sample_y\parity:
+    let scale %f32 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_i32_f32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+    match *join:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel bevel:
+            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_toggle_line parity sample_x sample_y (mul *field::get_ref &bevel "from_end_x2" scale) (mul *field::get_ref &bevel "from_end_y2" scale) (mul *field::get_ref &bevel "to_start_x2" scale) (mul *field::get_ref &bevel "to_start_y2" scale)
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter miter:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_toggle_line parity sample_x sample_y (mul *field::get_ref &miter "from_end_x2" scale) (mul *field::get_ref &miter "from_end_y2" scale) (mul *field::get_ref &miter "miter_x2" scale) (mul *field::get_ref &miter "miter_y2" scale):
+                Result::Err kind: Result::Err kind
+                Result::Ok next: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_toggle_line next sample_x sample_y (mul *field::get_ref &miter "miter_x2" scale) (mul *field::get_ref &miter "miter_y2" scale) (mul *field::get_ref &miter "to_start_x2" scale) (mul *field::get_ref &miter "to_start_y2" scale)
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round round:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_toggle_line parity sample_x sample_y (mul *field::get_ref &round "from_end_x2" scale) (mul *field::get_ref &round "from_end_y2" scale) (mul *field::get_ref &round "arc_mid_x2" scale) (mul *field::get_ref &round "arc_mid_y2" scale):
+                Result::Err kind: Result::Err kind
+                Result::Ok next: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_toggle_line next sample_x sample_y (mul *field::get_ref &round "arc_mid_x2" scale) (mul *field::get_ref &round "arc_mid_y2" scale) (mul *field::get_ref &round "to_start_x2" scale) (mul *field::get_ref &round "to_start_y2" scale)
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_joins %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner fn f32 fn f32 fn i32 fn bool Result bool GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \owner\sample_x\sample_y\index\parity:
+    let writer %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner field::get_ref owner "writer"
+    let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner field::get_ref writer "join_geometry"
+    let count %i32 *field::get_ref completed "join_count"
+    if ge index count:
+        then Result::Ok parity
+        else:
+            match vec::get field::get_ref completed "geometries" index:
+                Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::SourceSlotMissing
+                Option::Some join:
+                    let shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref writer "shape"
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_join_lines &join &shape sample_x sample_y parity:
+                        Result::Err kind: Result::Err kind
+                        Result::Ok next: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_joins owner sample_x sample_y (add index 1) next
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_samples_x %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \owner\cell_x\cell_y\sy\sx\coverage:
+    let writer %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner field::get_ref owner "writer"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref writer "shape"
+    let scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale &shape
+    if ge sx scale:
+        then Result::Ok coverage
+        else:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_sample (gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 &shape) cell_x sx scale:
+                Result::Err kind: Result::Err kind
+                Result::Ok sample_x:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_sample (gui_sfnt_simple_glyph_raster_coverage_shape_origin_y2 &shape) cell_y sy scale:
+                        Result::Err kind: Result::Err kind
+                        Result::Ok sample_y:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_edges owner sample_x sample_y 0 false:
+                                Result::Err kind: Result::Err kind
+                                Result::Ok edge_parity:
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_joins owner sample_x sample_y 0 edge_parity:
+                                        Result::Err kind: Result::Err kind
+                                        Result::Ok inside: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_samples_x owner cell_x cell_y sy (add sx 1) (if inside then add coverage 1 else coverage)
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_samples_y %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner fn i32 fn i32 fn i32 fn i32 Result i32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \owner\cell_x\cell_y\sy\coverage:
+    let writer %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner field::get_ref owner "writer"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref writer "shape"
+    let scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale &shape
+    if ge sy scale:
+        then Result::Ok coverage
+        else:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_samples_x owner cell_x cell_y sy 0 coverage:
+                Result::Err kind: Result::Err kind
+                Result::Ok next: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_samples_y owner cell_x cell_y (add sy 1) next
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError \owner:
+    let index %i32 *field::get_ref &owner "cell_index"
+    let writer_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner field::get_ref &owner "writer"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref writer_ref "shape"
+    let count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+    if or lt index 0 ge index count:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::ProgressInvariantInvalid
+        else:
+            let width %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shape
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_samples_y &owner (rem_s index width) (div_s index width) 0 0:
+                Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError owner kind
+                Result::Ok coverage:
+                    let config field::get owner "config"
+                    let writer field::get owner "writer"
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push writer coverage:
+                        Result::Err error:
+                            let kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind *field::get_ref &error "kind"
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner (gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_owner error) config index) (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::WriterPushFailed kind)
+                        Result::Ok next: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner next config (add index 1)
+
+//: budget より terminal 判定を先に行い、exact full writer は budget 0 でも完了する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError \owner\budget:
+    let index %i32 *field::get_ref &owner "cell_index"
+    let writer_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner field::get_ref &owner "writer"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref writer_ref "shape"
+    let count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+    let budget_limit %i32 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_drain_budget_limit unit
+    if eq index count:
+        then:
+            let config field::get owner "config"
+            let writer field::get owner "writer"
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_complete writer:
+                Result::Ok completed: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed completed
+                Result::Err error:
+                    let kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellCompletionErrorKind *field::get_ref &error "kind"
+                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner (gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_completion_error_owner error) config index) (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::WriterCompletionFailed kind)
+        else if or lt index 0 gt index count:
+            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::ProgressInvariantInvalid
+            else if gt budget budget_limit:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::StepBudgetExceedsLimit
+                else if le budget 0:
+                    then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted owner
+                    else:
+                        match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_step owner:
+                            Result::Err error: Result::Err error
+                            Result::Ok next:
+                                let next_index %i32 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_cell_index &next
+                                let next_writer %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner field::get_ref &next "writer"
+                                let next_written %i32 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_written_count next_writer
+                                if or ne next_index add index 1 ne next_written add index 1:
+                                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError next GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::ProgressInvariantInvalid
+                                    else gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_drain next (sub budget 1)
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_cell_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner i32 \owner: *field::get_ref owner "cell_index"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner \error: field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_config %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig \error: *field::get_ref error "config"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner \error: field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner fn i32 Option i32 \owner\index:
+    match vec::get field::get_ref owner "cells" index:
+        Option::None: none
+        Option::Some cell: some cell
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner unit \owner: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_free field::get owner "writer"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartError unit \error: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_free field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError unit \error: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_free field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_terminal_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal unit \terminal:
+    match terminal:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed owner: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free owner
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted owner: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_free owner
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_force_push_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError \owner:
+    let index %i32 field::get owner "cell_index"
+    let config field::get owner "config"
+    let forced gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_test_force_push_failure (field::get owner "writer") 0
+    let kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind *field::get_ref &forced "kind"
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner (gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_owner forced) config index) (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::WriterPushFailed kind)
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_run %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner bool \writer:
+    let invalid_config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_config 0
+    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start writer invalid_config:
+        Result::Ok unexpected:
+            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_free unexpected
+            false
+        Result::Err invalid:
+            let invalid_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_kind &invalid:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind::InvalidQuadraticSegmentCount: true
+                _: false
+            let recovered gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_owner invalid
+            let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_config 4
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start recovered config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_free error
+                    false
+                Result::Ok owner0:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_drain owner0 0:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_free error
+                            false
+                        Result::Ok terminal0:
+                            match terminal0:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed completed:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free completed
+                                    false
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted owner1:
+                                    let budget_ok %bool eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_cell_index &owner1
+                                    let forced gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_force_push_failure owner1
+                                    let forced_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_kind &forced:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::WriterPushFailed kind:
+                                            match kind:
+                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellPushErrorKind::StorageFailed storage_kind:
+                                                    match storage_kind:
+                                                        StdErrorKind::CapacityExceeded: true
+                                                        _: false
+                                                _: false
+                                        _: false
+                                    let owner2 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_owner forced
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_drain owner2 2:
+                                        Result::Err error:
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_free error
+                                            false
+                                        Result::Ok terminal2:
+                                            match terminal2:
+                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted unfinished:
+                                                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_free unfinished
+                                                    false
+                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed completed:
+                                                    let first_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell &completed 0:
+                                                        Option::Some value: eq value 4
+                                                        Option::None: false
+                                                    let second_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell &completed 1:
+                                                        Option::Some value: eq value 4
+                                                        Option::None: false
+                                                    let count_ok %bool eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell_count &completed
+                                                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free completed
+                                                    and and invalid_ok budget_ok and forced_ok and count_ok and first_ok second_ok
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_start_guard %impure fn GuiSfntSimpleGlyphRasterCoverageConfig bool \coverage_config:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
+        Option::None: false
+        Option::Some completed:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start completed coverage_config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
+                    false
+                Result::Ok writer:
+                    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_config 4
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start writer config:
+                        Result::Ok unexpected:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_free unexpected
+                            false
+                        Result::Err error:
+                            let ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_kind &error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanStartErrorKind::WorkBoundExceeded: true
+                                _: false
+                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_free error
+                            ok
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_guard %impure fn unit bool \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
+        Option::None: false
+        Option::Some completed:
+            let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 2147483647 0 1 1 1 1
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start completed coverage_config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
+                    false
+                Result::Ok writer:
+                    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_config 4
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start writer config:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_free error
+                            false
+                        Result::Ok owner:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_drain owner 1:
+                                Result::Ok terminal:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_terminal_free terminal
+                                    false
+                                Result::Err error:
+                                    let ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_kind &error:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanErrorKind::CoordinateInvalid: true
+                                        _: false
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_free error
+                                    ok
+
+//: fixed factory と production F5nxq/F5nxr 経路を内部で閉じた focused runtime contract
+//:
+//: arbitrary owner injection を受けず、失敗を含む全 terminal で所有 payload を解放します。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_contract %impure fn unit bool \_unit:
+    let work_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 1 1 512 1
+    let work_guard_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_start_guard work_config
+    let coordinate_guard_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_guard unit
+    let normal_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
+        Option::None: false
+        Option::Some completed:
+            let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 2 1 2 2
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start completed coverage_config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
+                    false
+                Result::Ok writer: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_run writer
+    and normal_ok and work_guard_ok coordinate_guard_ok

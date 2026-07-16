@@ -168386,3 +168386,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nxq統合済み`46ee1cf64`から専用branchを作成した。F5nxrはF5nxq writerをsole direct authorityとし、nested registered projectionを直接読むraw coverage scan converterだけを実装する。
 - subagent設計・code auditにより、legacy F5lb ownerへの変換は禁止し、Line/Quadratic/Bevel/Miter/Roundの数値規則だけを維持する方針とした。quadratic segment countをboundedにし、sample座標をwide arithmeticで扱い、crossingはparityで畳んでoverflowを避ける。
 - packed mask、paint composition、raster、runtime bridge、native/Web GUI表示と全体目標は未完成である。この設計開始をissue完了または統合可能状態とは扱わない。
+
+### F5nxr production implementation checkpoint
+
+- F5nxq writerだけをowner authorityとするLine/Quadratic/Bevel/Miter/Round parity scan、owner-bearing start/push/completion recovery、terminal-before-budget、exact completionを実装した。
+- reviewで検出した一cell内の無制限workを修正し、edge/join count各4096以下、`sample_scale^2 * (edge_count * segment_count + join_count * 2 + 1) <= 1,048,576`、drain 4096 step以下、整数sampleの±2^24厳密変換と同範囲のfinite幾何中間値をtyped error境界にした。
+- registered module 52/52、Web GUI contract、normal compile isolation、`git diff --check`は通過した。focused external fixtureは固定test contract一呼出しまで縮小してもcompile phaseが180秒・360秒でtimeoutし、runtimeへ到達していない。issueはinvestigatingのまま、runtime、残る全gate、最終review、main統合は未完了である。
+- 再開条件はdeep test-only contractのcompiler materializationを完了させる根本修正、または同じproduction owner/state-machineを実行しつつcompile summaryを安全に分離するfixture境界である。packed mask、raster、runtime bridge、native/Web GUI表示と全体目標も未完成である。

@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-15T23:35:21.385Z",
+  "generated_at": "2026-07-16T00:21:28.619Z",
   "counts": {
     "total": 1377,
     "open": 61,
@@ -528,12 +528,12 @@
       "id": "ISS-20260715T233149972Z-REGISTERED-STROKE-COVERAGE-WRITER-LA-E1133A7F",
       "title": "Registered stroke coverage writer lacks a scan converter",
       "area": "GUI_FONT",
-      "status": "open",
+      "status": "investigating",
       "resolved": false,
       "priority": "P1",
       "type": "architecture",
       "created": "2026-07-15",
-      "updated": "2026-07-15",
+      "updated": "2026-07-16",
       "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
       "legacy_id": "",
       "source": "",
