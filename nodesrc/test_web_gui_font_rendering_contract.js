@@ -4643,11 +4643,15 @@ assert(registeredStrokePackedMaskResourceSoftwareDrainRegionStart >= 0 && regist
 const registeredStrokePackedMaskResourceSoftwareDrainRegion = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourceSoftwareDrainRegionStart, registeredStrokePackedMaskResourceSoftwareDrainRegionEnd);
 const registeredStrokePackedMaskResourceSoftwareDrainValidateStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_validate_start");
 const registeredStrokePackedMaskResourceSoftwareDrainStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start");
+const registeredStrokePackedMaskResourceSoftwareDrainStepOnce = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_once");
+const registeredStrokePackedMaskResourceSoftwareDrainPollStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll %impure");
+const registeredStrokePackedMaskResourceSoftwareDrainPoll = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourceSoftwareDrainPollStart, allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokePackedMaskResourceSoftwareDrainPollStart));
 const registeredStrokePackedMaskResourceSoftwareDrainErrorKindFromTable = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_error_kind_from_table");
 for (const fragment of [
     "prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner",
     "surface %GuiRgba8888SoftwareSurfaceOwner",
     "cell_index %i32",
+    "cell_count %i32",
     "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartError",
     "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainRejected",
 ]) {
@@ -4683,6 +4687,7 @@ assertOrderedFragments(
     ],
     "F5nxw must rederive resource evidence, validate the sealed command, then validate surface geometry and containment",
 );
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainPoll, /(?:registered_resource_owner_record|field::get_ref[^\n]*(?:prepared|resource|surface)|packed_mask_owner_alpha_cell|software_drain_validate_start|software_surface_read_pixel)/, "F5nxx public poll must decide invariant, terminal, and budget zero from direct Copy cursor metadata without nested reads");
 for (const kind of ["SurfaceStrideMismatch", "SurfaceByteLenMismatch", "SurfaceStorageSizeMismatch"]) {
     assert(registeredStrokePackedMaskResourceSoftwareDrainRegion.includes(`SoftwareDrainStartErrorKind::${kind}`), `F5nxw must preserve exact software surface layout failure: ${kind}`);
 }
@@ -4704,6 +4709,31 @@ assertNoMatch(
     /(?:pixel|rgba8888_software_surface_(?:read|write)|source_over|composite|blend|cell_index[^\n]*(?:add|sub)|dirty|tile|bitmap|transport|command_(?:buffer|stream|emit)|upload|present|platform|backend|fallback|shadow|compositor)/i,
     "F5nxw start must not read/write pixels, composite, advance, dirty, transport, emit, or enter platform work",
 );
+assertOrderedFragments(
+    registeredStrokePackedMaskResourceSoftwareDrainStepOnce,
+    [
+        "software_drain_validate_start prepared_ref surface_ref",
+        "packed_mask_owner_alpha_cell packed cell_index",
+        "gui_rgba8888_software_surface_read_pixel surface_ref x y",
+        "gui_rgba8888_source_over_alpha_mask &source alpha alpha_max &destination",
+        "gui_rgba8888_software_surface_write_pixel surface x y output",
+        "SoftwareDrainOwner prepared next_surface add cell_index 1",
+    ],
+    "F5nxx must revalidate, read packed alpha and destination, compose SourceOver, write, then advance exactly one cell",
+);
+assertOrderedFragments(
+    registeredStrokePackedMaskResourceSoftwareDrainPoll,
+    ["lt cell_index 0", "gt cell_index cell_count", "eq cell_index cell_count", "SoftwareDrainStatus::Completed owner", "lt remaining_steps 0", "gt remaining_steps 1", "eq remaining_steps 0", "SoftwareDrainStatus::StepBudgetExhausted owner", "software_drain_poll_step owner"],
+    "F5nxx must recognize terminal before validating a 0/1 bounded budget",
+);
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainRegion, /(?:dirty_region_|tile|bitmap|transport|upload|present|platform|backend|fallback|compositor)/i, "F5nxx must leave dirty completion and transport to later phases");
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainRegion, /pub fn [^\n]*(?:prepared_command_owner|software_surface_owner)_(?:with|into|take|split)/, "F5nxx must retain the paired prepared and surface authority");
+for (const entry of ["step_test_normal", "step_test_recovery"]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(`resource_software_drain_${entry}_contract`), `F5nxx focused runtime contract must include ${entry}`);
+}
+assertOrderedFragments(spec, ["F5nxx", "budget 0", "SourceOver", "write", "F5nxy"], "F5nxx spec must preserve bounded progress and the dirty-completion phase split");
+assertOrderedFragments(detailedDesign, ["F5nxx", "Budget zero", "SourceOver", "write succeeds", "F5nxy"], "F5nxx design must preserve write-success-before-advance and the dirty-completion phase split");
+assertOrderedFragments(implementationPlan, ["Phase F5nxx", "budget 0", "SourceOver", "write", "F5nxy"], "F5nxx plan must preserve bounded progress and the dirty-completion phase split");
 for (const fragment of [
     "resource_software_drain_test_normal_contract",
     "software_drain_owner_cell_index &owner 0",

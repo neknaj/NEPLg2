@@ -13628,3 +13628,11 @@ git diff --check
 - startはprepared ownerのstored/expected metadataとnested F5nxs shape/storage、internal `AlphaMaskRect` command、surface layout、rect containmentを順に再検査する。成功時だけcell index 0を持つownerを返す。
 - failureはoriginal prepared ownerとsurface ownerをpairで保持し、片側だけのconsuming recoveryを公開しない。owner-bearing型はClone/Copyを持たず、success/error/freeの全経路でresourceとsurfaceを一度だけ閉じる。
 - F5nxwはpixel read/write、SourceOver合成、cursor進行、dirty region、tile/bitmap transport、host upload/present、platform/backend、fallbackへ進まない。F5nxxをbounded SourceOver software drain step、F5nxyをcompleted dirty-region owner boundaryとする。
+
+## Phase F5nxx: registered stroke packed alpha-mask bounded SourceOver software drain step
+
+- F5nxw drain ownerを唯一のresource/command/surface/cursor authorityとし、cursor invariantとterminalをbudgetより先に判定する。budget 0はresource/surface再検証やpixel readなしにownerを不変で返し、budget 1は最大1 alpha cellだけ処理し、それ以外はtyped owner-bearing errorにする。成功は唯一ownerとCopy statusを返す。
+- packed alphaとrectからtarget pixelをchecked arithmeticで求め、generic RGBA8888 surfaceのexisting pixelを読み、F5nxt由来のpaintとalphaをSourceOver合成して書く。cell indexはwrite成功後だけ進める。
+- read/write/composition failureはprepared resource、surface、current cell indexを同じownerに保持する。raw command、alpha storage、surface ownerのsplit accessorを追加しない。
+- focused runtimeはnormal one-cell progress、budget 0、invalid budget、terminal-first、write-success-before-advanceとowner recoveryを検査する。source policy、registered module、normal compile、issues/diff check、subagent reviewを通す。
+- F5nxxはdirty region owner、tile/bitmap transport、host upload/present、platform/backend、fallbackを作らない。completed drain authorityかdirty-region ownerへの変換はF5nxyに残す。

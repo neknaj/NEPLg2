@@ -10995,3 +10995,11 @@ Start validates in fail-closed order: the F5nxv stored/expected metadata and nes
 Start failure keeps the original prepared owner and surface owner as one rejected pair. Recovery may pass that pair to one continuation or free both owners, but must not provide separate consuming recovery of either side. Derived Copy diagnostics may be observed without transferring either owner. Every success, error, completion, and free path must close the nested mask resource and surface exactly once.
 
 F5nxw is only software drain-start. It performs no pixel read or write, SourceOver composition, cell-index advance, dirty-region update, tile/bitmap transport, command-stream emission, host upload or present, platform/backend call, fallback, shadow, or compositor drain. F5nxx is the bounded SourceOver software drain step; F5nxy converts its completed authority into a dirty-region owner.
+
+## Registered stroke packed alpha-mask bounded SourceOver software drain step
+
+F5nxx consumes the complete F5nxw drain owner. Cursor invariants and terminal state are recognized before budget validation. Budget zero returns the same owner without revalidating resource/surface state or touching packed storage or pixels, budget one performs at most one cell operation, and every other budget is a typed owner-bearing rejection. A successful poll result stores exactly one drain owner plus a Copy `Completed` or `StepBudgetExhausted` status.
+
+The step derives the alpha-cell coordinate from the current index and the validated command rectangle with checked arithmetic. It reads the packed alpha and destination RGBA8888 pixel, composes the F5nxt-derived paint with SourceOver, and writes the result through the generic software-surface API. The cell index advances only after the write succeeds. Every read, composition, or write failure retains the prepared resource, surface, and unchanged current index in one recovery owner.
+
+F5nxx does not expose the command, packed alpha storage, registered resource, or surface through a split consuming accessor. It creates no dirty-region owner, command transport, host upload or presentation, platform/backend call, fallback, shadow path, or compositor drain. F5nxy alone converts completed drain authority into dirty-region authority.

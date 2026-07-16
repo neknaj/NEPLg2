@@ -168466,3 +168466,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 次phaseをF5nxw registered stroke packed alpha-mask software drain-start boundaryとし、issue `ISS-20260716T070500000Z-REGISTERED-PACKED-STROKE-MASK-LACKS--F5NXW001`を作成した。
 - F5nxv sealed prepared ownerとgeneric RGBA8888 software surface ownerを同時に消費し、resource/command/surface/cell cursorを分離不能に保持する。startはprepared metadata、nested packed storage、internal AlphaMaskRect、surface layout、rect containment、exact cell countを順に検査する。
 - F5nxwは開始境界だけでありpixel writeやtransportを行わない。prepared/command/surfaceのordered validation、exact lower error mapping、paired recoveryを実装した。focused normal/recovery、module matrix 51/52と個別doctest #1、normal compile、Web GUI source-policy、issues/diff checkは通過した。review、checkpoint、統合は未完了で、後続はF5nxx bounded SourceOver step、F5nxy dirty completionである。
+
+# 2026-07-16 F5nxx registered mask bounded SourceOver step design checkpoint
+
+- F5nxwは`afff5ffeb`までorigin/mainへ統合済みで、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+- 次phaseをF5nxx registered stroke packed alpha-mask bounded SourceOver software drain stepとし、issue `ISS-20260716T071144695Z-REGISTERED-PACKED-STROKE-MASK-LACKS--9CAC050A`を作成した。
+- terminal-first、budget 0不変、budget 1で最大1 cell、write成功後だけindex進行、owner-bearing recoveryを契約とする。dirty-region ownerはF5nxyに残す。
+- bounded poll、packed alpha read、surface read、SourceOver、write-success-before-advance、owner-bearing recoveryを実装した。direct cursor cacheによるbudget 0 no-read、sole owner + Copy status、exact pixel、terminal-firstも固定した。focused 4 fixtures、normal compile、Web GUI source-policy、issues/diff checkとsubagent差分/全体整合reviewは通過した。後続F5nxyとフォントレンダリングエンジン/GUIライブラリ全体は未完成である。

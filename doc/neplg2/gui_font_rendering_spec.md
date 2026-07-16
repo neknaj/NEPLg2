@@ -8561,3 +8561,11 @@ startはF5nxv stored/expected metadataとnested F5nxs shape/storage、internal c
 failureはoriginal prepared ownerとsurface ownerをpairのまま保持する。片側だけを取り出すconsuming recoveryは公開せず、pair continuationまたはpair freeだけを許可する。raw command、alpha storage、registered resource、surface ownerを外へ出さず、全終了経路でnested resourceとsurfaceを一度だけ閉じる。
 
 F5nxwはpixel read/write、SourceOver合成、cell index進行、dirty region更新、tile/bitmap transport、command stream emission、host upload/present、platform/backend API、fallback、shadow、compositor drainへ進まない。F5nxxがbounded SourceOver software drain step、F5nxyがcompleted dirty-region owner boundaryである。
+
+### Registered stroke packed alpha-mask bounded SourceOver software drain step
+
+F5nxxはF5nxw drain owner全体を消費する。cursor invariantとterminal判定はbudget検査より先に行い、budget 0はresource/surfaceの再検証やpixel readを行わずownerを不変で返し、budget 1は最大1 cellだけを処理し、それ以外はtyped owner-bearing errorにする。成功結果は唯一のdrain ownerとCopy status `Completed` / `StepBudgetExhausted`を保持する。
+
+current cell indexと検証済みrectからchecked arithmeticでtarget pixelを導出し、packed alphaとsurfaceのexisting RGBA8888 pixelを読み、F5nxt由来のpaintをSourceOver合成して書く。cell indexはwrite成功後だけ進む。failureはprepared resource、surface、進行前indexを同じownerに保持する。
+
+F5nxxはdirty-region owner、tile/bitmap transport、command emission、host upload/present、platform/backend API、fallback、shadow、compositor drainへ進まない。completed authorityからdirty-region ownerを作るはF5nxyだけである。
