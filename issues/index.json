@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-16T05:15:32.977Z",
+  "generated_at": "2026-07-16T05:34:45.305Z",
   "counts": {
     "total": 1379,
-    "open": 61,
-    "resolved": 1318,
+    "open": 60,
+    "resolved": 1319,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "GUI_FONT": {
-        "total": 5,
-        "open": 1,
-        "resolved": 4
       },
       "RESOURCE": {
         "total": 5,
@@ -95,6 +90,11 @@
         "total": 22,
         "open": 0,
         "resolved": 22
+      },
+      "GUI_FONT": {
+        "total": 5,
+        "open": 0,
+        "resolved": 5
       },
       "nodesrc": {
         "total": 16,
@@ -523,21 +523,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260716T051343036Z-REGISTERED-PACKED-STROKE-MASK-LACKS--D22ED820",
-      "title": "Registered packed stroke mask lacks resource reservation",
-      "area": "GUI_FONT",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-16",
-      "updated": "2026-07-16",
-      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260716T051343036Z-REGISTERED-PACKED-STROKE-MASK-LACKS--D22ED820.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -11188,6 +11173,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260716T031826603Z-REGISTERED-RAW-STROKE-COVERAGE-LACKS-6E469EAF.md"
+    },
+    {
+      "id": "ISS-20260716T051343036Z-REGISTERED-PACKED-STROKE-MASK-LACKS--D22ED820",
+      "title": "Registered packed stroke mask lacks resource reservation",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-16",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T051343036Z-REGISTERED-PACKED-STROKE-MASK-LACKS--D22ED820.md"
     },
     {
       "id": "ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP",

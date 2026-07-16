@@ -479,6 +479,7 @@ const guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests = read("tests
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask.n.md");
+const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation.n.md");
 const guiFontRegisteredJoinGeometryPolicyMatrixTests = read("tests/stdlib/gui_font_registered_join_geometry_policy_matrix.n.md");
 const guiFontSfntGlyfSpanIndexTests = read("tests/stdlib/gui_font_sfnt_glyf_span_index.n.md");
 const guiFontSfntGlyfIndexedPathTests = read("tests/stdlib/gui_font_sfnt_glyf_indexed_path.n.md");
@@ -4329,7 +4330,7 @@ for (const helper of ["gui_font_registered_face_simple_glyph_indexed_stroke_cove
 assertOrderedFragments(spec, ["F5nxr", "legacy stroke scan owner", "Quadratic", "packed mask"], "F5nxr spec must preserve registered authority, quadratic scan, and later packed-mask boundary");
 assertOrderedFragments(implementationPlan, ["Phase F5nxr", "F5nxq writer owner", "crossingはparity", "packed mask"], "F5nxr implementation plan must preserve authority, overflow-safe parity, and phase boundary");
 const registeredStrokePackedMaskRegionStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig:");
-const registeredStrokePackedMaskRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokePackedMaskRegionStart);
+const registeredStrokePackedMaskRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig:", registeredStrokePackedMaskRegionStart);
 assert(registeredStrokePackedMaskRegionStart >= 0 && registeredStrokePackedMaskRegionEnd > registeredStrokePackedMaskRegionStart, "F5nxs production packed-mask region must exist before test seams");
 const registeredStrokePackedMaskRegion = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskRegionStart, registeredStrokePackedMaskRegionEnd));
 const registeredStrokePackedMaskStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start");
@@ -4415,6 +4416,75 @@ for (const entry of ["normal", "numeric", "recovery"]) {
 }
 assertOrderedFragments(spec, ["F5nxs", "唯一のdirect authority", "floor", "runtime bridge"], "F5nxs spec must preserve authority, numeric, and phase boundary");
 assertOrderedFragments(implementationPlan, ["Phase F5nxs", "sole direct authority", "floor", "native/Web/headless GUI表示"], "F5nxs plan must preserve authority, numeric, and later presentation phases");
+const registeredStrokePackedMaskResourceReservationRegionStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig:");
+const registeredStrokePackedMaskResourceReservationRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokePackedMaskResourceReservationRegionStart);
+assert(registeredStrokePackedMaskResourceReservationRegionStart >= 0 && registeredStrokePackedMaskResourceReservationRegionEnd > registeredStrokePackedMaskResourceReservationRegionStart, "F5nxt production resource-reservation region must exist before test seams");
+const registeredStrokePackedMaskResourceReservationRegion = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourceReservationRegionStart, registeredStrokePackedMaskResourceReservationRegionEnd));
+const registeredStrokePackedMaskResourceReservationValidate = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_validate");
+const registeredStrokePackedMaskResourceReservationStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start");
+for (const fragment of [
+    "mask_id %AlphaMaskId",
+    "origin %GuiPoint",
+    "paint %GuiPaint",
+    "blend %GuiBlendMode",
+    "packed_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner",
+]) {
+    assert(registeredStrokePackedMaskResourceReservationRegion.includes(fragment), `F5nxt must retain value-only placement metadata and the complete F5nxs authority: ${fragment}`);
+}
+assertOrderedFragments(
+    registeredStrokePackedMaskResourceReservationValidate,
+    [
+        "le alpha_mask_id_raw &mask_id 0",
+        "le width 0",
+        "le height 0",
+        "le scale 0",
+        "ne %i64 cast coverage_max expected_coverage_max",
+        "ne %i64 cast count expected_cell_count",
+        "packed_mask_owner_cell_count owner count",
+        "packed_mask_owner_alpha_max owner 0",
+        "packed_mask_owner_alpha_cells_len owner count",
+        "packed_mask_owner_alpha_cells_cap owner count",
+        "GuiBlendMode::SourceOver: Result::Ok unit",
+    ],
+    "F5nxt validation must check positive id and the complete F5nxs shape/storage authority before accepting SourceOver",
+);
+assertOrderedFragments(
+    registeredStrokePackedMaskResourceReservationStart,
+    [
+        "resource_reservation_validate &packed_owner &config",
+        "Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartError packed_owner config kind",
+        "packed_mask_owner_shape &packed_owner",
+        "resource_reservation_config_mask_id &config",
+        "resource_reservation_config_origin &config",
+        "resource_reservation_config_paint &config",
+        "gui_rect_new (gui_point_x &origin) (gui_point_y &origin)",
+        "ResourceReservationOwner packed_owner mask_id rect paint",
+    ],
+    "F5nxt start must preserve failure ownership and derive rect from origin plus nested shape",
+);
+assertNoMatch(
+    registeredStrokePackedMaskResourceReservationRegion,
+    /GuiSfntSimpleGlyphRender(?:Fill|Shadow).*ResourceReservation|resource_table|prepared_command|RenderCommand|render2d|platform|backend|upload|fallback|shadow|compositor/,
+    "F5nxt must not reconstruct legacy reservation authority or enter registration, command, drain, or platform phases",
+);
+for (const fragment of [
+    "resource_reservation_test_completed_owner unit",
+    "resource_reservation_test_config 41 GuiBlendMode::SourceOver",
+    "alpha_mask_id_raw &id 41",
+    "gui_rect_x &rect 7",
+    "gui_rect_y &rect (sub 0 3)",
+    "resource_reservation_test_invalid_id_retry 0",
+    "resource_reservation_test_invalid_id_retry (sub 0 1)",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::UnsupportedBlendMode",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::AlphaStorageLenMismatch",
+]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(fragment), `F5nxt focused runtime contract must include ${fragment}`);
+}
+for (const entry of ["normal", "recovery"]) {
+    assertMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationTests, new RegExp(`gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_${entry}_contract unit`), `F5nxt focused doctest must isolate the ${entry} owner graph`);
+}
+assertOrderedFragments(spec, ["F5nxt", "positive `AlphaMaskId`", "SourceOver", "resource table登録"], "F5nxt spec must preserve authority, reservation metadata, and later registration boundary");
+assertOrderedFragments(implementationPlan, ["Phase F5nxt", "sole authority", "SourceOver", "resource table"], "F5nxt plan must preserve authority, derived rect, and later resource phases");
 for (const fragment of [
     "gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset_owner0 0",
     "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted",

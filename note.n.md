@@ -168437,3 +168437,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 次phaseをF5nxt registered stroke packed alpha-mask resource reservationとし、issue `ISS-20260716T051343036Z-REGISTERED-PACKED-STROKE-MASK-LACKS--D22ED820`を作成した。
 - subagent設計監査によりF5nxs owner全体をsole authorityとしてnested保持し、rectをorigin+shapeから導出、SourceOverのみを許可し、legacy F5bl/F5lsを再構築しない契約を採用した。
 - 実装、runtime fixture、source policy、normal compile、review、全gate、統合は未完了である。
+
+### F5nxt implementation checkpoint
+
+- F5nxs completed packed owner全体をnested保持するreservationを実装し、positive mask id、shapeのwidth/height/scale/coverage/cell count、packed cell count/alpha max/storage、SourceOverを検証する。
+- 正常系はoriginとshapeからrectを導出してmask id/paintとownerを移譲する。拒否系はownerとconfigを保持し、0/negative idの回収後retry、Copy blend、storage length不整合をruntime fixtureで検査した。
+- focused 2件は個別doctestでruntime通過した。focused matrix runnerは各compileが既定60秒を超えて2件timeoutしたが、個別実行をruntime evidenceとした。registered module matrixは51/52を通過し、唯一timeoutしたdoctest #1も個別実行で通過したため、全52 runtime contractを確認した。normal compile isolationとWeb GUI source-policyも通過しており、timeoutをruntime成功の代替にはしていない。
+- F5nxtはresource reservationまでであり、idの一意性/登録済み/host-visible/renderableは証明しない。次はF5nxu metadata-only resource tableで、prepared command、software drain、native/Web表示、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。

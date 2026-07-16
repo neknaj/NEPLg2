@@ -2696,6 +2696,260 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_terminal
         GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed owner: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free owner
         GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted owner: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free owner
 
+//: F5nxtで未登録mask idと配置・paintをpacked mask authorityへ結合するvalue-only設定
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig:
+    mask_id %AlphaMaskId
+    origin %GuiPoint
+    paint %GuiPaint
+    blend %GuiBlendMode
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig \value: value
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config %fn AlphaMaskId fn GuiPoint fn GuiPaint fn GuiBlendMode GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig \mask_id\origin\paint\blend:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig mask_id origin paint blend
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_mask_id %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig AlphaMaskId \config: *field::get_ref config "mask_id"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_origin %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig GuiPoint \config: *field::get_ref config "origin"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_paint %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig GuiPaint \config: *field::get_ref config "paint"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_blend %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig GuiBlendMode \config: *field::get_ref config "blend"
+
+//: F5nxs packed owner全体と導出rectを一体に保持する未登録resource reservation
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationOwner:
+    packed_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner
+    mask_id %AlphaMaskId
+    rect %GuiRect
+    paint %GuiPaint
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind:
+    InvalidMaskId
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    CellCountMismatch
+    InvalidAlphaMax
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+    UnsupportedBlendMode
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartError:
+    packed_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner
+    config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_validate %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig Result unit GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind \owner\config:
+    let mask_id %AlphaMaskId gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_mask_id config
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_shape owner
+    let width %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shape
+    let height %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px &shape
+    let scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale &shape
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+    let count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+    let expected_coverage_max %i64 mul %i64 cast scale %i64 cast scale
+    let expected_cell_count %i64 mul %i64 cast width %i64 cast height
+    if le alpha_mask_id_raw &mask_id 0:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::InvalidMaskId
+        else if le width 0:
+            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::ShapeInvalidWidth
+            else if le height 0:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::ShapeInvalidHeight
+                else if le scale 0:
+                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::ShapeInvalidSampleScale
+                    else if ne %i64 cast coverage_max expected_coverage_max:
+                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::ShapeCoverageMaxMismatch
+                        else if ne %i64 cast count expected_cell_count:
+                            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::ShapeCellCountMismatch
+                            else if ne gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_cell_count owner count:
+                                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::CellCountMismatch
+                                else if le gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_max owner 0:
+                                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::InvalidAlphaMax
+                                    else if ne gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cells_len owner count:
+                                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::AlphaStorageLenMismatch
+                                        else if ne gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cells_cap owner count:
+                                            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::AlphaStorageCapacityMismatch
+                                            else match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_blend config:
+                                                GuiBlendMode::SourceOver: Result::Ok unit
+                                                _: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::UnsupportedBlendMode
+
+//: validation成功時だけoriginとshape sizeからrectを導出してreservationへ移譲する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartError \packed_owner\config:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_validate &packed_owner &config:
+        Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartError packed_owner config kind
+        Result::Ok _:
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_shape &packed_owner
+            let mask_id %AlphaMaskId gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_mask_id &config
+            let origin %GuiPoint gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_origin &config
+            let paint %GuiPaint gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_paint &config
+            let rect %GuiRect gui_rect_new (gui_point_x &origin) (gui_point_y &origin) (gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shape) (gui_sfnt_simple_glyph_raster_coverage_shape_height_px &shape)
+            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationOwner packed_owner mask_id rect paint
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_mask_id %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationOwner AlphaMaskId \owner: *field::get_ref owner "mask_id"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_rect %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationOwner GuiRect \owner: *field::get_ref owner "rect"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_paint %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationOwner GuiPaint \owner: *field::get_ref owner "paint"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_packed_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner \owner: field::get owner "packed_owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_config %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig \error: *field::get_ref error "config"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner \error: field::get error "packed_owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationOwner unit \owner: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free field::get owner "packed_owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartError unit \error: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free field::get error "packed_owner"
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_completed_owner %impure fn unit Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
+        Option::None: none
+        Option::Some completed:
+            let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 2 1 2 2
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start completed coverage_config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
+                    none
+                Result::Ok writer:
+                    let scan_config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_config 4
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start writer scan_config:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_free error
+                            none
+                        Result::Ok scan:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_scan_to_completion scan 256:
+                                Option::None: none
+                                Option::Some coverage:
+                                    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config 255
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start coverage config:
+                                        Result::Err error:
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_free error
+                                            none
+                                        Result::Ok owner0:
+                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner0 1:
+                                                Result::Err error:
+                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                                    none
+                                                Result::Ok terminal0:
+                                                    match terminal0:
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed owner: some owner
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted owner1:
+                                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner1 1:
+                                                                Result::Err error:
+                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                                                    none
+                                                                Result::Ok terminal1:
+                                                                    match terminal1:
+                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed owner: some owner
+                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted owner2:
+                                                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner2 0:
+                                                                                Result::Err error:
+                                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                                                                    none
+                                                                                Result::Ok terminal2:
+                                                                                    match terminal2:
+                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed owner: some owner
+                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted unfinished:
+                                                                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free unfinished
+                                                                                            none
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_config %fn i32 fn GuiBlendMode GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig \raw_id\blend:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config (alpha_mask_id_new raw_id) (gui_point_new 7 (sub 0 3)) (gui_paint_solid (rgba8888_new 11 22 33 44)) blend
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_force_len_mismatch %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner \owner:
+    let coverage_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner field::get owner "coverage_owner"
+    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig field::get owner "config"
+    let cells %Vec i32 field::get owner "alpha_cells"
+    let popped %VecPop i32 vec::pop cells
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner coverage_owner (vec::vec_pop_vec popped) config
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_normal_contract %impure fn unit bool \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_completed_owner unit:
+        Option::None: false
+        Option::Some packed:
+            let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_config 41 GuiBlendMode::SourceOver
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start packed config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_free error
+                    false
+                Result::Ok reservation:
+                    let id %AlphaMaskId gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_mask_id &reservation
+                    let rect %GuiRect gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_rect &reservation
+                    let paint %GuiPaint gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_paint &reservation
+                    let color %Rgba8888 gui_paint_color &paint
+                    let packed_owner gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_packed_owner reservation
+                    let ok %bool and and and and and and and and eq alpha_mask_id_raw &id 41 eq gui_rect_x &rect 7 eq gui_rect_y &rect (sub 0 3) eq gui_rect_width &rect 2 eq gui_rect_height &rect 1 and eq rgba8888_r &color 11 eq rgba8888_a &color 44 eq gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cells_len &packed_owner 2
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free packed_owner
+                    ok
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_invalid_id_retry %impure fn i32 bool \raw_id:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_completed_owner unit:
+        Option::None: false
+        Option::Some packed:
+            let invalid_config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_config raw_id GuiBlendMode::SourceOver
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start packed invalid_config:
+                Result::Ok unexpected:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_free unexpected
+                    false
+                Result::Err invalid:
+                    let recovered_config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_config &invalid
+                    let recovered_mask_id %AlphaMaskId gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config_mask_id &recovered_config
+                    let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_kind &invalid:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::InvalidMaskId: true
+                        _: false
+                    let invalid_ok %bool and kind_ok eq alpha_mask_id_raw &recovered_mask_id raw_id
+                    let recovered gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_owner invalid
+                    let valid_config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_config 9 GuiBlendMode::SourceOver
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start recovered valid_config:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_free error
+                            false
+                        Result::Ok reservation:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_free reservation
+                            invalid_ok
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_unsupported_blend %impure fn unit bool \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_completed_owner unit:
+        Option::None: false
+        Option::Some packed:
+            let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_config 9 GuiBlendMode::Copy
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start packed config:
+                Result::Ok unexpected:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_free unexpected
+                    false
+                Result::Err error:
+                    let ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_kind &error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::UnsupportedBlendMode: true
+                        _: false
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_free error
+                    ok
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_storage_invariant %impure fn unit bool \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_completed_owner unit:
+        Option::None: false
+        Option::Some packed:
+            let corrupted gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_force_len_mismatch packed
+            let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_config 9 GuiBlendMode::SourceOver
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start corrupted config:
+                Result::Ok unexpected:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_owner_free unexpected
+                    false
+                Result::Err error:
+                    let ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_kind &error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationStartErrorKind::AlphaStorageLenMismatch: true
+                        _: false
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_free error
+                    ok
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_recovery_contract %impure fn unit bool \_unit:
+    and and and gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_invalid_id_retry 0 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_invalid_id_retry (sub 0 1) gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_unsupported_blend unit gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_storage_invariant unit
+
 #test
 fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_finish %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner impure fn i32 impure fn i32 bool \owner\expected_first\expected_second:
     match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner 1:

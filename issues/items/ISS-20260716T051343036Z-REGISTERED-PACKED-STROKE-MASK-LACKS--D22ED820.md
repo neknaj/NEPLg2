@@ -2,8 +2,8 @@
 id: ISS-20260716T051343036Z-REGISTERED-PACKED-STROKE-MASK-LACKS--D22ED820
 title: "Registered packed stroke mask lacks resource reservation"
 area: GUI_FONT
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-16
@@ -23,7 +23,10 @@ F5nxs owns normalized registered stroke alpha cells but no owner-bearing AlphaMa
 
 ## 根拠
 
-- 未記入
+- F5nxs completed packed owner全体を唯一のauthorityとして保持するowner-bearing reservationを実装した。
+- positive `AlphaMaskId`、shape全不変条件、alpha storage、SourceOverを順に検証し、失敗時はownerとconfigを回収できる。
+- rectはcaller originとowner shapeからのみ導出し、legacy reservation、resource table、command、platform境界を再構築しない。
+- focused normal/recovery runtime、normal compile、source-policy、module regression、review gateで検証した。
 
 ## 問題
 
