@@ -168514,3 +168514,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nycを1回、既存F5mcを1回だけ呼ぶdirect bridgeを追加し、F5nya/F5mbの再実装とF5ma/F5nyb経由を禁止した。error/recoveryはlower error全体とCompleted/DirtyOwner/Entry/Range authorityを保持する。
 - focused successはframe id 261、width 16、row start 3/count 1、byte count 64、checked offsets 28..31のRGBA `(11,22,33,21)`を固定する。invalid configはnested frame-entry errorとDirtyOwner recoveryを固定し、自然に到達不能なF5mc failure fixtureは偽造せず既存F5mc regressionへ委譲する。
 - focused doctest、Web GUI contract、normal compile isolation、既存F5mc regression、trunk build、playground editor JSON 13/13、issues/diff checkを通過した。subagent実装reviewと差分reviewの指摘を反映し、段階別lower error/recovery mappingもsource-policyで固定した。F5nydはcopied row bytesまでで全体は未完成、次は既存F5md tile-plan bridgeである。
+
+## 2026-07-16 F5nye registered direct compositor tile-plan checkpoint
+
+- public F5nydを1回、既存F5mdを1回だけ呼ぶdirect bridgeを追加し、lower error全体とCompleted/DirtyOwner/Entry/Range/Storage recovery authorityを保持した。
+- successはframe 261、row start 3/count 1、tile rows/count 1、byte count 64、descriptor 0のframe-absolute row start 3/storage-relative offset 0を固定する。invalid entryはDirtyOwner、tile_rows 0はTileRowsInvalid/InvalidGeometryとmetadata/64 bytesを保つStorage recoveryを固定する。
+- focused doctest 3件、Web contract、normal compile isolation、既存F5md regression、trunk build、playground editor JSON 13/13、issues/diff checkを通過した。subagent pre-final reviewの指摘により既存F5nyd policyへF5md/tile-plan直接呼出禁止を復元し、最終差分・全体整合・履歴粒度reviewもPASSした。F5nyeはtile-plan metadataまでで全体は未完成、次は既存F5me tile-payload bridgeである。

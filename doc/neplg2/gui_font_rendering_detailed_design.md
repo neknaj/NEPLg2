@@ -11047,3 +11047,9 @@ The two owner-bearing lower errors remain distinct stages, and consuming recover
 F5nyd consumes the registered completed owner with the existing entry config, calls the public F5nyc bridge exactly once, and passes its untouched range owner to F5mc `gui_rgba8888_compositor_byte_storage_prepare` exactly once. Success returns the existing byte-storage owner, preserving the batch 0 row bytes and the original frame/row metadata.
 
 The affine wrapper stores either the complete F5nyc error or complete F5mc prepare error. Borrowed diagnostics precede consuming recovery; recovery returns completed, dirty-owner, entry, or range authority without reconstructing lower owners. F5nya/F5mb are not duplicated, F5ma/F5nyb are excluded, and raw/lower byte storage is not exposed. F5nyd stops before F5md tile planning, tile/RLE encoding, presentation, transport, host/platform/backend work, or fallback.
+
+### F5nye registered direct compositor tile-plan bridge
+
+F5nye consumes the registered completed owner with existing entry config and caller tile-plan config. It calls public F5nyd exactly once and passes the untouched byte-storage owner to F5md `gui_rgba8888_compositor_tile_plan_prepare` exactly once. Success returns the existing tile-plan owner, preserving batch 0 frame/row metadata and the lower checked descriptor authority.
+
+The affine wrapper retains either the complete F5nyd error or complete F5md prepare error. Borrowed diagnostics precede consuming recovery; recovery returns completed, dirty-owner, entry, range, or storage authority. Descriptor row positions remain frame-absolute while byte offsets remain copied-storage-relative. F5nye does not duplicate earlier bridges, invoke lower tile-plan preparation directly, expose bytes/raw storage, or enter F5me tile payload, RLE, presentation, transport, host/platform/backend work, or fallback.

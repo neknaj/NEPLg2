@@ -4654,6 +4654,8 @@ const registeredStrokePackedMaskResourceSoftwareDrainCompositorBatchDrainBridge 
 const registeredStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_batch_range");
 const registeredStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_byte_storage");
 const registeredStrokePackedMaskResourceSoftwareDrainCompositorByteStorageRecovery = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_error_recovery");
+const registeredStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_plan");
+const registeredStrokePackedMaskResourceSoftwareDrainCompositorTilePlanRecovery = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_recovery");
 const registeredStrokePackedMaskResourceSoftwareDrainErrorKindFromTable = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_error_kind_from_table");
 for (const fragment of [
     "prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner",
@@ -4864,7 +4866,7 @@ assertOrderedFragments(
 );
 assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridge.match(/completed_owner_into_compositor_batch_range completed config/g) || []).length === 1, "F5nyd must call F5nyc exactly once");
 assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridge.match(/gui_rgba8888_compositor_byte_storage_prepare range/g) || []).length === 1, "F5nyd must call F5mc exactly once");
-assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridge, /(?:completed_owner_into_compositor_frame_entry|compositor_batch_range_prepare|compositor_batch_drain|row_byte_storage|RegionToken|MemPtr|tile|rle|scheduler|transport|upload|present|host|platform|backend|fallback)/i, "F5nyd must not duplicate F5nya/F5mb, route through F5ma/F5nyb, expose lower storage, or enter payload/platform work");
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridge, /(?:completed_owner_into_compositor_frame_entry|compositor_batch_range_prepare|compositor_batch_drain|gui_rgba8888_compositor_tile_plan_prepare|row_tile_plan|row_byte_storage|RegionToken|MemPtr|tile_payload|scheduler|transport|upload|present|host|platform|backend|fallback)/i, "F5nyd must not duplicate earlier bridges, enter F5md, expose lower storage, or enter payload/platform work");
 for (const fragment of [
     "BatchRangeBridgeFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridgeError",
     "ByteStoragePrepareFailed %GuiRgba8888CompositorByteStoragePrepareError",
@@ -4899,6 +4901,25 @@ for (const fragment of ["owner_byte_count &storage 64", "&storage 28 11", "&stor
 assertOrderedFragments(spec, ["F5nyd", "F5nyc", "gui_rgba8888_compositor_byte_storage_prepare", "batch 0", "F5ma/F5nyb", "F5md"], "F5nyd spec must preserve direct byte-storage authority and later tile scope");
 assertOrderedFragments(detailedDesign, ["F5nyd", "F5nyc", "gui_rgba8888_compositor_byte_storage_prepare", "batch 0", "F5ma/F5nyb", "F5md"], "F5nyd design must preserve staged owner authority and later tile scope");
 assertOrderedFragments(implementationPlan, ["Phase F5nyd", "public F5nyc", "gui_rgba8888_compositor_byte_storage_prepare", "F5ma/F5nyb", "byte count 64", "F5md"], "F5nyd plan must preserve direct delegation, exact byte evidence, and later tile scope");
+assertOrderedFragments(registeredStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridge, ["completed_owner_into_compositor_byte_storage completed frame_config", "ByteStorageBridgeFailed lower", "Result::Ok storage", "gui_rgba8888_compositor_tile_plan_prepare storage tile_config", "TilePlanPrepareFailed lower", "Result::Ok plan"], "F5nye must call public F5nyd and F5md exactly once in order");
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridge.match(/completed_owner_into_compositor_byte_storage completed frame_config/g) || []).length === 1, "F5nye must call F5nyd exactly once");
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridge.match(/gui_rgba8888_compositor_tile_plan_prepare storage tile_config/g) || []).length === 1, "F5nye must call F5md exactly once");
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridge, /(?:completed_owner_into_compositor_(?:batch_range|frame_entry)|compositor_byte_storage_prepare|compositor_batch_drain|row_tile_plan_prepare|row_byte_storage|byte_at|RegionToken|MemPtr|tile_payload|rle|scheduler|transport|upload|present|host|platform|backend|fallback)/i, "F5nye must not duplicate earlier bridges, use lower/raw storage, or enter payload/platform work");
+for (const fragment of [
+    "ByteStorageBridgeFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeError",
+    "TilePlanPrepareFailed %GuiRgba8888CompositorTilePlanPrepareError",
+    "Storage %GuiRgba8888CompositorByteStorageOwner",
+]) assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(fragment), `F5nye must retain staged owner authority: ${fragment}`);
+assertOrderedFragments(registeredStrokePackedMaskResourceSoftwareDrainCompositorTilePlanRecovery, ["ByteStorageBridgeFailed lower", "compositor_byte_storage_bridge_error_recovery lower", "Completed completed", "DirtyOwner owner", "Entry entry", "Range range", "TilePlanPrepareFailed lower", "Storage gui_rgba8888_compositor_tile_plan_prepare_error_storage lower"], "F5nye recovery must map complete lower errors to exact authority stages");
+for (const typeName of ["GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError", "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery"]) assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${typeName}\\b`), `F5nye owner-bearing ${typeName} must remain affine`);
+for (const entry of ["software_drain_compositor_tile_plan_bridge_test_normal_contract", "software_drain_compositor_tile_plan_bridge_test_entry_recovery_contract", "software_drain_compositor_tile_plan_bridge_test_tile_rows_recovery_contract"]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(entry), `F5nye production fixture must include ${entry}`);
+    assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainTests.includes(entry), `F5nye focused doctest must execute ${entry}`);
+}
+for (const fragment of ["owner_tile_count &plan 1", "owner_byte_count &plan 64", "row_tile_descriptor_row_start &descriptor 3", "row_tile_descriptor_byte_offset &descriptor 0", "RowTilePlanPrepareErrorKind::TileRowsInvalid"]) assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(fragment), `F5nye fixtures must preserve tile authority: ${fragment}`);
+assertOrderedFragments(spec, ["F5nye", "F5nyd", "gui_rgba8888_compositor_tile_plan_prepare", "storage-relative", "F5me"], "F5nye spec must preserve direct tile-plan authority and later payload scope");
+assertOrderedFragments(detailedDesign, ["F5nye", "F5nyd", "gui_rgba8888_compositor_tile_plan_prepare", "frame-absolute", "F5me"], "F5nye design must preserve descriptor semantics and later payload scope");
+assertOrderedFragments(implementationPlan, ["Phase F5nye", "public F5nyd", "gui_rgba8888_compositor_tile_plan_prepare", "TileRowsInvalid", "F5me"], "F5nye plan must preserve direct delegation, reachable recovery, and later payload scope");
 for (const fragment of [
     "resource_software_drain_test_normal_contract",
     "software_drain_owner_cell_index &owner 0",

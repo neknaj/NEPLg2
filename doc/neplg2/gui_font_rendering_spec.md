@@ -8611,3 +8611,9 @@ frame-entry failureとbatch-range prepare failureはlower owner-bearing errorを
 F5nydはregistered completed ownerと既存F5lz configを受け、public F5nyc batch-range bridge、既存F5mc `gui_rgba8888_compositor_byte_storage_prepare`を各1回、この順で呼ぶ。successは既存byte-storage ownerをそのまま返し、batch 0由来のrow bytesとframe/row metadataを保持する。
 
 batch-range bridge failureとbyte-storage prepare failureはlower owner-bearing error全体を段階別variantに保持する。consuming recoveryはcompleted/dirty/entryまたはrange authorityを返す。F5nya/F5mbを再実装せず、F5ma/F5nybを経由せず、raw storageやlower row-byte APIを公開しない。F5nydはF5md tile plan、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。
+
+### F5nye registered stroke direct compositor tile-plan bridge
+
+F5nyeはregistered completed owner、既存F5lz config、caller supplied row-tile configを受け、public F5nyd byte-storage bridge、既存F5md `gui_rgba8888_compositor_tile_plan_prepare`を各1回、この順で呼ぶ。successは既存tile-plan ownerをそのまま返し、batch 0のframe/row metadataとstorage-relative descriptor authorityを保持する。
+
+byte-storage bridge failureとtile-plan prepare failureはlower owner-bearing error全体を段階別variantに保持する。consuming recoveryはcompleted/dirty/entry/rangeまたはstorage authorityを返す。F5nyd以前を再実装せず、lower tile-plan API、byte payload/raw storageを公開しない。F5nyeはF5me tile payload、RLE、present、transport、host/platform/backend、fallbackへ進まない。

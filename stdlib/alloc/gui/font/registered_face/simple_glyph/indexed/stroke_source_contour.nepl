@@ -23,6 +23,7 @@
 #import "alloc/gui/font/sfnt" as *
 #import "alloc/gui/render2d/compositor_batch_range" as *
 #import "alloc/gui/render2d/compositor_byte_storage" as *
+#import "alloc/gui/render2d/compositor_tile_plan" as *
 #import "alloc/gui/render2d/compositor_batch_drain" as *
 #import "alloc/gui/render2d/compositor_frame_entry" as *
 #import "alloc/gui/render2d/dirty_surface" as *
@@ -3287,6 +3288,29 @@ pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftware
     Entry %GuiRgba8888CompositorFrameEntryOwner
     Range %GuiRgba8888CompositorBatchRangeOwner
 
+//: registered completionからcompositor tile planへの失敗段階
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorStage:
+    ByteStorageBridge
+    TilePlanPrepare
+
+//: registered tile plan bridgeのlower失敗分類
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorKind:
+    ByteStorageBridgeFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeErrorKind
+    TilePlanPrepareFailed %GuiRgba8888CompositorTilePlanPrepareErrorKind
+
+//: 各段階のowner-bearing lower errorを変換せず保持する
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError:
+    ByteStorageBridgeFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeError
+    TilePlanPrepareFailed %GuiRgba8888CompositorTilePlanPrepareError
+
+//: tile plan bridge失敗時に再試行可能なowner authority
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery:
+    Completed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner
+    DirtyOwner %GuiRgba8888SoftwareSurfaceDirtyOwner
+    Entry %GuiRgba8888CompositorFrameEntryOwner
+    Range %GuiRgba8888CompositorBatchRangeOwner
+    Storage %GuiRgba8888CompositorByteStorageOwner
+
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind:
     StatusNotCompleted
     StartValidationFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind
@@ -3411,6 +3435,35 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
                 GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridgeRecovery::DirtyOwner owner: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeRecovery::DirtyOwner owner
                 GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridgeRecovery::Entry entry: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeRecovery::Entry entry
         GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeError::ByteStoragePrepareFailed lower: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeRecovery::Range gui_rgba8888_compositor_byte_storage_prepare_error_range lower
+
+//: tile plan bridge errorの失敗段階をownerを消費せず返す
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_stage %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorStage \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::ByteStorageBridgeFailed _: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorStage::ByteStorageBridge
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::TilePlanPrepareFailed _: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorStage::TilePlanPrepare
+
+//: tile plan bridge errorのlower kindをownerを消費せず返す
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorKind \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::ByteStorageBridgeFailed lower: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorKind::ByteStorageBridgeFailed gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_error_kind lower
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::TilePlanPrepareFailed lower: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorKind::TilePlanPrepareFailed gui_rgba8888_compositor_tile_plan_prepare_error_kind lower
+
+//: tile plan bridge errorのcoarse GUI categoryをownerを消費せず返す
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_category_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError Option GuiError \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::ByteStorageBridgeFailed lower: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_error_category_value lower
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::TilePlanPrepareFailed lower: gui_rgba8888_compositor_tile_plan_prepare_error_category_value lower
+
+//: 診断読取後のbridge errorを一度だけ消費して再試行authorityを返す
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_recovery %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::ByteStorageBridgeFailed lower:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_error_recovery lower:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeRecovery::Completed completed: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Completed completed
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeRecovery::DirtyOwner owner: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::DirtyOwner owner
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeRecovery::Entry entry: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Entry entry
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeRecovery::Range range: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Range range
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::TilePlanPrepareFailed lower: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Storage gui_rgba8888_compositor_tile_plan_prepare_error_storage lower
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind \error: *field::get_ref error "kind"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner \error: field::get error "owner"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind \error: *field::get_ref error "kind"
@@ -3521,6 +3574,31 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
 //: lower errorをrecoveryへ一度だけ変換してnested ownerを閉じる
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeError unit \error:
     gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_recovery_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_error_recovery error
+
+//: registered tile plan bridge recovery内のowner authorityを一度だけ閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_recovery_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery unit \recovery:
+    match recovery:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Completed completed: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_free completed
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::DirtyOwner owner:
+            match gui_rgba8888_software_surface_dirty_owner_free owner:
+                Result::Ok _: unit
+                Result::Err _: unit
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Entry entry:
+            match gui_rgba8888_compositor_frame_entry_owner_free entry:
+                Result::Ok _: unit
+                Result::Err _: unit
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Range range:
+            match gui_rgba8888_compositor_batch_range_owner_free range:
+                Result::Ok _: unit
+                Result::Err _: unit
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Storage storage:
+            match gui_rgba8888_compositor_byte_storage_owner_free storage:
+                Result::Ok _: unit
+                Result::Err _: unit
+
+//: lower errorをrecoveryへ一度だけ変換してnested ownerを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_recovery_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_recovery error
 
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError unit \error:
     gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free field::get error "owner"
@@ -3794,6 +3872,17 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
             match gui_rgba8888_compositor_byte_storage_prepare range:
                 Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeError::ByteStoragePrepareFailed lower
                 Result::Ok storage: Result::Ok storage
+
+//: registered completionを既存byte storage bridge経由でcompositor tile planへ移す
+//:
+//: F5nydとF5mdを各1回だけ呼び、tile payloadやRLEより先へは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_plan %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig fn GuiRgba8888RowTilePlanConfig Result GuiRgba8888CompositorTilePlanOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError \completed\frame_config\tile_config:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_byte_storage completed frame_config:
+        Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::ByteStorageBridgeFailed lower
+        Result::Ok storage:
+            match gui_rgba8888_compositor_tile_plan_prepare storage tile_config:
+                Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::TilePlanPrepareFailed lower
+                Result::Ok plan: Result::Ok plan
 
 //: registered completionを既存frame entry bridge経由でbounded compositor batch drainへ移す
 //:
@@ -4963,6 +5052,117 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_test_entry_recovery_contract %impure fn unit bool \_unit:
     gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_byte_storage_bridge_test_contract 291 true
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_prepared %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner fn i32 bool \prepared\mode:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge_test_completed prepared:
+        Option::None: false
+        Option::Some completed:
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig if eq mode 1:
+                then gui_rgba8888_compositor_frame_entry_config 0 2
+                else gui_rgba8888_compositor_frame_entry_config 261 2
+            let tile_config %GuiRgba8888RowTilePlanConfig if eq mode 2:
+                then GuiRgba8888RowTilePlanConfig 0
+                else GuiRgba8888RowTilePlanConfig 1
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_plan completed frame_config tile_config:
+                Result::Ok plan:
+                    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_plan_owner_metadata &plan
+                    let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 261 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
+                    let plan_ok %bool and and eq gui_rgba8888_compositor_tile_plan_owner_tile_rows &plan 1 eq gui_rgba8888_compositor_tile_plan_owner_tile_count &plan 1 eq gui_rgba8888_compositor_tile_plan_owner_byte_count &plan 64
+                    let descriptor_ok %bool match gui_rgba8888_compositor_tile_plan_owner_descriptor_at &plan 0:
+                        Result::Err _: false
+                        Result::Ok descriptor: and and and and eq gui_rgba8888_row_tile_descriptor_tile_index &descriptor 0 eq gui_rgba8888_row_tile_descriptor_row_start &descriptor 3 eq gui_rgba8888_row_tile_descriptor_row_count &descriptor 1 eq gui_rgba8888_row_tile_descriptor_byte_offset &descriptor 0 eq gui_rgba8888_row_tile_descriptor_byte_count &descriptor 64
+                    let free_ok %bool match gui_rgba8888_compositor_tile_plan_owner_free plan:
+                        Result::Ok _: true
+                        Result::Err _: false
+                    and and eq mode 0 metadata_ok plan_ok descriptor_ok free_ok
+                Result::Err error:
+                    let stage gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_stage &error
+                    let category_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_category_value &error:
+                        Option::Some category:
+                            match category:
+                                GuiError::InvalidGeometry: true
+                                _: false
+                        _: false
+                    let kind gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_kind &error
+                    let recovery gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_recovery error
+                    if eq mode 1:
+                        then:
+                            let stage_ok %bool match stage:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorStage::ByteStorageBridge: true
+                                _: false
+                            let kind_ok %bool match kind:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorKind::ByteStorageBridgeFailed _: true
+                                _: false
+                            let recovery_ok %bool match recovery:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::DirtyOwner owner:
+                                    match gui_rgba8888_software_surface_dirty_owner_free owner:
+                                        Result::Ok _: true
+                                        Result::Err _: false
+                                other:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_recovery_free other
+                                    false
+                            and and stage_ok kind_ok category_ok recovery_ok
+                        else:
+                            let stage_ok %bool match stage:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorStage::TilePlanPrepare: true
+                                _: false
+                            let kind_ok %bool match kind:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorKind::TilePlanPrepareFailed lower_kind:
+                                    match lower_kind:
+                                        GuiRgba8888CompositorTilePlanPrepareErrorKind::RowTilePlanPrepareFailed row_kind:
+                                            match row_kind:
+                                                GuiRgba8888RowTilePlanPrepareErrorKind::TileRowsInvalid: true
+                                                _: false
+                                _: false
+                            let recovery_ok %bool match recovery:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Storage storage:
+                                    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_byte_storage_owner_metadata &storage
+                                    let storage_ok %bool and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 261 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_byte_storage_owner_byte_count &storage 64
+                                    match gui_rgba8888_compositor_byte_storage_owner_free storage:
+                                        Result::Ok _: storage_ok
+                                        Result::Err _: false
+                                other:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_recovery_free other
+                                    false
+                            and and eq mode 2 stage_ok kind_ok category_ok recovery_ok
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_registered %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskRegisteredResourceOwner fn i32 bool \table\resource\mode:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command resource:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_error_free error
+            false
+        Result::Ok prepared: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_prepared prepared mode
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_contract %impure fn i32 fn i32 bool \raw_id\mode:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_new 1:
+        Result::Err _: false
+        Result::Ok table:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_reservation raw_id:
+                Option::None:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+                    false
+                Option::Some reservation:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register table reservation:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register_error_free error
+                            false
+                        Result::Ok registration: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_registration_owner_with registration \table\resource: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_registered table resource mode
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_normal_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_contract 301 0
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_entry_recovery_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_contract 311 1
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_tile_rows_recovery_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_contract 321 2
 
 #test
 fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_drain_test_prepared %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner fn i32 bool \prepared\mode:

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-16T09:43:17.285Z",
+  "generated_at": "2026-07-16T10:20:17.088Z",
   "counts": {
-    "total": 1389,
+    "total": 1390,
     "open": 60,
-    "resolved": 1329,
+    "resolved": 1330,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 15,
+        "total": 16,
         "open": 0,
-        "resolved": 15
+        "resolved": 16
       },
       "nodesrc": {
         "total": 16,
@@ -11338,6 +11338,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260716T091612069Z-REGISTERED-STROKE-COMPOSITOR-RANGE-L-BDC5FB9B.md"
+    },
+    {
+      "id": "ISS-20260716T094750836Z-REGISTERED-STROKE-BYTE-STORAGE-LACKS-F4B3D0E1",
+      "title": "Registered stroke byte storage lacks tile-plan bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-16",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T094750836Z-REGISTERED-STROKE-BYTE-STORAGE-LACKS-F4B3D0E1.md"
     },
     {
       "id": "ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP",

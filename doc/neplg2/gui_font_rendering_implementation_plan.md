@@ -13680,3 +13680,10 @@ git diff --check
 - errorは`BatchRangeBridgeFailed`または`ByteStoragePrepareFailed`としてlower owner-bearing error全体を保持し、borrowed diagnostic後のconsuming recoveryだけがCompleted/DirtyOwner/Entry/Range authorityへ変換する。
 - success fixtureはframe id 261、width 16、row start 3/count 1、byte count 64、checked offsets 28..31のRGBA `(11,22,33,21)`を検証する。invalid config fixtureはF5nyc stage/categoryとDirtyOwner recoveryを検証する。自然に到達不能なF5mc failureを偽造せず、既存F5mc regressionとsource policyで委譲契約を固定する。
 - focused runtime、Web GUI source policy、normal compile isolation、F5nyc/F5mc regression、issues/diff check、subagent reviewを通す。F5nydはF5md tile plan、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。
+
+## Phase F5nye: registered stroke direct compositor tile-plan bridge boundary
+
+- F5nxy completed owner、既存F5lz config、caller row-tile configを受け、public F5nydを1回呼び、success storageを既存F5md `gui_rgba8888_compositor_tile_plan_prepare`へ1回渡す。F5nyd以前を再実装せずF5ma/F5nybを経由しない。
+- errorは`ByteStorageBridgeFailed`または`TilePlanPrepareFailed`としてlower owner-bearing error全体を保持し、borrowed diagnostic後のconsuming recoveryだけがCompleted/DirtyOwner/Entry/Range/Storageへ変換する。
+- success fixtureはframe 261、width 16、row start 3/count 1、tile rows/count 1、byte count 64、descriptor 0のtile index 0、frame-absolute row start 3、storage-relative offset 0を検証する。invalid entry configはDirtyOwner、tile_rows 0はTileRowsInvalid/InvalidGeometryとmetadata/bytesを保つStorage recoveryを検証する。
+- focused runtime、Web source policy、normal compile isolation、F5nyd/F5md regression、trunk/CLI、issues/diff check、subagent reviewを通す。F5nyeはF5me tile payload、RLE、present、transport、host/platform/backend、fallbackへ進まない。
