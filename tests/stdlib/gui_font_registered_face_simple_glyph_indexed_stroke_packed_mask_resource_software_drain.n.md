@@ -1,5 +1,40 @@
 # GUI font registered simple glyph indexed stroke packed mask software drain start
 
+## Registered completion enters bounded compositor batch drain
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_batch_drain\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"zero budget resumes and one budget completes\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let continuation %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_drain_test_continuation_contract unit
+    let complete %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_drain_test_complete_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_batch_drain"
+    test_report_finish test_report_bool report "zero budget resumes and one budget completes" true and continuation complete
+```
+
+## Invalid compositor batch budget preserves entry authority
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_batch_drain_recovery\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"invalid budget is typed and entry-owner bearing\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_drain_test_recovery_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_batch_drain_recovery"
+    test_report_finish test_report_bool report "invalid budget is typed and entry-owner bearing" true result
+```
+
 ## Completed owner enters compositor frame entry
 
 ```neplg2

@@ -168495,3 +168495,11 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - successはframe id 241、surface 16x16、dirty row start 3/count 1、batch count 1/max rows 2を確認した。aggregation failureは`InvalidGeometry`とoriginal completed owner、frame id 0 failureは`FrameIdInvalid`とexact dirty ownerを回収した。
 - focused doctest 2件、Web GUI source-policy、normal compile isolation、issues/diff check、subagent design/diff/全体整合reviewを通過した。registered cleanupがsurface free failureをunitへ畳む既存制約は継承しており、Result-returning cleanup統一は後続課題である。
 - F5nyaはcompositor frame-entryまでの接続であり、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。次は既存F5ma以降へのbounded compositor drain/scheduler integrationを選定する。
+
+## 2026-07-16 F5nyb registered stroke bounded compositor batch-drain checkpoint
+
+- origin/main `ce1420878`から`feat/gui-font-registered-compositor-batch-drain-f5nyb`を開始し、issue `ISS-20260716T083405511Z-REGISTERED-STROKE-COMPOSITOR-ENTRY-L-68A31506`を実装した。`plan.md`は参照のみで変更していない。
+- registered completed ownerからF5nya entry bridge、既存F5ma bounded batch drainを各1回、固定順で接続した。successはF5ma terminalをそのまま返し、status/emitted/metadata/entry continuationを再実装していない。
+- budget 0は`StepBudgetExhausted`/emitted 0からentryを回収しbudget 1で完了、direct budget 1は`Completed`/emitted 1、budget -1は`InvalidBudget`/`InvalidCommand`とexact metadata付きentry recoveryを確認した。
+- focused doctest 2件、Web GUI source-policy、normal compile isolation、issues/diff check、subagent design/diff/全体整合reviewを通過した。registered cleanupでsurface free failureをunitへ畳む既存制約は継承する。
+- F5nybは単一bounded batch drainまでであり、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。次はrecovered entry authorityから既存F5mb batch rangeへのregistered payload metadata bridgeを選定する。

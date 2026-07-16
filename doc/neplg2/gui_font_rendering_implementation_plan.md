@@ -13659,3 +13659,11 @@ git diff --check
 - configの再定義、ownerless事前validation、dirty aggregationやbitmap/row plan/cursorの再実装を禁止する。successだけが既存F5lz entry ownerへ進む。
 - focused runtimeはexact frame/row/batch metadata、F5nxz aggregation recovery、F5lz invalid frame-id recoveryを検査する。source policy、registered module、normal compile、issues/diff check、subagent reviewを通す。
 - F5nyaはF5ma以降のbatch drain/range、row byte、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。
+
+## Phase F5nyb: registered stroke bounded compositor batch-drain bridge boundary
+
+- F5nxy completed owner、既存F5lz config、caller supplied batch budgetを受け、F5nya entry bridgeと既存F5ma `gui_rgba8888_compositor_batch_drain_budget`を各1回、この順で接続する。
+- successは既存F5ma terminalをそのまま返し、status、emitted count、metadata、entry continuation、freeを再実装しない。budget 0 terminalからentryを回収して再試行できることを維持する。
+- entry bridge failureとbatch drain failureはlower owner-bearing error全体を段階別variantに保持する。diagnostic読取後のconsuming recoveryだけがcompleted/dirty ownerまたはentry ownerを返す。
+- focused runtimeはbudget 0 continuation、budget 1 completion、negative budget entry recoveryとexact metadataを検査する。source policy、normal compile、issues/diff check、subagent reviewを通す。
+- F5nybはF5mb以降のrange/row byte/tile/RLE、scheduler loop、present、transport、host/platform/backend、fallbackへ進まない。

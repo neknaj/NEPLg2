@@ -8591,3 +8591,11 @@ F5nyaはF5nxy completed ownerと既存F5lz configを受け、F5nxz `completed_ow
 failureは`DirtyOwnerBridgeFailed`または`FrameEntryPrepareFailed`としてlower owner-bearing error全体を保持する。前者はoriginal completed owner、後者はgeneric dirty ownerを保持し、error格納時には共通ownerへflattenしない。diagnosticを読んだ後のconsuming recoveryだけがstage-tagged `Completed` / `DirtyOwner` unionを返す。configは既存F5lz型をそのまま使い、ownerless事前validationを行わない。
 
 successだけが既存compositor frame-entry ownerを返す。F5nyaはbatch drain/range、row byte、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。
+
+### Registered stroke bounded compositor batch-drain bridge boundary
+
+F5nybはregistered completed owner、既存F5lz config、batch budgetを受け、F5nya entry bridge、既存F5ma bounded batch drainを各1回、この順で呼ぶ。successは既存F5ma terminalをそのまま返し、status、emitted count、metadata、entry continuationを再定義しない。
+
+entry bridge failureとbatch drain failureはlower owner-bearing error全体を段階別variantに保持する。diagnostic読取後のconsuming recoveryだけがF5nya recoveryまたはF5maから再構成したentry ownerを返す。budget 0 terminalはentryへ戻して再試行できる。
+
+F5nybはF5mb以降のrange/row byte/tile/RLE、scheduler loop、present、transport、host/platform/backend、fallbackへ進まない。

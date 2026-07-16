@@ -11027,3 +11027,11 @@ F5nya consumes the complete F5nxy registered stroke owner together with the exis
 The affine wrapper error retains the lower owner-bearing error at its actual lifetime stage. `DirtyOwnerBridgeFailed` retains the F5nxz error and therefore the original completed owner. `FrameEntryPrepareFailed` retains the F5lz error and therefore the generic dirty owner. Error storage is not flattened into a common owner. The consuming recovery accessor intentionally converts the selected lower error into a stage-tagged `Completed` / `DirtyOwner` union only after diagnostics have been read.
 
 F5nya reuses `GuiRgba8888CompositorFrameEntryConfig` without ownerless prevalidation. Success returns the existing `GuiRgba8888CompositorFrameEntryOwner`; invalid frame or row-batch configuration follows F5lz owner-bearing recovery. F5nya does not enter batch drain/range, row-byte storage, tile/RLE encoding, present, transport, host/platform/backend code, or fallback behavior.
+
+## Registered stroke bounded compositor batch-drain bridge boundary
+
+F5nyb consumes the registered completed owner, the existing compositor entry config, and one caller-supplied batch budget. It calls the F5nya entry bridge once and, only after entry success, calls the existing F5ma compositor batch-drain budget once. It does not inspect or recreate the lower row-batch cursor state.
+
+Success returns `GuiRgba8888CompositorBatchDrainTerminal` directly. The existing F5ma status, emitted-count, metadata, terminal-to-entry continuation, and free contracts remain authoritative. A zero budget may return `StepBudgetExhausted`; consuming that terminal back into an entry and retrying preserves bounded scheduler progress.
+
+The affine error stores either the complete F5nya owner-bearing error or the complete F5ma owner-bearing error. Diagnostics are borrowed before consuming recovery. Entry-bridge recovery preserves its completed/dirty-owner stage, while batch-drain recovery uses F5ma to reconstruct the compositor entry owner. F5nyb does not enter F5mb range, row-byte storage, tile/RLE encoding, scheduler loops, present, transport, host/platform/backend code, or fallback behavior.
