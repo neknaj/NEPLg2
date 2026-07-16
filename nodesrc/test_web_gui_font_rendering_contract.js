@@ -4649,6 +4649,7 @@ const registeredStrokePackedMaskResourceSoftwareDrainPoll = allocFontRegisteredF
 const registeredStrokePackedMaskResourceSoftwareDrainCompleteStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete %impure");
 const registeredStrokePackedMaskResourceSoftwareDrainComplete = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourceSoftwareDrainCompleteStart, allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n//: checked dirty metadata", registeredStrokePackedMaskResourceSoftwareDrainCompleteStart));
 const registeredStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_dirty_owner");
+const registeredStrokePackedMaskResourceSoftwareDrainCompositorEntryBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_frame_entry");
 const registeredStrokePackedMaskResourceSoftwareDrainErrorKindFromTable = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_error_kind_from_table");
 for (const fragment of [
     "prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner",
@@ -4778,6 +4779,31 @@ for (const entry of ["dirty_owner_bridge_test_normal_contract", "dirty_owner_bri
 assertOrderedFragments(spec, ["F5nxz", "dirty_regions_empty", "dirty_regions_push_region_checked", "GuiRgba8888SoftwareSurfaceDirtyOwner", "compositor frame"], "F5nxz spec must preserve aggregation-before-move and later compositor scope");
 assertOrderedFragments(detailedDesign, ["F5nxz", "dirty_regions_push_region_checked", "unchanged affine completed owner", "GuiRgba8888SoftwareSurfaceDirtyOwner", "compositor frame"], "F5nxz design must preserve recovery and later compositor scope");
 assertOrderedFragments(implementationPlan, ["Phase F5nxz", "dirty_regions_empty", "dirty_regions_push_region_checked", "GuiRgba8888SoftwareSurfaceDirtyOwner", "compositor frame"], "F5nxz plan must preserve aggregation-before-move and later compositor scope");
+assertOrderedFragments(
+    registeredStrokePackedMaskResourceSoftwareDrainCompositorEntryBridge,
+    ["completed_owner_into_dirty_owner completed", "Result::Err lower", "DirtyOwnerBridgeFailed lower", "Result::Ok dirty_owner", "gui_rgba8888_compositor_frame_entry_prepare dirty_owner config", "FrameEntryPrepareFailed lower", "Result::Ok entry"],
+    "F5nya must call F5nxz and F5lz exactly once in owner-preserving order",
+);
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorEntryBridge.match(/completed_owner_into_dirty_owner completed/g) || []).length === 1, "F5nya must call the F5nxz bridge exactly once");
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorEntryBridge.match(/gui_rgba8888_compositor_frame_entry_prepare dirty_owner config/g) || []).length === 1, "F5nya must call F5lz prepare exactly once");
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainCompositorEntryBridge, /(?:dirty_regions_|bitmap_frame|row_batch|tile|rle|transport|upload|present|platform|backend|fallback|config_checked|validate_config)/i, "F5nya must not duplicate lower preparation or enter drain/transport/platform work");
+for (const typeName of [
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorFrameEntryBridgeError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorFrameEntryBridgeRecovery",
+]) {
+    assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${typeName}\\b`), `F5nya owner-bearing ${typeName} must remain affine`);
+}
+for (const entry of [
+    "software_drain_compositor_frame_entry_bridge_test_normal_contract",
+    "software_drain_compositor_frame_entry_bridge_test_aggregation_recovery_contract",
+    "software_drain_compositor_frame_entry_bridge_test_prepare_recovery_contract",
+]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(entry), `F5nya production fixture must include ${entry}`);
+    assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainTests.includes(entry), `F5nya focused doctest must execute ${entry}`);
+}
+assertOrderedFragments(spec, ["F5nya", "completed_owner_into_dirty_owner", "gui_rgba8888_compositor_frame_entry_prepare", "DirtyOwnerBridgeFailed", "FrameEntryPrepareFailed", "batch drain"], "F5nya spec must preserve fixed bridge order, staged recovery, and later drain scope");
+assertOrderedFragments(detailedDesign, ["F5nya", "F5nxz dirty-owner bridge once", "F5lz compositor-frame-entry prepare once", "DirtyOwnerBridgeFailed", "FrameEntryPrepareFailed", "stage-tagged", "batch drain"], "F5nya design must preserve staged owner authority and later drain scope");
+assertOrderedFragments(implementationPlan, ["Phase F5nya", "F5nxz dirty-owner bridge", "F5lz compositor frame-entry prepare", "original completed owner", "generic dirty owner", "batch drain"], "F5nya plan must preserve bridge order, exact recovery stages, and later drain scope");
 for (const fragment of [
     "resource_software_drain_test_normal_contract",
     "software_drain_owner_cell_index &owner 0",

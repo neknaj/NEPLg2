@@ -8583,3 +8583,11 @@ F5nxyはgeneric render2d surface+dirty owner、DirtyRegionSet aggregation、tile
 F5nxzはF5nxy completed ownerのchecked DirtyRegionを読み、`dirty_regions_empty`に`dirty_regions_push_region_checked`する。aggregationはprepared/surfaceのmoveより前に完了し、failureはGuiErrorとoriginal completed ownerを保持する。
 
 successのみprivate terminal finish helperでprepared lifetimeを閉じ、surfaceとchecked DirtyRegionSetを`GuiRgba8888SoftwareSurfaceDirtyOwner`にする。private helperをpublic split accessorとして公開しない。F5nxzはcompositor frame、bitmap/row/tile/RLE、transport、host/platform、fallbackへ進まない。
+
+### Registered stroke compositor frame-entry bridge boundary
+
+F5nyaはF5nxy completed ownerと既存F5lz configを受け、F5nxz `completed_owner_into_dirty_owner`、F5lz `gui_rgba8888_compositor_frame_entry_prepare`を各1回、この順で呼ぶ。wrapperでdirty set、bitmap frame、row batch plan、cursor startを再構築しない。
+
+failureは`DirtyOwnerBridgeFailed`または`FrameEntryPrepareFailed`としてlower owner-bearing error全体を保持する。前者はoriginal completed owner、後者はgeneric dirty ownerを保持し、error格納時には共通ownerへflattenしない。diagnosticを読んだ後のconsuming recoveryだけがstage-tagged `Completed` / `DirtyOwner` unionを返す。configは既存F5lz型をそのまま使い、ownerless事前validationを行わない。
+
+successだけが既存compositor frame-entry ownerを返す。F5nyaはbatch drain/range、row byte、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。

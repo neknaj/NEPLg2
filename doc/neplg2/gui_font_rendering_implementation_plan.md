@@ -13651,3 +13651,11 @@ git diff --check
 - aggregation failureはGuiErrorとoriginal completed ownerをtyped bridge errorに保持する。successだけがprivate terminal finish helperでprepared lifetimeを閉じ、surfaceとDirtyRegionSetを`GuiRgba8888SoftwareSurfaceDirtyOwner`へ移す。
 - private finish helperをsplit consuming accessorとして公開しない。focused runtimeはsuccessのexact dirty rect/surface shapeとforged aggregation failureのowner recovery/freeを検査する。
 - source policy、registered module、render2d dirty-surface regression、normal compile、issues/diff check、subagent reviewを通す。F5nxzはcompositor frame prepare、bitmap/row/tile/RLE、transport、host/platform、fallbackへ進まない。
+
+## Phase F5nya: registered stroke compositor frame-entry bridge boundary
+
+- F5nxy completed owner全体と既存`GuiRgba8888CompositorFrameEntryConfig`を受け、F5nxz dirty-owner bridge、F5lz compositor frame-entry prepareを各1回、この順で接続する。
+- F5nxz failureは`DirtyOwnerBridgeFailed`、F5lz failureは`FrameEntryPrepareFailed`として、それぞれoriginal completed ownerまたはgeneric dirty ownerを含むlower error全体をvariant payloadに保持する。格納時にlower errorを共通ownerへflattenせず、消費回収時だけstage-tagged recovery unionへ変換する。lower kind/categoryはowner消費前に読む。
+- configの再定義、ownerless事前validation、dirty aggregationやbitmap/row plan/cursorの再実装を禁止する。successだけが既存F5lz entry ownerへ進む。
+- focused runtimeはexact frame/row/batch metadata、F5nxz aggregation recovery、F5lz invalid frame-id recoveryを検査する。source policy、registered module、normal compile、issues/diff check、subagent reviewを通す。
+- F5nyaはF5ma以降のbatch drain/range、row byte、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。

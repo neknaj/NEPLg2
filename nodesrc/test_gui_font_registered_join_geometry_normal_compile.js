@@ -15,6 +15,9 @@ const testOnlyNames = [
     "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_work_bound_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_quadratic_direction_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_frame_entry_bridge_test_normal_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_frame_entry_bridge_test_aggregation_recovery_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_frame_entry_bridge_test_prepare_recovery_contract",
 ];
 
 const probe = (testOnlyName) => `#entry main
@@ -42,7 +45,7 @@ async function main() {
         }
         throw new Error(`F5nxp/F5nxq test-only helper unexpectedly compiled in normal mode: ${testOnlyName}`);
     }
-    console.log("F5nxp/F5nxq normal compile excludes test-only join geometry helpers");
+    console.log("registered GUI font normal compile excludes test-only geometry and compositor bridge helpers");
 }
 
 main().catch((error) => {

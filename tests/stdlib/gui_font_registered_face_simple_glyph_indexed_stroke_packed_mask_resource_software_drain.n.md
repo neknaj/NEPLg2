@@ -1,5 +1,40 @@
 # GUI font registered simple glyph indexed stroke packed mask software drain start
 
+## Completed owner enters compositor frame entry
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_entry\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"entry preserves exact frame and dirty row metadata\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_frame_entry_bridge_test_normal_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_entry"
+    test_report_finish test_report_bool report "entry preserves exact frame and dirty row metadata" true result
+```
+
+## Compositor entry bridge recovers both lower owners
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_entry_recovery\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"aggregation and frame prepare failures preserve retry authority\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let aggregation %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_frame_entry_bridge_test_aggregation_recovery_contract unit
+    let prepare %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_frame_entry_bridge_test_prepare_recovery_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_entry_recovery"
+    test_report_finish test_report_bool report "aggregation and frame prepare failures preserve retry authority" true and aggregation prepare
+```
+
 ## Completed owner bridges to generic dirty owner
 
 ```neplg2

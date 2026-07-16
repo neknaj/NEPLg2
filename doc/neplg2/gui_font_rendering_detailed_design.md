@@ -11019,3 +11019,11 @@ F5nxz reads the checked dirty region from the complete F5nxy owner and calls `di
 Only the success branch calls a private terminal finish helper. That helper closes the prepared resource lifetime and returns the software surface internally, after which the surface and checked `DirtyRegionSet` become one `GuiRgba8888SoftwareSurfaceDirtyOwner`. The finish helper is not public and is not a split consuming accessor.
 
 F5nxz does not prepare a compositor frame, bitmap, row batch, tile, RLE payload, command transport, host presentation, platform/backend action, or fallback. Registered compositor-frame entry remains the next boundary.
+
+## Registered stroke compositor frame-entry bridge boundary
+
+F5nya consumes the complete F5nxy registered stroke owner together with the existing F5lz compositor entry config. It calls the F5nxz dirty-owner bridge once and, only after that succeeds, calls the F5lz compositor-frame-entry prepare once. It does not duplicate dirty aggregation, bitmap-frame preparation, row-batch planning, or cursor startup.
+
+The affine wrapper error retains the lower owner-bearing error at its actual lifetime stage. `DirtyOwnerBridgeFailed` retains the F5nxz error and therefore the original completed owner. `FrameEntryPrepareFailed` retains the F5lz error and therefore the generic dirty owner. Error storage is not flattened into a common owner. The consuming recovery accessor intentionally converts the selected lower error into a stage-tagged `Completed` / `DirtyOwner` union only after diagnostics have been read.
+
+F5nya reuses `GuiRgba8888CompositorFrameEntryConfig` without ownerless prevalidation. Success returns the existing `GuiRgba8888CompositorFrameEntryOwner`; invalid frame or row-batch configuration follows F5lz owner-bearing recovery. F5nya does not enter batch drain/range, row-byte storage, tile/RLE encoding, present, transport, host/platform/backend code, or fallback behavior.

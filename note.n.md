@@ -168487,3 +168487,11 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 次phaseをF5nxz registered stroke dirty-owner bridge boundaryとし、issue `ISS-20260716T075144185Z-REGISTERED-STROKE-DIRTY-COMPLETION-L-27E1B838`を作成した。
 - checked dirty aggregationをowner moveより先に行い、successだけがprivate finishでpreparedを閉じてgeneric surface+dirty ownerへ移る。compositor frame entryは後続に残す。
 - checked aggregation-before-move、private finish、generic dirty owner success、lower GuiError+original completed owner recoveryを実装した。focused exact dirty-set/recovery、normal compile、Web GUI source-policy、issues/diff check、subagent差分/全体整合reviewは通過した。surface free failureをunitへ畳む制約は現行registered APIと整合するが、Result-returning cleanup統一は後続課題である。
+
+## 2026-07-16 F5nya registered stroke compositor frame-entry bridge checkpoint
+
+- origin/main `25d5aef5a`から`feat/gui-font-registered-compositor-entry-f5nya`を開始し、issue `ISS-20260716T080747010Z-REGISTERED-STROKE-DIRTY-OWNER-LACKS--A6EACC6D`を実装した。`plan.md`は参照のみで変更していない。
+- registered completed ownerからF5nxz dirty-owner bridge、既存F5lz compositor-frame-entry prepareを各1回、固定順で接続した。wrapper errorはlower owner-bearing error全体を段階別variantに保持し、diagnostic読取後のconsuming recoveryだけが`Completed` / `DirtyOwner` unionへ変換する。
+- successはframe id 241、surface 16x16、dirty row start 3/count 1、batch count 1/max rows 2を確認した。aggregation failureは`InvalidGeometry`とoriginal completed owner、frame id 0 failureは`FrameIdInvalid`とexact dirty ownerを回収した。
+- focused doctest 2件、Web GUI source-policy、normal compile isolation、issues/diff check、subagent design/diff/全体整合reviewを通過した。registered cleanupがsurface free failureをunitへ畳む既存制約は継承しており、Result-returning cleanup統一は後続課題である。
+- F5nyaはcompositor frame-entryまでの接続であり、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。次は既存F5ma以降へのbounded compositor drain/scheduler integrationを選定する。

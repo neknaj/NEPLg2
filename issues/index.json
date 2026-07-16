@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-16T08:02:47.403Z",
+  "generated_at": "2026-07-16T08:28:59.488Z",
   "counts": {
-    "total": 1385,
+    "total": 1386,
     "open": 60,
-    "resolved": 1325,
+    "resolved": 1326,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 11,
+        "total": 12,
         "open": 0,
-        "resolved": 11
+        "resolved": 12
       },
       "nodesrc": {
         "total": 16,
@@ -11278,6 +11278,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260716T075144185Z-REGISTERED-STROKE-DIRTY-COMPLETION-L-27E1B838.md"
+    },
+    {
+      "id": "ISS-20260716T080747010Z-REGISTERED-STROKE-DIRTY-OWNER-LACKS--A6EACC6D",
+      "title": "Registered stroke dirty owner lacks compositor frame entry bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-16",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T080747010Z-REGISTERED-STROKE-DIRTY-OWNER-LACKS--A6EACC6D.md"
     },
     {
       "id": "ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP",
