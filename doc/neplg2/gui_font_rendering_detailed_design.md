@@ -10959,3 +10959,11 @@ F5nxp startはcompleted F5nxoのcompact source edge Vec、closure join Vec、sty
 stepはsource join/side-edge slotとcount/len/capをpush前に再検査する。budget 0ではownerを変更せず、1 budgetで最大1件を生成し、push成功後だけcursorと分類countを進める。terminal probeはbudgetを消費しない。push failureはpre-push owner、returned Vec、rejected geometryを返し、completed/error/freeの全経路でsource edge、source join、geometry Vecを一度だけ解放する。
 
 startは`side_edge_count` exact capacityを一度だけ確保する。stepはterminal、budget 0、read/successor/record検査、pushの順で進み、push成功後だけcursor/countをcommitする。push失敗はreturned Vecとrejected record、pre-push progressをowner-bearing errorへ戻す。step resultは`Progress`または`CompletedValue`だけを持ち、同時にprogress ownerとcompleted ownerを返さない。全failure/free経路はnested F5nxn ownerとVecの単一解放を維持する。
+
+## Registered simple glyph stroke packed mask owner boundary
+
+F5nxs pack ownerはcompleted F5nxq/F5nxr raw coverage owner全体、exact-capacity alpha Vec、value-only alpha config、cell indexを分離不能に所有する。completed ownerにもraw owner全体をmoveし、legacy packed mask authorityやjoin geometry authorityを再構築しない。raw payloadの早期解放にはF5nxq生成時点からauthority/payloadを分離する別migrationが必要なため、このphaseの責務に含めない。
+
+start invariantはpositive alpha max、valid shape、raw count/len/cap exact、checked alpha scale、alpha Vec initial len 0/exact capである。step invariantはindex range、alpha len==index、raw/alpha cap exactを再検査し、borrowed raw slotをrange検査してfloor normalization後にpushする。terminal probe、budget 0、budget 1の順を固定し、budget 1超を拒否する。start/poll/storage errorはowner-bearingで、kind/configだけがCopy可能である。recovery/freeはnested authorityと両storageを一度だけ閉じる。
+
+runtime fixtureはactual F5nxr completionからの`[0,0]`、production F5nxq push/completeからの`[0,4] -> [0,255]`とfloor値、0/1/>1 budget、invalid alpha、raw range seam、forced push recoveryを固定する。normal compileとsource policyはlegacy packed owner呼出、authority reconstruction、public raw/take accessor、recursive drain、paint/render/platform接続がないことも検査する。

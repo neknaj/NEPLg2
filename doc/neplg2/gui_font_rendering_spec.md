@@ -8521,3 +8521,11 @@ F5nxqはcompleted F5nxp owner全体を唯一のdirect authorityとして消費�
 F5nxrはF5nxq writer ownerを唯一のdirect authorityとして消費するregistered stroke coverage scan converterである。nested registered side-edge projectionとjoin geometryを直接borrowし、legacy stroke scan ownerを再構築しない。Line、bounded Quadratic、Bevel、Miter、Roundのcrossing parityから1 cellずつcoverageを計算し、F5nxq pushだけをmutation境界とする。一cellのworkは`sample_scale^2 * (edge_count * quadratic_segment_count + join_count * 2 + 1) <= 1,048,576`、edge/join countは各4096以下とし、超過はowner-bearing errorにする。scan ownerはwriter、config、Copy cursorを保持し、pollはterminalを先に判定してbudget 0を不変で返し、budget 1で1 micro-stepだけを進める。budget 1超はowner-bearing errorとし、旧recursive drainは持たない。整数sample座標はf32で厳密表現できる±2^24内、幾何と中間値はfiniteかつ同範囲だけを受理する。exact completionはraw coverage cell ownerを返し、packed mask以降は後続phaseに残す。
 
 F5nxq pushはwriter count、Vec len/cap、full、`0 <= coverage <= coverage_max`を検査し、成功後だけ1 cellをcommitする。storage failureではreturned Vecとpre-push countを持つwriter ownerを回収する。completionはexact fullだけをcompleted ownerへ進め、不足時はwriter ownerを返す。coverage scan computation、quadratic flattening、packed mask、paint composition、raster、runtime bridge、native/Web表示は後続phaseである。
+
+### Registered simple glyph stroke packed mask owner boundary
+
+F5nxsはF5nxrが返すcompleted `GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner`全体を唯一のdirect authorityとして消費し、raw coverageをnormalized alpha cellへ変換する。legacy F5lf/F5bf owner、F5nxp join geometry owner、または別のauthority shellへ詰め替えない。pack ownerとcompleted packed ownerはraw coverage owner全体をnestedに保持し、shapeとcell countはnested ownerへforwardする。このsliceではauthority再構築を避けるためraw cell storageをcompletion時に早期解放せず、packed owner freeまで保持する。
+
+configはvalue-onlyのpositive `alpha_max`である。startはshape、raw count/len/cap、`coverage_max * alpha_max`、alpha Vecのexact capacityをallocation/readより前に検査する。各stepは`0 <= coverage <= coverage_max`を要求し、`floor((coverage * alpha_max) / coverage_max)`で1 cellだけnormalizeする。push成功後だけindexをcommitし、failureはraw owner、config、returned Vec、pre-push progressを回収可能にする。
+
+pollはterminalをbudgetより先に判定する。budget 0は不変、budget 1は最大1 cell、budget 1超はowner-bearing errorで拒否し、再帰drainを持たない。F5nxsはpaint composition、mask resource、render command、pixel target、runtime bridge、native/Web/headless表示、fallback、shadow、compositorへ進まない。

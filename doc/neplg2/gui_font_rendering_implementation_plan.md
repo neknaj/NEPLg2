@@ -13587,3 +13587,11 @@ git diff --check
 - terminal-before-budget、budget 0不変、budget 1の1 micro-stepだけを受理し、push成功後だけcell indexとwritten countを同時に1進める。push/completion failureではF5nxq ownerを回収し、exact fullだけをF5nxq completed coverage ownerへ進める。旧recursive drainは削除する。
 - F5nxrはraw coverage scanで止め、packed mask、paint composition、raster、runtime bridge、native/Web GUI表示へ進まない。
 - compile/resource summary gateのため、既存のcell単位再帰drainをphase cursorへ置換する。poll budgetは0/1 micro-stepで、Lineは1 crossing、Quadraticは1 chord、Bevel/Miter/Roundは1 connector、SampleCommitは1 sample、CellCommitはF5nxq push 1回だけを進める。push失敗は同じCellCommit cursorを回収し、terminal-readyなCellBeginはbudget 0でもF5nxq completionへ進む。
+
+## Phase F5nxs: registered simple glyph stroke packed mask owner boundary
+
+- completed F5nxq/F5nxr raw coverage owner全体をsole direct authorityとし、pack/completed ownerへnestedに保持する。legacy F5lf/F5bf ownerやF5nxp authorityへ詰め替えない。
+- positive alpha max、shape、raw count/len/cap、checked scale、alpha exact-capacityをstartで検査する。各stepはraw rangeを検査し、`floor((coverage * alpha_max) / coverage_max)`を1 cellだけpushして成功後commitする。
+- pollはterminal-before-budget、budget 0不変、budget 1で最大1 cell、budget 1超typed rejectionとし、recursive drainを持たない。全failureはowner-bearing recovery、全終了経路はsingle freeを提供する。
+- actual F5nxr completionとproduction F5nxq push/completeのruntime fixture、専用normal compile、source policy、spec/design/todo/noteを同時更新する。
+- F5nxsはpacked alpha ownerで止め、paint composition、mask resource、raster target、runtime bridge、native/Web/headless GUI表示、fallback、shadow、compositorを後続phaseに残す。

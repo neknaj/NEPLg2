@@ -168422,3 +168422,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - focused normal/work-bound/coordinate 3/3、registered module 52/52、glyf module 2477/2477、Web GUI/source-policy contract、normal compile isolation、issues check、`git diff --check`、`trunk build`、trunk後Playground editor CLI JSON 13/13を通過した。full source-policy runnerは`--warn-only`で終了コード0で完走し、今回非変更のselfhost契約、unsafe helper一覧、repository-wide documentation driftなど既知baseline 10件だけをwarningとして記録した。
 - subagent差分reviewはBlocker/Major/Minorなしで、test-only driverのowner一意移譲、fuel停止性、production非再帰cursorとの分離、self-closure `[0,0]` parityを承認した。F5nxr issueは統合可能な解決状態とする。次はregistered raw coverageからpacked mask/rasterへの接続であり、runtime bridge、native/Web GUI表示、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+# 2026-07-16 F5nxs registered packed mask design checkpoint
+
+- F5nxrは`8231d1a31`までorigin/mainへfast-forward統合済みで、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+- 次のphaseをF5nxs registered simple glyph stroke packed mask owner boundaryとし、issue `ISS-20260716T031826603Z-REGISTERED-RAW-STROKE-COVERAGE-LACKS-6E469EAF`を作成した。
+- subagent設計監査により、F5nxr completed raw coverage owner全体をsole direct authorityとしてnested保持し、legacy F5lf/F5bfやF5nxp authorityへ詰め替えない契約を採用した。
+- authority再構築を避けるためraw storageはpacked owner freeまで保持する。早期解放が必要ならF5nxq生成時点のauthority/payload分離を別migrationとして扱う。
+- 実装、runtime fixture、source policy、normal compile regression、差分/全体整合review、全gate、統合は未完了である。
