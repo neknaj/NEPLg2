@@ -168527,3 +168527,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - successはframe 261、row start 3/count 1、tile 0、payload byte count 64、offset 28..31のRGBA `(11,22,33,21)`、index 64のexact `PayloadIndexOutOfBounds`を固定した。invalid entryは`TilePlanBridgeFailed`/`InvalidGeometry`とDirtyOwner、tile index 1はnested `DescriptorInvalid`/`TileIndexOutOfBounds`/`InvalidCommand`とPlan recoveryを固定した。
 - focused doctest 3件、Web contract、normal compile isolation、既存F5nye/F5me regression、trunk build、playground editor JSON 13/13、issues/diff checkを通過した。subagent reviewの指摘によりflattened kindと任意Err判定を根本修正し、再reviewはPASSした。
 - F5nyfはchecked tile payloadまでであり、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。次は既存F5mf RLE count-startへのdirect bridgeである。
+
+## 2026-07-16 F5nyg registered direct compositor tile RLE count-start checkpoint
+
+- public F5nyfを1回、既存F5mfを1回だけ呼ぶdirect bridgeを専用`stroke_compositor_tile_rle_count_start` extensionへ追加した。巨大なstroke moduleへF5mf overload集合を流入させない配置とし、lower cursor/count startは再実装していない。`plan.md`は参照のみで変更していない。
+- lower error全体とCompleted/DirtyOwner/Entry/Range/Storage/Plan/Payload recovery authorityを保持した。successはframe 261、width 16、row start 3/count 1、accumulated runs 0、next pixel 0、Ready、64-byte payload roundtripとoffset 28..31のRGBA `(11,22,33,21)`を固定した。invalid frameはFrameIdInvalidまでのnested kindとDirtyOwner、tile index 1はDescriptorInvalid/TileIndexOutOfBoundsとPlan recoveryを固定した。
+- 新規doctest 3件、既存F5nyf 3件とF5mf回帰、Web source-policy、normal compile isolation、trunk build、playground editor JSON 13/13、issues/diff check、subagent差分/全体整合reviewを通過した。F5nygはRLE count startまでで全体は未完成であり、次はF5nyhで既存F5mg bounded count-stepへ接続する。

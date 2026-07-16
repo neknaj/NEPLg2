@@ -8623,3 +8623,9 @@ byte-storage bridge failureとtile-plan prepare failureはlower owner-bearing er
 F5nyfはregistered completed owner、既存F5lz config、row-tile config、caller tile indexを受け、public F5nye tile-plan bridge、既存F5me `gui_rgba8888_compositor_tile_payload_prepare`を各1回、この順で呼ぶ。successは既存tile-payload ownerをそのまま返し、frame-absolute row metadata、payload-relative offset、checked tile byte viewを保持する。
 
 tile-plan bridge failureとtile-payload prepare failureはlower owner-bearing error全体を段階別variantに保持する。consuming recoveryはcompleted/dirty/entry/range/storageまたはplan authorityを返す。F5nye以前を再実装せず、lower row-tile/raw storage APIを公開しない。F5nyfはF5mf RLE count、encode、present、transport、host/platform/backend、fallbackへ進まない。
+
+### F5nyg registered stroke direct compositor RLE count-start bridge
+
+F5nygは専用extension `stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start.nepl` に置き、巨大なstroke moduleへF5mf namespaceを流入させない。registered completed owner、既存entry/tile config、tile indexを受け、public F5nyf tile-payload bridge、既存F5mf `gui_rgba8888_compositor_tile_rle_count_start`を各1回、この順で呼ぶ。successは既存RLE count ownerをそのまま返し、frame/row metadata、initial run count 0、next pixel index 0、Ready cursor authorityを保持する。
+
+tile-payload bridge failureとRLE count-start failureはlower owner-bearing error全体を段階別variantに保持する。consuming recoveryはcompleted/dirty/entry/range/storage/planまたはpayload authorityを返す。有効payloadから自然到達不能なF5mf failureを偽造せず、lower cursor/count startを再実装しない。F5nygはF5mg count step、completed count、encode、present、transport、host/platform/backend、fallbackへ進まない。

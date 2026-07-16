@@ -3511,6 +3511,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
                 GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Range range: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Range range
                 GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Storage storage: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Storage storage
         GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePayloadPrepareFailed lower: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Plan gui_rgba8888_compositor_tile_payload_prepare_error_plan lower
+
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind \error: *field::get_ref error "kind"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner \error: field::get error "owner"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind \error: *field::get_ref error "kind"
@@ -4335,6 +4336,30 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_sof
                     gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_free error
                     none
                 Result::Ok reservation: some reservation
+
+//: extension fixtureへprepared commandを一度だけ貸し出すbool test seam
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_with_prepared_test_contract %impure fn i32 fn i32 impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner fn i32 bool \raw_id\mode\callback:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_new 1:
+        Result::Err _: false
+        Result::Ok table:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_reservation raw_id:
+                Option::None:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+                    false
+                Option::Some reservation:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register table reservation:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_registration_owner_with registration \next_table\resource:
+                                gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free next_table
+                                match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command resource:
+                                    Result::Err error:
+                                        gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_error_free error
+                                        false
+                                    Result::Ok prepared: callback prepared mode
 
 #test
 fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_prepared_success %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner bool \prepared:
