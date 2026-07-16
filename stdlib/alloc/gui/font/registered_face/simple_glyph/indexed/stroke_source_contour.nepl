@@ -2597,29 +2597,16 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_push_
 
 #test
 fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_bounded_run %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError \owner\fuel:
-    let initial %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted owner
-    let mut output %Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError Result::Ok initial
-    let mut remaining %i32 fuel
-    let mut done %bool false
-    while not done:
-        do match output:
-            Result::Err error:
-                set output Result::Err error
-                set done true
+    if le fuel 0:
+        then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted owner
+        else match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_poll owner 1:
+            Result::Err error: Result::Err error
             Result::Ok terminal:
                 match terminal:
                     GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed completed:
-                        set output Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed completed
-                        set done true
-                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted current:
-                        if le remaining 0:
-                            then:
-                                set output Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted current
-                                set done true
-                            else:
-                                set output gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_poll current 1
-                                set remaining sub remaining 1
-    output
+                        Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed completed
+                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted next:
+                        gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_bounded_run next (sub fuel 1)
 
 #test
 fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_run %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner bool \writer:
@@ -2640,10 +2627,10 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_run %
                             false
                         GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed completed:
                             let first_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell &completed 0:
-                                Option::Some value: eq value 4
+                                Option::Some value: eq value 0
                                 Option::None: false
                             let second_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell &completed 1:
-                                Option::Some value: eq value 4
+                                Option::Some value: eq value 0
                                 Option::None: false
                             let count_ok %bool eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell_count &completed
                             gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free completed

@@ -168411,3 +168411,14 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - recursive samples/edges/quadratic/joins/drainを削除し、7 phase cursor、one-chord/one-connector transition、terminal-first 0/1 pollへ置換した。central invariantはwriter written/len/cap、cell/coverage/index、phase固有の到達可能状態をterminalとstepの前に検査する。
 - normal testはproduction pollをbounded whileで全phase進行し、direct CellCommit seamはpush recovery専用へ分離した。reviewで検出したinvalid seamはshape scaleを使うreachable CellCommitへ修正し、Quadratic Left/Right ordinal contractも追加した。
 - module 52/52、Web GUI/source-policy contract、normal compile isolation、issues check、`git diff --check`は通過した。subagentのcorrectness reviewを通し、残っていた旧drain文言をCopy cursorとterminal-first 0/1 poll契約へ統一した。一方、focused target 3件は各60秒compile timeoutでruntimeへ到達していない。cursor実装をruntime成功やissue完成とは扱わず、compilerのtest-mode deep factory/public cursor summary境界を引き続き調査する。
+
+### F5nxr focused runtime recovery
+
+- 60秒timeoutをpure direction、actual factory+free、writer start+free、scan start+freeに分解し、120秒窓で全境界がruntimeへ到達することを確認した。work-boundとcoordinateもruntimeを通過し、normalだけはtest-only bounded runnerの可変`Result<Terminal, Error>` loopに`resource.owner.maybe_leak`が発生していた。
+- runnerをfuel単調減少のowner-consuming driverへ置換し、production pollの全7 phaseを実走してnormal/work-bound/coordinate 3/3がruntime通過した。actual factoryはLeft/Rightの退化self-closureでありcanonical parity coverageは`[0, 0]`である。旧`[4, 4]`はdirect CellCommit seam時代の注入値だったため、実geometryのexact値へ修正した。
+- registered module 52/52は再通過した。このrecoveryをissue完了とはまだ扱わず、Web/source-policy、normal compile、full module、trunk/CLI、diff/全体整合reviewを再gateしてから統合可否を判定する。
+
+### F5nxr final gate
+
+- focused normal/work-bound/coordinate 3/3、registered module 52/52、glyf module 2477/2477、Web GUI/source-policy contract、normal compile isolation、issues check、`git diff --check`、`trunk build`、trunk後Playground editor CLI JSON 13/13を通過した。full source-policy runnerは`--warn-only`で終了コード0で完走し、今回非変更のselfhost契約、unsafe helper一覧、repository-wide documentation driftなど既知baseline 10件だけをwarningとして記録した。
+- subagent差分reviewはBlocker/Major/Minorなしで、test-only driverのowner一意移譲、fuel停止性、production非再帰cursorとの分離、self-closure `[0,0]` parityを承認した。F5nxr issueは統合可能な解決状態とする。次はregistered raw coverageからpacked mask/rasterへの接続であり、runtime bridge、native/Web GUI表示、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
