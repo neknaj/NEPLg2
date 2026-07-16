@@ -2491,6 +2491,502 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_termin
         GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed owner: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free owner
         GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted owner: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_free owner
 
+//: F5nxs の raw coverage をalpha cellへ正規化するvalue-only設定
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig:
+    alpha_max %i32
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig \value: value
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config %fn i32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig \alpha_max:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig alpha_max
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config_alpha_max %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig i32 \config: *field::get_ref config "alpha_max"
+
+//: completed F5nxq/F5nxr owner全体を唯一のauthorityとして保持するresumable pack owner
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner:
+    coverage_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner
+    alpha_cells %Vec i32
+    config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig
+    cell_index %i32
+
+//: raw authorityを分解せず保持するcompleted packed alpha owner
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner:
+    coverage_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner
+    alpha_cells %Vec i32
+    config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind:
+    InvalidAlphaMax
+    ShapeInvalid
+    RawCellCountMismatch
+    RawCellStorageLenMismatch
+    RawCellStorageCapacityMismatch
+    AlphaScaleOverflow
+    AlphaStorageFailed %StdErrorKind
+    AlphaStorageInitialLenMismatch
+    AlphaStorageCapacityMismatch
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError:
+    coverage_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner
+    config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind:
+    ProgressInvariantInvalid
+    RawCellSlotMissing
+    RawCoverageNegative
+    RawCoverageExceedsMax
+    AlphaScaleOverflow
+    AlphaStorageFailed %StdErrorKind
+    CompletionIncomplete
+    StepBudgetExceedsLimit
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal:
+    Completed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner
+    StepBudgetExhausted %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_shape_valid %fn &GuiSfntSimpleGlyphRasterCoverageShape bool \shape:
+    let width %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    let height %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+    let scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+    let positive %bool and and gt width 0 gt height 0 gt scale 0
+    let expected_coverage_max %i64 mul %i64 cast scale %i64 cast scale
+    let expected_cell_count %i64 mul %i64 cast width %i64 cast height
+    and positive and eq %i64 cast coverage_max expected_coverage_max eq %i64 cast cell_count expected_cell_count
+
+//: start時にshape、raw storage、checked alpha scaleを検査してexact-capacity storageを一度だけ確保する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError \coverage_owner\config:
+    let alpha_max %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config_alpha_max &config
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_shape &coverage_owner
+    let count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+    if le alpha_max 0:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError coverage_owner config GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::InvalidAlphaMax
+        else if not gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_shape_valid &shape:
+            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError coverage_owner config GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::ShapeInvalid
+            else if ne gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell_count &coverage_owner count:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError coverage_owner config GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::RawCellCountMismatch
+                else if ne gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cells_len &coverage_owner count:
+                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError coverage_owner config GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::RawCellStorageLenMismatch
+                    else if ne gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cells_cap &coverage_owner count:
+                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError coverage_owner config GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::RawCellStorageCapacityMismatch
+                        else if gt coverage_max div_s 2147483647 alpha_max:
+                            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError coverage_owner config GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::AlphaScaleOverflow
+                            else match vec::with_capacity<i32> count:
+                                Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError coverage_owner config (GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::AlphaStorageFailed kind)
+                                Result::Ok alpha_cells:
+                                    if ne vec::len &alpha_cells 0:
+                                        then:
+                                            vec::free alpha_cells
+                                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError coverage_owner config GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::AlphaStorageInitialLenMismatch
+                                        else if ne vec::cap &alpha_cells count:
+                                            then:
+                                                vec::free alpha_cells
+                                                Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError coverage_owner config GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::AlphaStorageCapacityMismatch
+                                            else Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner coverage_owner alpha_cells config 0
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner bool \owner:
+    let coverage_owner %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner field::get_ref owner "coverage_owner"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_shape coverage_owner
+    let count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+    let index %i32 *field::get_ref owner "cell_index"
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    let alpha_max %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config_alpha_max field::get_ref owner "config"
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+    let scale_valid %bool and gt alpha_max 0 le coverage_max div_s 2147483647 alpha_max
+    and and and and and and and gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_shape_valid &shape scale_valid ge index 0 le index count eq vec::len alpha_cells index eq vec::cap alpha_cells count eq gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell_count coverage_owner count and eq gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cells_len coverage_owner count eq gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cells_cap coverage_owner count
+
+//: alpha push失敗時にreturned Vecとpre-push indexから同じauthority ownerを復元する
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_push_alpha %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError \owner\alpha:
+    let index %i32 *field::get_ref &owner "cell_index"
+    let coverage_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner field::get owner "coverage_owner"
+    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig field::get owner "config"
+    match vec::push (field::get owner "alpha_cells") alpha:
+        Result::Ok cells: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner coverage_owner cells config (add index 1)
+        Result::Err error:
+            let kind %StdErrorKind vec::vec_push_error_kind &error
+            let cells %Vec i32 vec::vec_push_error_vec error
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError (GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner coverage_owner cells config index) (GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::AlphaStorageFailed kind)
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError \owner:
+    if not gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_invariant &owner:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::ProgressInvariantInvalid
+        else:
+            let index %i32 *field::get_ref &owner "cell_index"
+            let coverage_owner_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner field::get_ref &owner "coverage_owner"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_shape coverage_owner_ref
+            let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell coverage_owner_ref index:
+                Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::RawCellSlotMissing
+                Option::Some coverage:
+                    if lt coverage 0:
+                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::RawCoverageNegative
+                        else if gt coverage coverage_max:
+                            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::RawCoverageExceedsMax
+                            else:
+                                let alpha_max %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config_alpha_max field::get_ref &owner "config"
+                                if gt coverage div_s 2147483647 alpha_max:
+                                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::AlphaScaleOverflow
+                                    else:
+                                        let alpha %i32 div_s mul coverage alpha_max coverage_max
+                                        gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_push_alpha owner alpha
+
+//: terminalをbudgetより先に判定し、budget 1で最大一cellだけ進める
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError \owner\budget:
+    if not gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_invariant &owner:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::ProgressInvariantInvalid
+        else:
+            let coverage_owner_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner field::get_ref &owner "coverage_owner"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_shape coverage_owner_ref
+            let count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+            let index %i32 *field::get_ref &owner "cell_index"
+            if eq index count:
+                then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed (GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner (field::get owner "coverage_owner") (field::get owner "alpha_cells") (field::get owner "config"))
+                else if or lt budget 0 gt budget 1:
+                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::StepBudgetExceedsLimit
+                    else if eq budget 0:
+                        then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted owner
+                        else match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_step owner:
+                            Result::Err error: Result::Err error
+                            Result::Ok next: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted next
+
+//: pack/completed ownerはnested raw authorityへshapeとcell countをforwardする
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_cell_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner i32 \owner: *field::get_ref owner "cell_index"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_alpha_cells_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner i32 \owner: vec::len field::get_ref owner "alpha_cells"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_shape %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_shape field::get_ref owner "coverage_owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_cell_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner i32 \owner: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_cell_count field::get_ref owner "coverage_owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_max %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner i32 \owner: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config_alpha_max field::get_ref owner "config"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cells_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner i32 \owner: vec::len field::get_ref owner "alpha_cells"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cells_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner i32 \owner: vec::cap field::get_ref owner "alpha_cells"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cell %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner fn i32 Option i32 \owner\index:
+    match vec::get field::get_ref owner "alpha_cells" index:
+        Option::None: none
+        Option::Some value: some value
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_config %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig \error: *field::get_ref error "config"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner \error: field::get error "coverage_owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner \error: field::get error "owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner unit \owner:
+    vec::free field::get owner "alpha_cells"
+    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free field::get owner "coverage_owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner unit \owner:
+    vec::free field::get owner "alpha_cells"
+    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free field::get owner "coverage_owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartError unit \error: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free field::get error "coverage_owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError unit \error: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_terminal_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal unit \terminal:
+    match terminal:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed owner: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free owner
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted owner: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free owner
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_finish %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner impure fn i32 impure fn i32 bool \owner\expected_first\expected_second:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner 1:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+            false
+        Result::Ok first:
+            match first:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed completed:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free completed
+                    false
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted next:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll next 0:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                            false
+                        Result::Ok terminal:
+                            match terminal:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted unfinished:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free unfinished
+                                    false
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed completed:
+                                    let first_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cell &completed 0:
+                                        Option::Some value: eq value expected_first
+                                        Option::None: false
+                                    let second_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cell &completed 1:
+                                        Option::Some value: eq value expected_second
+                                        Option::None: false
+                                    let count_ok %bool eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_cell_count &completed
+                                    let len_ok %bool eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cells_len &completed
+                                    let cap_ok %bool eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cells_cap &completed
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free completed
+                                    and and and and first_ok second_ok count_ok len_ok cap_ok
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_numeric_contract %impure fn unit bool \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
+        Option::None: false
+        Option::Some completed:
+            let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 2 1 2 2
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start completed coverage_config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
+                    false
+                Result::Ok writer0:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push writer0 2:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_free error
+                            false
+                        Result::Ok writer1:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push writer1 4:
+                                Result::Err error:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_free error
+                                    false
+                                Result::Ok writer2:
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_complete writer2:
+                                        Result::Err error:
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_completion_error_free error
+                                            false
+                                        Result::Ok coverage:
+                                            let invalid_config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config 0
+                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start coverage invalid_config:
+                                                Result::Ok unexpected:
+                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free unexpected
+                                                    false
+                                                Result::Err invalid:
+                                                    let invalid_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_kind &invalid:
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskStartErrorKind::InvalidAlphaMax: true
+                                                        _: false
+                                                    let recovered gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_owner invalid
+                                                    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config 255
+                                                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start recovered config:
+                                                        Result::Err error:
+                                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_free error
+                                                            false
+                                                        Result::Ok owner0:
+                                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner0 0:
+                                                                Result::Err error:
+                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                                                    false
+                                                                Result::Ok terminal0:
+                                                                    match terminal0:
+                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed completed_mask:
+                                                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free completed_mask
+                                                                            false
+                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted owner1:
+                                                                            let budget_ok %bool and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_cell_index &owner1 eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_alpha_cells_len &owner1
+                                                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner1 1:
+                                                                                Result::Err error:
+                                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                                                                    false
+                                                                                Result::Ok terminal1:
+                                                                                    match terminal1:
+                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed completed_mask:
+                                                                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free completed_mask
+                                                                                            false
+                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted owner2:
+                                                                                            and invalid_ok and budget_ok gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_finish owner2 127 255
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_scan_to_completion %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner impure fn i32 Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner \owner\fuel:
+    if le fuel 0:
+        then:
+            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_free owner
+            none
+        else match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_poll owner 1:
+            Result::Err error:
+                gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_free error
+                none
+            Result::Ok terminal:
+                match terminal:
+                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed completed: some completed
+                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted next:
+                        gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_scan_to_completion next (sub fuel 1)
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_raw_owner %impure fn i32 impure fn i32 Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner \first\second:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
+        Option::None: none
+        Option::Some completed:
+            let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 2 1 2 2
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start completed coverage_config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
+                    none
+                Result::Ok writer0:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push writer0 first:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_free error
+                            none
+                        Result::Ok writer1:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_push writer1 second:
+                                Result::Err error:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_push_error_free error
+                                    none
+                                Result::Ok writer2:
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_complete writer2:
+                                        Result::Err error:
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_completion_error_free error
+                                            none
+                                        Result::Ok coverage: some coverage
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_replace_first_raw %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner impure fn i32 Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner \owner\raw:
+    let join_geometry %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner field::get owner "join_geometry"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape field::get owner "shape"
+    let old_cells %Vec i32 field::get owner "cells"
+    let count %i32 field::get owner "cell_count"
+    vec::free old_cells
+    match vec::with_capacity<i32> count:
+        Result::Err _kind:
+            gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free join_geometry
+            none
+        Result::Ok cells0:
+            match vec::push cells0 raw:
+                Result::Err error:
+                    vec::free vec::vec_push_error_vec error
+                    gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free join_geometry
+                    none
+                Result::Ok cells1:
+                    match vec::push cells1 4:
+                        Result::Err error:
+                            vec::free vec::vec_push_error_vec error
+                            gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_completed_owner_free join_geometry
+                            none
+                        Result::Ok cells2: some GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner join_geometry shape cells2 count
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_force_alpha_storage_failure %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskError \owner:
+    let index %i32 *field::get_ref &owner "cell_index"
+    let coverage_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner field::get owner "coverage_owner"
+    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig field::get owner "config"
+    vec::free field::get owner "alpha_cells"
+    match vec::with_capacity<i32> 0:
+        Result::Err _kind:
+            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free coverage_owner
+            #intrinsic "unreachable" <> ()
+        Result::Ok full:
+            let forced %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskPackOwner coverage_owner full config index
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_push_alpha forced 0
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_raw_error %impure fn i32 impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind bool \raw\expected:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_raw_owner 2 4:
+        Option::None: false
+        Option::Some valid:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_replace_first_raw valid raw:
+                Option::None: false
+                Option::Some coverage:
+                    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config 255
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start coverage config:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_free error
+                            false
+                        Result::Ok owner:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner 1:
+                                Result::Ok terminal:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_terminal_free terminal
+                                    false
+                                Result::Err error:
+                                    let pre_index_ok %bool eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_cell_index field::get_ref &error "owner"
+                                    let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_kind &error:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::RawCoverageNegative:
+                                            match expected:
+                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::RawCoverageNegative: true
+                                                _: false
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::RawCoverageExceedsMax:
+                                            match expected:
+                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::RawCoverageExceedsMax: true
+                                                _: false
+                                        _: false
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                    and pre_index_ok kind_ok
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_normal_contract %impure fn unit bool \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
+        Option::None: false
+        Option::Some completed:
+            let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 2 1 2 2
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start completed coverage_config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
+                    false
+                Result::Ok writer:
+                    let scan_config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_config 4
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start writer scan_config:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_free error
+                            false
+                        Result::Ok scan:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_scan_to_completion scan 256:
+                                Option::None: false
+                                Option::Some coverage:
+                                    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config 255
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start coverage config:
+                                        Result::Err error:
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_free error
+                                            false
+                                        Result::Ok owner:
+                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner 1:
+                                                Result::Err error:
+                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                                    false
+                                                Result::Ok terminal:
+                                                    match terminal:
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed completed_mask:
+                                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_free completed_mask
+                                                            false
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted next:
+                                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_finish next 0 0
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_recovery_contract %impure fn unit bool \_unit:
+    let raw_negative_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_raw_error (sub 0 1) GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::RawCoverageNegative
+    let raw_exceeds_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_raw_error 5 GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::RawCoverageExceedsMax
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_raw_owner 2 4:
+        Option::None: false
+        Option::Some coverage:
+            let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config 255
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start coverage config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_free error
+                    false
+                Result::Ok owner0:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner0 2:
+                        Result::Ok terminal:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_terminal_free terminal
+                            false
+                        Result::Err budget_error:
+                            let budget_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_kind &budget_error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::StepBudgetExceedsLimit: true
+                                _: false
+                            let budget_owner gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_owner budget_error
+                            let budget_index_ok %bool eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_cell_index &budget_owner
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_force_alpha_storage_failure budget_owner:
+                                Result::Ok unexpected:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free unexpected
+                                    false
+                                Result::Err storage_error:
+                                    let storage_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_kind &storage_error:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskErrorKind::AlphaStorageFailed kind:
+                                            match kind:
+                                                StdErrorKind::CapacityExceeded: true
+                                                _: false
+                                        _: false
+                                    let recovered gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_owner storage_error
+                                    let storage_index_ok %bool eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_cell_index &recovered
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free recovered
+                                    and and and and and raw_negative_ok raw_exceeds_ok budget_ok budget_index_ok storage_ok storage_index_ok
+
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_force_push_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanError \owner:
     let cursor field::get owner "cursor"

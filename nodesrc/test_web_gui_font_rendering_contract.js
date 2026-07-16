@@ -478,6 +478,7 @@ const guiFontRegisteredFaceTests = read("tests/stdlib/gui_font_registered_face.n
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_metric_join.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan.n.md");
+const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask.n.md");
 const guiFontRegisteredJoinGeometryPolicyMatrixTests = read("tests/stdlib/gui_font_registered_join_geometry_policy_matrix.n.md");
 const guiFontSfntGlyfSpanIndexTests = read("tests/stdlib/gui_font_sfnt_glyf_span_index.n.md");
 const guiFontSfntGlyfIndexedPathTests = read("tests/stdlib/gui_font_sfnt_glyf_indexed_path.n.md");
@@ -4210,7 +4211,7 @@ assertOrderedFragments(
     "F5nxq focused runtime finish must retry the final cell and free the exact completed owner",
 );
 const registeredStrokeCoverageScanRegionStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig:");
-const registeredStrokeCoverageScanRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokeCoverageScanRegionStart);
+const registeredStrokeCoverageScanRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig:", registeredStrokeCoverageScanRegionStart);
 assert(registeredStrokeCoverageScanRegionStart >= 0 && registeredStrokeCoverageScanRegionEnd > registeredStrokeCoverageScanRegionStart, "F5nxr production scan region must exist and end before test seams");
 const registeredStrokeCoverageScanRegion = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokeCoverageScanRegionStart, registeredStrokeCoverageScanRegionEnd));
 const registeredStrokeCoverageScanStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start");
@@ -4327,6 +4328,93 @@ for (const helper of ["gui_font_registered_face_simple_glyph_indexed_stroke_cove
 }
 assertOrderedFragments(spec, ["F5nxr", "legacy stroke scan owner", "Quadratic", "packed mask"], "F5nxr spec must preserve registered authority, quadratic scan, and later packed-mask boundary");
 assertOrderedFragments(implementationPlan, ["Phase F5nxr", "F5nxq writer owner", "crossingはparity", "packed mask"], "F5nxr implementation plan must preserve authority, overflow-safe parity, and phase boundary");
+const registeredStrokePackedMaskRegionStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig:");
+const registeredStrokePackedMaskRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokePackedMaskRegionStart);
+assert(registeredStrokePackedMaskRegionStart >= 0 && registeredStrokePackedMaskRegionEnd > registeredStrokePackedMaskRegionStart, "F5nxs production packed-mask region must exist before test seams");
+const registeredStrokePackedMaskRegion = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskRegionStart, registeredStrokePackedMaskRegionEnd));
+const registeredStrokePackedMaskStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start");
+const registeredStrokePackedMaskShapeValid = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_shape_valid");
+const registeredStrokePackedMaskStep = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_step");
+const registeredStrokePackedMaskPushAlpha = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_push_alpha");
+const registeredStrokePackedMaskPoll = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll");
+for (const fragment of [
+    "coverage_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner",
+    "alpha_cells %Vec i32",
+    "config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig",
+]) {
+    assert(registeredStrokePackedMaskRegion.includes(fragment), `F5nxs must preserve the complete registered coverage authority and alpha storage: ${fragment}`);
+}
+assertOrderedFragments(
+    registeredStrokePackedMaskStart,
+    [
+        "le alpha_max 0",
+        "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_shape_valid &shape",
+        "coverage_cell_owner_cell_count &coverage_owner count",
+        "coverage_cell_owner_cells_len &coverage_owner count",
+        "coverage_cell_owner_cells_cap &coverage_owner count",
+        "gt coverage_max div_s 2147483647 alpha_max",
+        "vec::with_capacity<i32> count",
+        "ne vec::len &alpha_cells 0",
+        "ne vec::cap &alpha_cells count",
+    ],
+    "F5nxs start must validate registered raw authority and checked scale before accepting exact alpha storage",
+);
+for (const fragment of ["let expected_coverage_max %i64 mul %i64 cast scale %i64 cast scale", "let expected_cell_count %i64 mul %i64 cast width %i64 cast height"]) {
+    assert(registeredStrokePackedMaskShapeValid.includes(fragment), `F5nxs shape validation must avoid i32 multiplication overflow: ${fragment}`);
+}
+assertOrderedFragments(
+    registeredStrokePackedMaskStep,
+    [
+        "packed_mask_pack_owner_invariant &owner",
+        "coverage_cell_owner_cell coverage_owner_ref index",
+        "lt coverage 0",
+        "gt coverage coverage_max",
+        "let alpha %i32 div_s mul coverage alpha_max coverage_max",
+        "packed_mask_push_alpha owner alpha",
+    ],
+    "F5nxs step must normalize one checked cell and commit only after successful push",
+);
+assertOrderedFragments(registeredStrokePackedMaskPushAlpha, ["vec::push (field::get owner \"alpha_cells\") alpha", "Result::Ok cells", "add index 1", "vec::vec_push_error_vec error", "PackedMaskPackOwner coverage_owner cells config index"], "F5nxs shared push boundary must recover returned storage and commit only after success");
+assertOrderedFragments(
+    registeredStrokePackedMaskPoll,
+    [
+        "eq index count",
+        "Completed (GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner",
+        "gt budget 1",
+        "StepBudgetExceedsLimit",
+        "eq budget 0",
+        "packed_mask_step owner",
+    ],
+    "F5nxs poll must complete before enforcing its bounded 0/1-cell budget",
+);
+assertNoMatch(
+    registeredStrokePackedMaskRegion,
+    /GuiSfntSimpleGlyphRenderStrokePackedMask|gui_sfnt_simple_glyph_render_stroke_packed_mask|GuiSfntSimpleGlyphRasterPackedMask|gui_sfnt_simple_glyph_raster_packed_mask|join_geometry %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometry|RenderCommand|AlphaMaskId|RenderTarget|render2d|platform|backend|Canvas|DOM|fallback|shadow|compositor|packed_mask_(?:drain|run)/,
+    "F5nxs must not reconstruct legacy authority, split join authority, recurse, or enter later rendering phases",
+);
+for (const fragment of [
+    "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config 0",
+    "InvalidAlphaMax",
+    "packed_mask_test_scan_to_completion scan 256",
+    "coverage_cell_writer_push writer0 2",
+    "coverage_cell_writer_push writer1 4",
+    "packed_mask_poll owner0 0",
+    "packed_mask_poll owner0 2",
+    "RawCoverageNegative",
+    "RawCoverageExceedsMax",
+    "packed_mask_test_force_alpha_storage_failure",
+    "vec::with_capacity<i32> 0",
+    "StdErrorKind::CapacityExceeded: true",
+    "packed_mask_test_finish owner2 127 255",
+    "packed_mask_test_finish next 0 0",
+]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(fragment), `F5nxs focused runtime contract must include ${fragment}`);
+}
+for (const entry of ["normal", "numeric", "recovery"]) {
+    assertMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTests, new RegExp(`gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_${entry}_contract unit`), `F5nxs focused doctest must isolate the ${entry} owner graph`);
+}
+assertOrderedFragments(spec, ["F5nxs", "唯一のdirect authority", "floor", "runtime bridge"], "F5nxs spec must preserve authority, numeric, and phase boundary");
+assertOrderedFragments(implementationPlan, ["Phase F5nxs", "sole direct authority", "floor", "native/Web/headless GUI表示"], "F5nxs plan must preserve authority, numeric, and later presentation phases");
 for (const fragment of [
     "gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset_owner0 0",
     "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted",

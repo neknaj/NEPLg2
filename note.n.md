@@ -168428,4 +168428,6 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 次のphaseをF5nxs registered simple glyph stroke packed mask owner boundaryとし、issue `ISS-20260716T031826603Z-REGISTERED-RAW-STROKE-COVERAGE-LACKS-6E469EAF`を作成した。
 - subagent設計監査により、F5nxr completed raw coverage owner全体をsole direct authorityとしてnested保持し、legacy F5lf/F5bfやF5nxp authorityへ詰め替えない契約を採用した。
 - authority再構築を避けるためraw storageはpacked owner freeまで保持する。早期解放が必要ならF5nxq生成時点のauthority/payload分離を別migrationとして扱う。
-- 実装、runtime fixture、source policy、normal compile regression、差分/全体整合review、全gate、統合は未完了である。
+- F5nxs production owner、checked floor alpha normalization、terminal-first 0/1 budget poll、owner-bearing recovery/free、source policyを実装した。normal compile、focused endpoint runtime、Web GUI contractは通過した。
+- subagent差分reviewでproductionのauthority/overflow/floor/budget/freeは承認された。actual F5nxr、floor中間値、budget上限、raw rangeに加え、productionと共有するalpha push helperへcapacity 0 Vecを渡してreturned Vec/pre-indexを回収するruntime evidenceを追加した。
+- focused normal/numeric/recovery、F5nxr回帰3/3、module 52/52、normal compile、Web GUI contract、issues check、diff checkは通過した。F5nxs issueはverifiedに更新し、main統合だけが未完了である。フォントレンダリングエンジンとGUIライブラリ全体は引き続き未完成である。

@@ -2,8 +2,8 @@
 id: ISS-20260716T031826603Z-REGISTERED-RAW-STROKE-COVERAGE-LACKS-6E469EAF
 title: "Registered raw stroke coverage lacks a packed mask owner"
 area: GUI_FONT
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-16
