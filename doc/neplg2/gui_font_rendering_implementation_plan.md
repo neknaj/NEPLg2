@@ -13595,3 +13595,10 @@ git diff --check
 - pollはterminal-before-budget、budget 0不変、budget 1で最大1 cell、budget 1超typed rejectionとし、recursive drainを持たない。全failureはowner-bearing recovery、全終了経路はsingle freeを提供する。
 - actual F5nxr completionとproduction F5nxq push/completeのruntime fixture、専用normal compile、source policy、spec/design/todo/noteを同時更新する。
 - F5nxsはpacked alpha ownerで止め、paint composition、mask resource、raster target、runtime bridge、native/Web/headless GUI表示、fallback、shadow、compositorを後続phaseに残す。
+
+## Phase F5nxt: registered stroke packed alpha-mask resource reservation boundary
+
+- completed F5nxs packed mask owner全体をsole authorityとしてnested保持し、legacy F5bl/F5ls ownerへ詰め替えない。
+- configはpositive `AlphaMaskId`、origin、paint、blendを持つ。rectはcallerから受けず、originとnested shape width/heightから導出する。blendはSourceOverだけを許可する。
+- shape、cell count、alpha max、alpha Vec len/capをF5nxs accessorで再検査し、全failureでoriginal packed ownerとunchanged configを回収する。
+- F5nxtはreservationだけで止め、idの一意性/登録済み/host-visible/renderableを主張せず、resource table、prepared command、software drain、platform upload、fallback、shadow、compositorへ進まない。

@@ -8529,3 +8529,9 @@ F5nxsはF5nxrが返すcompleted `GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCo
 configはvalue-onlyのpositive `alpha_max`である。startはshape、raw count/len/cap、`coverage_max * alpha_max`、alpha Vecのexact capacityをallocation/readより前に検査する。各stepは`0 <= coverage <= coverage_max`を要求し、`floor((coverage * alpha_max) / coverage_max)`で1 cellだけnormalizeする。push成功後だけindexをcommitし、failureはraw owner、config、returned Vec、pre-push progressを回収可能にする。
 
 pollはterminalをbudgetより先に判定する。budget 0は不変、budget 1は最大1 cell、budget 1超はowner-bearing errorで拒否し、再帰drainを持たない。F5nxsはpaint composition、mask resource、render command、pixel target、runtime bridge、native/Web/headless表示、fallback、shadow、compositorへ進まない。
+
+### Registered stroke packed alpha-mask resource reservation boundary
+
+F5nxtはcompleted F5nxs packed mask owner全体を唯一のstorage/geometry authorityとして、positive `AlphaMaskId`、caller supplied origin/paint、SourceOver blendと同じowner-bearing reservationへ束ねる。rectはcaller入力にせず、originとF5nxs shapeから導出する。legacy fill/shadow reservation ownerを再構築しない。
+
+この境界はmask idがnonzeroでownerと結び付いていることだけを証明する。一意性、resource table登録、host upload、renderability、prepared command、pixel write、platform表示は後続phaseの責務である。

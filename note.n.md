@@ -168431,3 +168431,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nxs production owner、checked floor alpha normalization、terminal-first 0/1 budget poll、owner-bearing recovery/free、source policyを実装した。normal compile、focused endpoint runtime、Web GUI contractは通過した。
 - subagent差分reviewでproductionのauthority/overflow/floor/budget/freeは承認された。actual F5nxr、floor中間値、budget上限、raw rangeに加え、productionと共有するalpha push helperへcapacity 0 Vecを渡してreturned Vec/pre-indexを回収するruntime evidenceを追加した。
 - focused normal/numeric/recovery、F5nxr回帰3/3、module 52/52、normal compile、Web GUI contract、issues check、diff checkは通過した。F5nxs issueはverifiedに更新し、main統合だけが未完了である。フォントレンダリングエンジンとGUIライブラリ全体は引き続き未完成である。
+# 2026-07-16 F5nxt registered mask reservation design checkpoint
+
+- F5nxsは`a204d66ac`までorigin/mainへfast-forward統合済みで、作業branchも削除した。フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+- 次phaseをF5nxt registered stroke packed alpha-mask resource reservationとし、issue `ISS-20260716T051343036Z-REGISTERED-PACKED-STROKE-MASK-LACKS--D22ED820`を作成した。
+- subagent設計監査によりF5nxs owner全体をsole authorityとしてnested保持し、rectをorigin+shapeから導出、SourceOverのみを許可し、legacy F5bl/F5lsを再構築しない契約を採用した。
+- 実装、runtime fixture、source policy、normal compile、review、全gate、統合は未完了である。
