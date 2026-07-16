@@ -1,5 +1,41 @@
 # GUI font registered simple glyph indexed stroke packed mask software drain start
 
+## Completed dirty region
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"completed drain seals the checked record rect as dirty metadata\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_normal_contract unit
+    let report %TestReport test_report_new "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete"
+    let report1 %TestReport test_report_bool report "completed drain seals the checked record rect as dirty metadata" true result
+    test_report_finish report1
+```
+
+## Nonterminal recovery
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_recovery\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"completion rejection preserves nonterminal and forged cursor owners\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_recovery_contract unit
+    let report %TestReport test_report_new "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_recovery"
+    let report1 %TestReport test_report_bool report "completion rejection preserves nonterminal and forged cursor owners" true result
+    test_report_finish report1
+```
+
 production F5nxv sealed prepared command ownerとgeneric RGBA8888 software surface ownerを同時に消費し、pixelを変更せずcell index 0のF5nxw drain ownerを開始する境界を検査する。
 
 ## validated owners become a zero-index software drain cursor

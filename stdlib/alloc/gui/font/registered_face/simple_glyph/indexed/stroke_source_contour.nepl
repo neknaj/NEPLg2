@@ -3182,6 +3182,23 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwa
     status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStatus
     owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner
 
+//: 完了済みのprepared command、surface、checked dirty regionを分離不能に保持する
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner:
+    prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner
+    surface %GuiRgba8888SoftwareSurfaceOwner
+    dirty %DirtyRegion
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind:
+    StatusNotCompleted
+    StartValidationFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind
+    CachedCellCountMismatch
+    CellIndexMismatch
+    DirtyRegionInvalid
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError:
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner
+
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_cell_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner i32 \owner: *field::get_ref owner "cell_index"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_cell_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner i32 \owner: *field::get_ref owner "cell_count"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStepErrorKind \error: *field::get_ref error "kind"
@@ -3189,6 +3206,9 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll_result_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainPollResult GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStatus \result: *field::get_ref result "status"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll_result_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainPollResult GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner \result: field::get result "owner"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll_result_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainPollResult unit \result: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free field::get result "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_dirty %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner DirtyRegion \completed: *field::get_ref completed "dirty"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner \error: field::get error "owner"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind \error: *field::get_ref error "kind"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start_error_rejected %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainRejected \error:
     GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainRejected field::get error "prepared" field::get error "surface"
@@ -3206,6 +3226,15 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
     match gui_rgba8888_software_surface_free field::get error "surface":
         Result::Ok _: unit
         Result::Err _: unit
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner unit \completed:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepared_command_owner_free field::get completed "prepared"
+    match gui_rgba8888_software_surface_free field::get completed "surface":
+        Result::Ok _: unit
+        Result::Err _: unit
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free field::get error "owner"
 
 fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_error_kind_from_table %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableRegisterErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind \kind:
     match kind:
@@ -3397,6 +3426,39 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
                     else if eq remaining_steps 0:
                         then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainPollResult GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStatus::StepBudgetExhausted owner
                         else gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll_step owner
+
+//: completed status全体をconsumeし、nested authorityとcursorを再検証してdirty region付きownerへ封印する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainPollResult Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError \result:
+    let status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStatus gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll_result_status &result
+    let owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll_result_owner result
+    match status:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStatus::StepBudgetExhausted:
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind::StatusNotCompleted owner
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStatus::Completed:
+            let prepared_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner field::get_ref &owner "prepared"
+            let surface_ref %&GuiRgba8888SoftwareSurfaceOwner field::get_ref &owner "surface"
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_validate_start prepared_ref surface_ref:
+                Result::Err start_kind:
+                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError (GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind::StartValidationFailed start_kind) owner
+                Result::Ok _:
+                    let resource %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskRegisteredResourceOwner field::get_ref prepared_ref "resource"
+                    let record %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceRecord gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_registered_resource_owner_record resource
+                    let cell_count %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_record_cell_count &record
+                    let cached_cell_count %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_cell_count &owner
+                    let cell_index %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_cell_index &owner
+                    if ne cached_cell_count cell_count:
+                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind::CachedCellCountMismatch owner
+                        else if ne cell_index cell_count:
+                            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind::CellIndexMismatch owner
+                            else:
+                                let rect %GuiRect gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_record_rect &record
+                                match dirty_region_rect_checked rect:
+                                    Result::Err _:
+                                        Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind::DirtyRegionInvalid owner
+                                    Result::Ok dirty:
+                                        let prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner field::get owner "prepared"
+                                        let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
+                                        Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner prepared surface dirty
 
 #test
 fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_completed_owner %impure fn unit Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner \_unit:
@@ -3978,6 +4040,173 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
                             gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register_error_free error
                             false
                         Result::Ok registration: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_registration_owner_with registration gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_test_registered_invalid_budget
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_prepared %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner bool \prepared:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_test_owner prepared:
+        Option::None: false
+        Option::Some owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll owner 1:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_error_owner error
+                    false
+                Result::Ok first:
+                    let next gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll_result_owner first
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll next 1:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_error_owner error
+                            false
+                        Result::Ok terminal:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete terminal:
+                                Result::Err error:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_owner error
+                                    false
+                                Result::Ok completed:
+                                    let dirty %DirtyRegion gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_dirty &completed
+                                    let dirty_ok %bool match dirty:
+                                        DirtyRegion::Rect rect: and and and eq gui_rect_x &rect 7 eq gui_rect_y &rect 3 eq gui_rect_width &rect 2 eq gui_rect_height &rect 1
+                                        _: false
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_free completed
+                                    dirty_ok
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_nonterminal %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner bool \prepared:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_test_owner prepared:
+        Option::None: false
+        Option::Some owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll owner 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_error_owner error
+                    false
+                Result::Ok nonterminal:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete nonterminal:
+                        Result::Ok completed:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_free completed
+                            false
+                        Result::Err error:
+                            let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_kind &error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind::StatusNotCompleted: true
+                                _: false
+                            let recovered gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_owner error
+                            let owner_ok %bool and eq gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_cell_index &recovered 0 eq gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_cell_count &recovered 2
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free recovered
+                            and kind_ok owner_ok
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_forged_prepared %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner fn bool bool \prepared\forge_cached_count:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_test_owner prepared:
+        Option::None: false
+        Option::Some owner:
+            let owned_prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner field::get owner "prepared"
+            let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
+            let forged_index %i32 if forge_cached_count then 0 else 1
+            let forged_count %i32 if forge_cached_count then 3 else 2
+            let forged_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner owned_prepared surface forged_index forged_count
+            let forged_result %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainPollResult GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainPollResult GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStatus::Completed forged_owner
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete forged_result:
+                Result::Ok completed:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_free completed
+                    false
+                Result::Err error:
+                    let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_kind &error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind::CachedCellCountMismatch: forge_cached_count
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind::CellIndexMismatch: not forge_cached_count
+                        _: false
+                    let recovered gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_owner error
+                    let owner_ok %bool and eq gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_cell_index &recovered forged_index eq gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_cell_count &recovered forged_count
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free recovered
+                    and kind_ok owner_ok
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_registered_forged_cached %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskRegisteredResourceOwner bool \table\resource:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command resource:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_error_free error
+            false
+        Result::Ok prepared: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_forged_prepared prepared true
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_registered_forged_index %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskRegisteredResourceOwner bool \table\resource:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command resource:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_error_free error
+            false
+        Result::Ok prepared: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_forged_prepared prepared false
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_forged_contract %impure fn i32 fn bool bool \raw_id\forge_cached_count:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_new 1:
+        Result::Err _: false
+        Result::Ok table:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_reservation raw_id:
+                Option::None:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+                    false
+                Option::Some reservation:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register table reservation:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            if forge_cached_count:
+                                then gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_registration_owner_with registration gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_registered_forged_cached
+                                else gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_registration_owner_with registration gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_registered_forged_index
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_registered %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskRegisteredResourceOwner bool \table\resource:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command resource:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_error_free error
+            false
+        Result::Ok prepared: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_prepared prepared
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_registered_nonterminal %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskRegisteredResourceOwner bool \table\resource:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command resource:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_error_free error
+            false
+        Result::Ok prepared: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_nonterminal prepared
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_normal_contract %impure fn unit bool \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_new 1:
+        Result::Err _: false
+        Result::Ok table:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_reservation 141:
+                Option::None:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+                    false
+                Option::Some reservation:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register table reservation:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register_error_free error
+                            false
+                        Result::Ok registration: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_registration_owner_with registration gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_registered
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_recovery_contract %impure fn unit bool \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_new 1:
+        Result::Err _: false
+        Result::Ok table:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_reservation 151:
+                Option::None:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+                    false
+                Option::Some reservation:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register table reservation:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            let nonterminal_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_registration_owner_with registration gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_registered_nonterminal
+                            let cached_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_forged_contract 161 true
+                            let index_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_test_forged_contract 171 false
+                            and and nonterminal_ok cached_ok index_ok
 
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_normal_contract %impure fn unit bool \_unit:

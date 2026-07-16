@@ -11003,3 +11003,11 @@ F5nxx consumes the complete F5nxw drain owner. Cursor invariants and terminal st
 The step derives the alpha-cell coordinate from the current index and the validated command rectangle with checked arithmetic. It reads the packed alpha and destination RGBA8888 pixel, composes the F5nxt-derived paint with SourceOver, and writes the result through the generic software-surface API. The cell index advances only after the write succeeds. Every read, composition, or write failure retains the prepared resource, surface, and unchanged current index in one recovery owner.
 
 F5nxx does not expose the command, packed alpha storage, registered resource, or surface through a split consuming accessor. It creates no dirty-region owner, command transport, host upload or presentation, platform/backend call, fallback, shadow path, or compositor drain. F5nxy alone converts completed drain authority into dirty-region authority.
+
+## Registered stroke packed alpha-mask dirty-region completion boundary
+
+F5nxy consumes the complete F5nxx poll result. Only Copy status `Completed` may become a completion owner; `StepBudgetExhausted` returns a typed rejection retaining the sole drain owner. Completion revalidates direct cursor metadata against the nested registered resource record and validated rectangle before constructing dirty metadata.
+
+The dirty region is created exclusively from the exact registered resource rectangle through `dirty_region_rect_checked`. Failure retains the complete drain authority and never substitutes Full, Empty, an unchecked rectangle, or a silent no-op. Success moves the prepared resource, software surface, and checked `DirtyRegion` into one affine completed owner. A Copy dirty accessor and whole-owner free are permitted, but no split consuming accessor may expose the prepared or surface owner.
+
+F5nxy does not create the generic render2d surface-plus-dirty owner, aggregate a `DirtyRegionSet`, emit commands, transport tiles or bitmaps, upload or present to a host, call platform/backend APIs, fall back, or enter compositor drain.

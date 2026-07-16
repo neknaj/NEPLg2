@@ -8569,3 +8569,11 @@ F5nxxはF5nxw drain owner全体を消費する。cursor invariantとterminal判�
 current cell indexと検証済みrectからchecked arithmeticでtarget pixelを導出し、packed alphaとsurfaceのexisting RGBA8888 pixelを読み、F5nxt由来のpaintをSourceOver合成して書く。cell indexはwrite成功後だけ進む。failureはprepared resource、surface、進行前indexを同じownerに保持する。
 
 F5nxxはdirty-region owner、tile/bitmap transport、command emission、host upload/present、platform/backend API、fallback、shadow、compositor drainへ進まない。completed authorityからdirty-region ownerを作るはF5nxyだけである。
+
+### Registered stroke packed alpha-mask dirty-region completion boundary
+
+F5nxyはF5nxx poll result全体を消費し、Copy statusが`Completed`の場合だけchecked dirty completion ownerを作る。`StepBudgetExhausted`はsole drain ownerを保持したtyped rejectionにする。cached index/countとnested registered resource record/rectを再検証し、exact record rectから`dirty_region_rect_checked`でDirtyRegionを作る。
+
+successはprepared resource、software surface、DirtyRegionを一つのaffine completed ownerに保持する。failureはdrain authority全体を保持し、Full/Empty fallback、unchecked rect、silent no-opを使わない。dirtyのCopy accessorとwhole-owner free以外にprepared/surfaceのsplit consuming accessorを公開しない。
+
+F5nxyはgeneric render2d surface+dirty owner、DirtyRegionSet aggregation、tile/bitmap transport、command emission、host upload/present、platform/backend API、fallback、shadow、compositor drainへ進まない。

@@ -13636,3 +13636,11 @@ git diff --check
 - read/write/composition failureはprepared resource、surface、current cell indexを同じownerに保持する。raw command、alpha storage、surface ownerのsplit accessorを追加しない。
 - focused runtimeはnormal one-cell progress、budget 0、invalid budget、terminal-first、write-success-before-advanceとowner recoveryを検査する。source policy、registered module、normal compile、issues/diff check、subagent reviewを通す。
 - F5nxxはdirty region owner、tile/bitmap transport、host upload/present、platform/backend、fallbackを作らない。completed drain authorityかdirty-region ownerへの変換はF5nxyに残す。
+
+## Phase F5nxy: registered stroke packed alpha-mask dirty-region completion boundary
+
+- F5nxx poll result全体を消費し、Copy statusが`Completed`の場合だけcompleted ownerを作る。`StepBudgetExhausted`はsole drain ownerを保持したtyped owner-bearing rejectionにする。
+- cached cell count/index、nested registered resource record、rect/surfaceを再検証し、record rectから`dirty_region_rect_checked`でexact dirty metadataを作る。Full/Empty fallback、unchecked constructor、silent no-opを禁止する。
+- completed ownerはprepared resource、software surface、DirtyRegionを分離不能に保持する。dirtyのCopy accessorとwhole-owner freeは許可するが、prepared/surfaceのsplit consuming accessorは追加しない。
+- focused runtimeはcompleted checked rect、nonterminal rejection/recovery、owner lifetimeを検査する。source policy、registered module、normal compile、issues/diff check、subagent reviewを通す。
+- F5nxyはgeneric surface+dirty owner bridge、DirtyRegionSet aggregation、tile/bitmap transport、host upload/present、platform/backend、fallback、compositor drainへ進まない。

@@ -4645,7 +4645,8 @@ const registeredStrokePackedMaskResourceSoftwareDrainValidateStart = functionSli
 const registeredStrokePackedMaskResourceSoftwareDrainStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start");
 const registeredStrokePackedMaskResourceSoftwareDrainStepOnce = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_once");
 const registeredStrokePackedMaskResourceSoftwareDrainPollStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll %impure");
-const registeredStrokePackedMaskResourceSoftwareDrainPoll = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourceSoftwareDrainPollStart, allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokePackedMaskResourceSoftwareDrainPollStart));
+const registeredStrokePackedMaskResourceSoftwareDrainPoll = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourceSoftwareDrainPollStart, allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n//: completed status", registeredStrokePackedMaskResourceSoftwareDrainPollStart));
+const registeredStrokePackedMaskResourceSoftwareDrainComplete = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete");
 const registeredStrokePackedMaskResourceSoftwareDrainErrorKindFromTable = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_error_kind_from_table");
 for (const fragment of [
     "prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner",
@@ -4726,7 +4727,7 @@ assertOrderedFragments(
     ["lt cell_index 0", "gt cell_index cell_count", "eq cell_index cell_count", "SoftwareDrainStatus::Completed owner", "lt remaining_steps 0", "gt remaining_steps 1", "eq remaining_steps 0", "SoftwareDrainStatus::StepBudgetExhausted owner", "software_drain_poll_step owner"],
     "F5nxx must recognize terminal before validating a 0/1 bounded budget",
 );
-assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainRegion, /(?:dirty_region_|tile|bitmap|transport|upload|present|platform|backend|fallback|compositor)/i, "F5nxx must leave dirty completion and transport to later phases");
+assertNoMatch(`${registeredStrokePackedMaskResourceSoftwareDrainStart}\n${registeredStrokePackedMaskResourceSoftwareDrainStepOnce}\n${registeredStrokePackedMaskResourceSoftwareDrainPoll}`, /(?:dirty_region_|tile|bitmap|transport|upload|present|platform|backend|fallback|compositor)/i, "F5nxx must leave dirty completion and transport to later phases");
 assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainRegion, /pub fn [^\n]*(?:prepared_command_owner|software_surface_owner)_(?:with|into|take|split)/, "F5nxx must retain the paired prepared and surface authority");
 for (const entry of ["step_test_normal", "step_test_recovery"]) {
     assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(`resource_software_drain_${entry}_contract`), `F5nxx focused runtime contract must include ${entry}`);
@@ -4734,6 +4735,33 @@ for (const entry of ["step_test_normal", "step_test_recovery"]) {
 assertOrderedFragments(spec, ["F5nxx", "budget 0", "SourceOver", "write", "F5nxy"], "F5nxx spec must preserve bounded progress and the dirty-completion phase split");
 assertOrderedFragments(detailedDesign, ["F5nxx", "Budget zero", "SourceOver", "write succeeds", "F5nxy"], "F5nxx design must preserve write-success-before-advance and the dirty-completion phase split");
 assertOrderedFragments(implementationPlan, ["Phase F5nxx", "budget 0", "SourceOver", "write", "F5nxy"], "F5nxx plan must preserve bounded progress and the dirty-completion phase split");
+for (const fragment of [
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner",
+    "prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner",
+    "surface %GuiRgba8888SoftwareSurfaceOwner",
+    "dirty %DirtyRegion",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError",
+]) {
+    assert(registeredStrokePackedMaskResourceSoftwareDrainRegion.includes(fragment), `F5nxy must retain sealed completion authority: ${fragment}`);
+}
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainRegion, /impl (?:Clone|Copy) for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner/, "F5nxy completed owner must remain affine");
+assertOrderedFragments(
+    registeredStrokePackedMaskResourceSoftwareDrainComplete,
+    ["poll_result_status &result", "poll_result_owner result", "Status::StepBudgetExhausted", "StatusNotCompleted owner", "Status::Completed", "software_drain_validate_start prepared_ref surface_ref", "registered_resource_owner_record resource", "ne cached_cell_count cell_count", "ne cell_index cell_count", "dirty_region_rect_checked rect", "field::get owner \"prepared\"", "field::get owner \"surface\"", "SoftwareDrainCompletedOwner prepared surface dirty"],
+    "F5nxy must reject unfinished status, revalidate completed authority, create checked dirty metadata, then move owners",
+);
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainComplete, /(?:dirty_region_(?:full|empty)|DirtyRegionSet|software_surface_dirty_owner|tile|bitmap|transport|upload|present|platform|backend|fallback|compositor)/i, "F5nxy must not use dirty fallback, aggregate, bridge, transport, or platform work");
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainRegion, /pub fn [^\n]*software_drain_completed_owner_(?:prepared|surface|with|into|take|split)/, "F5nxy must not expose a split prepared or surface accessor");
+for (const entry of ["complete_test_normal_contract", "complete_test_recovery_contract"]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(entry), `F5nxy focused runtime contract must include ${entry}`);
+    assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainTests.includes(entry), `F5nxy focused doctest must execute ${entry}`);
+}
+for (const fragment of ["CompleteErrorKind::CachedCellCountMismatch", "CompleteErrorKind::CellIndexMismatch", "software_drain_complete_error_owner error", "software_drain_owner_cell_index &recovered", "software_drain_owner_cell_count &recovered"]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(fragment), `F5nxy recovery fixture must preserve exact mismatch evidence and owner: ${fragment}`);
+}
+assertOrderedFragments(spec, ["F5nxy", "StepBudgetExhausted", "dirty_region_rect_checked", "prepared resource", "generic render2d"], "F5nxy spec must preserve checked completion and later bridge scope");
+assertOrderedFragments(detailedDesign, ["F5nxy", "StepBudgetExhausted", "dirty_region_rect_checked", "prepared resource", "generic render2d"], "F5nxy design must preserve checked completion and later bridge scope");
+assertOrderedFragments(implementationPlan, ["Phase F5nxy", "StepBudgetExhausted", "dirty_region_rect_checked", "prepared resource", "generic surface+dirty"], "F5nxy plan must preserve checked completion and later bridge scope");
 for (const fragment of [
     "resource_software_drain_test_normal_contract",
     "software_drain_owner_cell_index &owner 0",

@@ -168473,3 +168473,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 次phaseをF5nxx registered stroke packed alpha-mask bounded SourceOver software drain stepとし、issue `ISS-20260716T071144695Z-REGISTERED-PACKED-STROKE-MASK-LACKS--9CAC050A`を作成した。
 - terminal-first、budget 0不変、budget 1で最大1 cell、write成功後だけindex進行、owner-bearing recoveryを契約とする。dirty-region ownerはF5nxyに残す。
 - bounded poll、packed alpha read、surface read、SourceOver、write-success-before-advance、owner-bearing recoveryを実装した。direct cursor cacheによるbudget 0 no-read、sole owner + Copy status、exact pixel、terminal-firstも固定した。focused 4 fixtures、normal compile、Web GUI source-policy、issues/diff checkとsubagent差分/全体整合reviewは通過した。後続F5nxyとフォントレンダリングエンジン/GUIライブラリ全体は未完成である。
+
+# 2026-07-16 F5nxy registered mask dirty completion design checkpoint
+
+- F5nxxは`d3fc95fc5`までorigin/mainへ統合済みで、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+- 次phaseをF5nxy registered stroke packed alpha-mask dirty-region completion boundaryとし、issue `ISS-20260716T073556942Z-REGISTERED-STROKE-MASK-DRAIN-LACKS-C-C10F4050`を作成した。
+- F5nxx Completed poll resultのみを消費し、exact record rectからchecked DirtyRegionを作り、prepared/surface/dirtyをsealed ownerに保持する。generic bridgeとtransportは後続に残す。
+- completed owner、poll result全体のconsume、nested authority/cached count/index再検証、checked dirty rect、nonterminal owner recoveryを実装した。forged Completedのcached count/index mismatchでexact kindと回収cursor/freeも検査した。focused completion/recovery、normal compile、Web GUI source-policy、issues/diff check、subagent差分/全体整合reviewは通過した。completed owner freeがsurface free failureをunitへ畳む現行registered APIの制約は後続でResult-returning cleanupを統一検討する。
