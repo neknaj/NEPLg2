@@ -13621,3 +13621,10 @@ git diff --check
 - raw command accessor/borrow/arbitrary callback/split consuming accessorを禁止するsource policyと、success、metadata mismatch、recovery、no-command-on-errorのfocused runtime fixtureを追加する。
 - registered module、normal compile、Web GUI contract、issues/diff check、subagent差分/全体整合reviewを通す。checkpointを全体完成と扱わず、全gate後だけ統合する。
 - F5nxvはcommand emission、host-visible upload/renderability、software drain、platform表示へ進まない。後続F5nxwはprepared owner全体を消費するdrain/transport境界とする。
+
+## Phase F5nxw: registered stroke packed alpha-mask software drain-start boundary
+
+- F5nxv sealed prepared owner全体とgeneric `GuiRgba8888SoftwareSurfaceOwner`を同時に消費し、resource/command/surface/cell cursorを分離不能に保持するsoftware drain ownerを開始する。raw commandやalpha storageを外へ出さない。
+- startはprepared ownerのstored/expected metadataとnested F5nxs shape/storage、internal `AlphaMaskRect` command、surface layout、rect containmentを順に再検査する。成功時だけcell index 0を持つownerを返す。
+- failureはoriginal prepared ownerとsurface ownerをpairで保持し、片側だけのconsuming recoveryを公開しない。owner-bearing型はClone/Copyを持たず、success/error/freeの全経路でresourceとsurfaceを一度だけ閉じる。
+- F5nxwはpixel read/write、SourceOver合成、cursor進行、dirty region、tile/bitmap transport、host upload/present、platform/backend、fallbackへ進まない。F5nxxをbounded SourceOver software drain step、F5nxyをcompleted dirty-region owner boundaryとする。

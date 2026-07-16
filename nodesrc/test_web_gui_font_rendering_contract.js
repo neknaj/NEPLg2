@@ -482,6 +482,7 @@ const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTests = read("tests
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePrepareCommandTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command.n.md");
+const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain.n.md");
 const guiFontRegisteredJoinGeometryPolicyMatrixTests = read("tests/stdlib/gui_font_registered_join_geometry_policy_matrix.n.md");
 const guiFontSfntGlyfSpanIndexTests = read("tests/stdlib/gui_font_sfnt_glyf_span_index.n.md");
 const guiFontSfntGlyfIndexedPathTests = read("tests/stdlib/gui_font_sfnt_glyf_indexed_path.n.md");
@@ -4574,7 +4575,7 @@ for (const entry of ["normal", "recovery"]) {
 assertOrderedFragments(spec, ["F5nxu", "metadata-only", "duplicate", "RenderCommand::AlphaMaskRect"], "F5nxu spec must preserve registered authority, metadata-only registration, and later command boundary");
 assertOrderedFragments(implementationPlan, ["Phase F5nxu", "metadata-only", "duplicate", "F5nxv"], "F5nxu plan must preserve validation/recovery and the later prepared-command phase");
 const registeredStrokePackedMaskResourcePrepareCommandRegionStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner:");
-const registeredStrokePackedMaskResourcePrepareCommandRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokePackedMaskResourcePrepareCommandRegionStart);
+const registeredStrokePackedMaskResourcePrepareCommandRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\npub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner:", registeredStrokePackedMaskResourcePrepareCommandRegionStart);
 assert(registeredStrokePackedMaskResourcePrepareCommandRegionStart >= 0 && registeredStrokePackedMaskResourcePrepareCommandRegionEnd > registeredStrokePackedMaskResourcePrepareCommandRegionStart, "F5nxv production prepared-command region must exist before test seams");
 const registeredStrokePackedMaskResourcePrepareCommandRegion = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourcePrepareCommandRegionStart, registeredStrokePackedMaskResourcePrepareCommandRegionEnd);
 const registeredStrokePackedMaskResourcePrepareCommand = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command");
@@ -4636,6 +4637,89 @@ for (const entry of ["normal", "recovery"]) {
 }
 assertOrderedFragments(spec, ["F5nxv", "sealed prepared owner", "raw `RenderCommand`", "F5nxw"], "F5nxv spec must preserve sealed command ownership and later drain boundary");
 assertOrderedFragments(implementationPlan, ["Phase F5nxv", "render_command_alpha_mask_rect", "sealed prepared owner", "F5nxw"], "F5nxv plan must preserve validation, command sealing, and the later drain phase");
+const registeredStrokePackedMaskResourceSoftwareDrainRegionStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner:");
+const registeredStrokePackedMaskResourceSoftwareDrainRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokePackedMaskResourceSoftwareDrainRegionStart);
+assert(registeredStrokePackedMaskResourceSoftwareDrainRegionStart >= 0 && registeredStrokePackedMaskResourceSoftwareDrainRegionEnd > registeredStrokePackedMaskResourceSoftwareDrainRegionStart, "F5nxw production software drain-start region must exist before test seams");
+const registeredStrokePackedMaskResourceSoftwareDrainRegion = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourceSoftwareDrainRegionStart, registeredStrokePackedMaskResourceSoftwareDrainRegionEnd);
+const registeredStrokePackedMaskResourceSoftwareDrainValidateStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_validate_start");
+const registeredStrokePackedMaskResourceSoftwareDrainStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start");
+const registeredStrokePackedMaskResourceSoftwareDrainErrorKindFromTable = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_error_kind_from_table");
+for (const fragment of [
+    "prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner",
+    "surface %GuiRgba8888SoftwareSurfaceOwner",
+    "cell_index %i32",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainRejected",
+]) {
+    assert(registeredStrokePackedMaskResourceSoftwareDrainRegion.includes(fragment), `F5nxw must keep prepared command and software surface ownership paired: ${fragment}`);
+}
+for (const ownerType of ["GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner", "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartError", "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainRejected"]) {
+    assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainRegion, new RegExp(`impl (?:Clone|Copy) for ${ownerType}(?![A-Za-z0-9_])`), `F5nxw owner-bearing type must remain affine: ${ownerType}`);
+}
+assertOrderedFragments(
+    registeredStrokePackedMaskResourceSoftwareDrainValidateStart,
+    [
+        "registered_resource_owner_record resource",
+        "field::get_ref resource \"reservation\"",
+        "resource_table_record_from_reservation reservation",
+        "resource_prepare_command_record_equal &record &expected",
+        "software_drain_validate_command prepared &record",
+        "resource_record_rect &record",
+        "gui_rgba8888_software_surface_width surface",
+        "gui_rgba8888_software_surface_height surface",
+        "gui_rgba8888_software_surface_stride_bytes surface",
+        "gui_rgba8888_software_surface_byte_len surface",
+        "field::get_ref surface \"storage\"",
+        "lt x 0",
+        "le width 0",
+        "le surface_width 0",
+        "SurfaceStrideMismatch",
+        "SurfaceByteLenMismatch",
+        "region_size storage surface_byte_len",
+        "SurfaceStorageSizeMismatch",
+        "let right %i64 add cast x cast width",
+        "RectExtentOverflow",
+        "SurfaceBoundsMismatch",
+    ],
+    "F5nxw must rederive resource evidence, validate the sealed command, then validate surface geometry and containment",
+);
+for (const kind of ["SurfaceStrideMismatch", "SurfaceByteLenMismatch", "SurfaceStorageSizeMismatch"]) {
+    assert(registeredStrokePackedMaskResourceSoftwareDrainRegion.includes(`SoftwareDrainStartErrorKind::${kind}`), `F5nxw must preserve exact software surface layout failure: ${kind}`);
+}
+for (const kind of ["InvalidMaskId", "ShapeInvalidWidth", "ShapeInvalidHeight", "ShapeInvalidSampleScale", "ShapeCoverageMaxMismatch", "ShapeCellCountMismatch", "CellCountMismatch", "InvalidAlphaMax", "AlphaStorageLenMismatch", "AlphaStorageCapacityMismatch", "RectMetadataMismatch"]) {
+    assertMatch(registeredStrokePackedMaskResourceSoftwareDrainErrorKindFromTable, new RegExp(`TableRegisterErrorKind::${kind}:[^\\n]*SoftwareDrainStartErrorKind::${kind}`), `F5nxw must preserve exact F5nxu validation evidence: ${kind}`);
+}
+for (const kind of ["DuplicateMaskId", "TablePushFailed"]) {
+    assertMatch(registeredStrokePackedMaskResourceSoftwareDrainErrorKindFromTable, new RegExp(`TableRegisterErrorKind::${kind}:[^\\n]*SoftwareDrainStartErrorKind::UnexpectedTableRegisterState`), `F5nxw must reject unreachable registration state without weakening it to resource validation: ${kind}`);
+}
+assert(registeredStrokePackedMaskResourceSoftwareDrainValidateStart.includes("SoftwareDrainStartErrorKind::ResourceRecordMismatch"), "F5nxw must distinguish a stored/expected record mismatch from lower validation failures");
+assertOrderedFragments(
+    registeredStrokePackedMaskResourceSoftwareDrainStart,
+    ["software_drain_validate_start &prepared &surface", "Result::Err kind", "SoftwareDrainStartError kind prepared surface", "Result::Ok _", "SoftwareDrainOwner prepared surface 0"],
+    "F5nxw start must preserve both rejected owners and create only a zero-index cursor after validation",
+);
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainRegion, /pub fn [^\n]*(?:prepared_command_owner|software_surface_owner)_(?:with|into|take|split)/, "F5nxw must not expose a split consuming accessor for either paired owner");
+assertNoMatch(
+    registeredStrokePackedMaskResourceSoftwareDrainStart,
+    /(?:pixel|rgba8888_software_surface_(?:read|write)|source_over|composite|blend|cell_index[^\n]*(?:add|sub)|dirty|tile|bitmap|transport|command_(?:buffer|stream|emit)|upload|present|platform|backend|fallback|shadow|compositor)/i,
+    "F5nxw start must not read/write pixels, composite, advance, dirty, transport, emit, or enter platform work",
+);
+for (const fragment of [
+    "resource_software_drain_test_normal_contract",
+    "software_drain_owner_cell_index &owner 0",
+    "resource_software_drain_test_recovery_contract",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind::SurfaceBoundsMismatch",
+    "software_drain_start_error_rejected error",
+    "software_drain_rejected_with rejected",
+]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(fragment), `F5nxw focused runtime contract must include ${fragment}`);
+}
+for (const entry of ["normal", "recovery"]) {
+    assertMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainTests, new RegExp(`gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_${entry}_contract unit`), `F5nxw focused doctest must isolate the ${entry} paired owner graph`);
+}
+assertOrderedFragments(spec, ["F5nxw", "cell index 0", "pixel read/write", "F5nxx", "F5nxy"], "F5nxw spec must preserve start-only scope and the bounded-step/completion phases");
+assertOrderedFragments(detailedDesign, ["F5nxw", "cell index zero", "no pixel read or write", "F5nxx", "F5nxy"], "F5nxw design must preserve start-only scope and the bounded-step/completion phases");
+assertOrderedFragments(implementationPlan, ["Phase F5nxw", "cell index 0", "pixel read/write", "F5nxx", "F5nxy"], "F5nxw plan must preserve validation order and later bounded-step/completion phases");
 for (const fragment of [
     "gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset_owner0 0",
     "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted",

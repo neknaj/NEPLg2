@@ -168459,3 +168459,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 次phaseをF5nxv registered stroke packed alpha-mask sealed prepared command boundaryとし、issue `ISS-20260716T061352536Z-REGISTERED-PACKED-STROKE-MASK-LACKS--10ACCA4B`を作成した。
 - F5nxu registered resource ownerをsole lifetime/metadata authorityとし、stored/expected recordの一致後だけalpha-mask commandを作る。Copy commandとresource ownerはsealed ownerに閉じ込め、raw command accessor/borrow/arbitrary callback/split consumptionを禁止する。
 - SourceOverはF5nxt型の先行evidenceとし、F5nxvはhost upload/renderabilityを証明しない。sealed prepared owner、全record equality、owner-bearing error/recoveryを実装し、focused normal/recovery、registered module 50/50、normal compile、Web GUI source-policy、issues/diff checkは通過した。review、checkpoint、統合は未完了で、後続はF5nxw drain/transportである。
+
+# 2026-07-16 F5nxw registered mask software drain-start design checkpoint
+
+- F5nxvは`5808e6099`までorigin/mainへ統合済みで、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+- 次phaseをF5nxw registered stroke packed alpha-mask software drain-start boundaryとし、issue `ISS-20260716T070500000Z-REGISTERED-PACKED-STROKE-MASK-LACKS--F5NXW001`を作成した。
+- F5nxv sealed prepared ownerとgeneric RGBA8888 software surface ownerを同時に消費し、resource/command/surface/cell cursorを分離不能に保持する。startはprepared metadata、nested packed storage、internal AlphaMaskRect、surface layout、rect containment、exact cell countを順に検査する。
+- F5nxwは開始境界だけでありpixel writeやtransportを行わない。prepared/command/surfaceのordered validation、exact lower error mapping、paired recoveryを実装した。focused normal/recovery、module matrix 51/52と個別doctest #1、normal compile、Web GUI source-policy、issues/diff checkは通過した。review、checkpoint、統合は未完了で、後続はF5nxx bounded SourceOver step、F5nxy dirty completionである。

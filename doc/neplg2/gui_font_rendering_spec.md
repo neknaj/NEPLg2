@@ -8551,3 +8551,13 @@ F5nxvはF5nxuのregistered resource ownerを唯一のlifetime/metadata authority
 prepareはpositive mask id、nested F5nxs shape/storage invariant、rectとshapeのwidth/height、mask id、rect、paint、width、height、cell count、alpha maxのstored/expected equalityをcommand構築前に検査する。SourceOverはF5nxt reservation型が保持する先行evidenceであり、F5nxvがblend値を再検査したとは主張しない。error pathはcommandを作らずregistered resource ownerを回収可能にする。
 
 prepared ownerはraw `RenderCommand`、borrow、raw commandを渡すarbitrary callback、ownerとcommandを分離するconsuming accessorを公開しない。F5nxvはcommand stream emission、table lookup/register/push、host upload、renderability、software pixel drain、DrawTarget/RenderTarget、platform/backend API、fallback、shadow、compositorへ進まない。後続F5nxwがprepared owner全体を消費し、resource lifetimeとcommand lifetimeを分断しないdrain/transport境界を作る。
+
+### Registered stroke packed alpha-mask software drain-start boundary
+
+F5nxwはF5nxv sealed prepared owner全体とgeneric RGBA8888 software surface ownerを同時に消費し、prepared resource/command、surface、cell indexを分離不能に保持するsoftware drain ownerを開始する。このphaseはtransportではなく、completed drainでもない。
+
+startはF5nxv stored/expected metadataとnested F5nxs shape/storage、internal commandがmetadataと一致する`AlphaMaskRect`であること、surface width/height/stride/byte length/storage、checked rect right/bottomとsurface containment、rectに対するexact alpha cell countの順で検査する。すべて成功した場合だけcell index 0のownerを返す。SourceOverはF5nxt由来の先行evidenceであり、F5nxwでblend値を再構築しない。
+
+failureはoriginal prepared ownerとsurface ownerをpairのまま保持する。片側だけを取り出すconsuming recoveryは公開せず、pair continuationまたはpair freeだけを許可する。raw command、alpha storage、registered resource、surface ownerを外へ出さず、全終了経路でnested resourceとsurfaceを一度だけ閉じる。
+
+F5nxwはpixel read/write、SourceOver合成、cell index進行、dirty region更新、tile/bitmap transport、command stream emission、host upload/present、platform/backend API、fallback、shadow、compositor drainへ進まない。F5nxxがbounded SourceOver software drain step、F5nxyがcompleted dirty-region owner boundaryである。
