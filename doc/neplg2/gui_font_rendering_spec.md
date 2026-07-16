@@ -8577,3 +8577,9 @@ F5nxyはF5nxx poll result全体を消費し、Copy statusが`Completed`の場合
 successはprepared resource、software surface、DirtyRegionを一つのaffine completed ownerに保持する。failureはdrain authority全体を保持し、Full/Empty fallback、unchecked rect、silent no-opを使わない。dirtyのCopy accessorとwhole-owner free以外にprepared/surfaceのsplit consuming accessorを公開しない。
 
 F5nxyはgeneric render2d surface+dirty owner、DirtyRegionSet aggregation、tile/bitmap transport、command emission、host upload/present、platform/backend API、fallback、shadow、compositor drainへ進まない。
+
+### Registered stroke dirty-owner bridge boundary
+
+F5nxzはF5nxy completed ownerのchecked DirtyRegionを読み、`dirty_regions_empty`に`dirty_regions_push_region_checked`する。aggregationはprepared/surfaceのmoveより前に完了し、failureはGuiErrorとoriginal completed ownerを保持する。
+
+successのみprivate terminal finish helperでprepared lifetimeを閉じ、surfaceとchecked DirtyRegionSetを`GuiRgba8888SoftwareSurfaceDirtyOwner`にする。private helperをpublic split accessorとして公開しない。F5nxzはcompositor frame、bitmap/row/tile/RLE、transport、host/platform、fallbackへ進まない。

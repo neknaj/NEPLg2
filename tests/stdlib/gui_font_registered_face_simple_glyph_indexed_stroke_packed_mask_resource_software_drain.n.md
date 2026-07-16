@@ -1,5 +1,41 @@
 # GUI font registered simple glyph indexed stroke packed mask software drain start
 
+## Completed owner bridges to generic dirty owner
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"bridge preserves surface geometry and the checked dirty rect\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge_test_normal_contract unit
+    let report %TestReport test_report_new "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge"
+    let report1 %TestReport test_report_bool report "bridge preserves surface geometry and the checked dirty rect" true result
+    test_report_finish report1
+```
+
+## Dirty aggregation failure recovers completed owner
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge_recovery\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"aggregation failure preserves the lower error and original completed owner\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge_test_recovery_contract unit
+    let report %TestReport test_report_new "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge_recovery"
+    let report1 %TestReport test_report_bool report "aggregation failure preserves the lower error and original completed owner" true result
+    test_report_finish report1
+```
+
 ## Completed dirty region
 
 ```neplg2

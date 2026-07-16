@@ -168480,3 +168480,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 次phaseをF5nxy registered stroke packed alpha-mask dirty-region completion boundaryとし、issue `ISS-20260716T073556942Z-REGISTERED-STROKE-MASK-DRAIN-LACKS-C-C10F4050`を作成した。
 - F5nxx Completed poll resultのみを消費し、exact record rectからchecked DirtyRegionを作り、prepared/surface/dirtyをsealed ownerに保持する。generic bridgeとtransportは後続に残す。
 - completed owner、poll result全体のconsume、nested authority/cached count/index再検証、checked dirty rect、nonterminal owner recoveryを実装した。forged Completedのcached count/index mismatchでexact kindと回収cursor/freeも検査した。focused completion/recovery、normal compile、Web GUI source-policy、issues/diff check、subagent差分/全体整合reviewは通過した。completed owner freeがsurface free failureをunitへ畳む現行registered APIの制約は後続でResult-returning cleanupを統一検討する。
+
+# 2026-07-16 F5nxz registered dirty-owner bridge design checkpoint
+
+- F5nxyは`05fdaa66f`までorigin/mainへ統合済みで、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+- 次phaseをF5nxz registered stroke dirty-owner bridge boundaryとし、issue `ISS-20260716T075144185Z-REGISTERED-STROKE-DIRTY-COMPLETION-L-27E1B838`を作成した。
+- checked dirty aggregationをowner moveより先に行い、successだけがprivate finishでpreparedを閉じてgeneric surface+dirty ownerへ移る。compositor frame entryは後続に残す。
+- checked aggregation-before-move、private finish、generic dirty owner success、lower GuiError+original completed owner recoveryを実装した。focused exact dirty-set/recovery、normal compile、Web GUI source-policy、issues/diff check、subagent差分/全体整合reviewは通過した。surface free failureをunitへ畳む制約は現行registered APIと整合するが、Result-returning cleanup統一は後続課題である。

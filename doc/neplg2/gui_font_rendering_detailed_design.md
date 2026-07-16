@@ -11011,3 +11011,11 @@ F5nxy consumes the complete F5nxx poll result. Only Copy status `Completed` may 
 The dirty region is created exclusively from the exact registered resource rectangle through `dirty_region_rect_checked`. Failure retains the complete drain authority and never substitutes Full, Empty, an unchecked rectangle, or a silent no-op. Success moves the prepared resource, software surface, and checked `DirtyRegion` into one affine completed owner. A Copy dirty accessor and whole-owner free are permitted, but no split consuming accessor may expose the prepared or surface owner.
 
 F5nxy does not create the generic render2d surface-plus-dirty owner, aggregate a `DirtyRegionSet`, emit commands, transport tiles or bitmaps, upload or present to a host, call platform/backend APIs, fall back, or enter compositor drain.
+
+## Registered stroke dirty-owner bridge boundary
+
+F5nxz reads the checked dirty region from the complete F5nxy owner and calls `dirty_regions_push_region_checked` on `dirty_regions_empty` before moving either nested owner. Aggregation failure returns the lower `GuiError` together with the unchanged affine completed owner.
+
+Only the success branch calls a private terminal finish helper. That helper closes the prepared resource lifetime and returns the software surface internally, after which the surface and checked `DirtyRegionSet` become one `GuiRgba8888SoftwareSurfaceDirtyOwner`. The finish helper is not public and is not a split consuming accessor.
+
+F5nxz does not prepare a compositor frame, bitmap, row batch, tile, RLE payload, command transport, host presentation, platform/backend action, or fallback. Registered compositor-frame entry remains the next boundary.

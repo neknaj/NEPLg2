@@ -13644,3 +13644,10 @@ git diff --check
 - completed ownerはprepared resource、software surface、DirtyRegionを分離不能に保持する。dirtyのCopy accessorとwhole-owner freeは許可するが、prepared/surfaceのsplit consuming accessorは追加しない。
 - focused runtimeはcompleted checked rect、nonterminal rejection/recovery、owner lifetimeを検査する。source policy、registered module、normal compile、issues/diff check、subagent reviewを通す。
 - F5nxyはgeneric surface+dirty owner bridge、DirtyRegionSet aggregation、tile/bitmap transport、host upload/present、platform/backend、fallback、compositor drainへ進まない。
+
+## Phase F5nxz: registered stroke dirty-owner bridge boundary
+
+- F5nxy completed ownerのdirtyをCopyで読み、`dirty_regions_empty`と`dirty_regions_push_region_checked`でaggregationをcompleted owner分解より先に完了する。
+- aggregation failureはGuiErrorとoriginal completed ownerをtyped bridge errorに保持する。successだけがprivate terminal finish helperでprepared lifetimeを閉じ、surfaceとDirtyRegionSetを`GuiRgba8888SoftwareSurfaceDirtyOwner`へ移す。
+- private finish helperをsplit consuming accessorとして公開しない。focused runtimeはsuccessのexact dirty rect/surface shapeとforged aggregation failureのowner recovery/freeを検査する。
+- source policy、registered module、render2d dirty-surface regression、normal compile、issues/diff check、subagent reviewを通す。F5nxzはcompositor frame prepare、bitmap/row/tile/RLE、transport、host/platform、fallbackへ進まない。
