@@ -2409,7 +2409,8 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_run %
                                                     gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free completed
                                                     and and invalid_ok budget_ok and forced_ok and count_ok and first_ok second_ok
 
-fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_start_guard %impure fn GuiSfntSimpleGlyphRasterCoverageConfig bool \coverage_config:
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_work_bound_contract %impure fn unit bool \_unit:
+    let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 1 1 512 1
     match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
         Option::None: false
         Option::Some completed:
@@ -2430,7 +2431,7 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_start
                             gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_free error
                             ok
 
-fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_guard %impure fn unit bool \_unit:
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_contract %impure fn unit bool \_unit:
     match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
         Option::None: false
         Option::Some completed:
@@ -2457,14 +2458,11 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coord
                                     gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_free error
                                     ok
 
-//: fixed factory と production F5nxq/F5nxr 経路を内部で閉じた focused runtime contract
+//: fixed factory と production F5nxq/F5nxr normal 経路を内部で閉じた focused runtime contract
 //:
 //: arbitrary owner injection を受けず、失敗を含む全 terminal で所有 payload を解放します。
-pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_contract %impure fn unit bool \_unit:
-    let work_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 1 1 512 1
-    let work_guard_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_start_guard work_config
-    let coordinate_guard_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_guard unit
-    let normal_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_normal_contract %impure fn unit bool \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
         Option::None: false
         Option::Some completed:
             let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 2 1 2 2
@@ -2473,4 +2471,3 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_c
                     gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
                     false
                 Result::Ok writer: gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_run writer
-    and normal_ok and work_guard_ok coordinate_guard_ok

@@ -4034,9 +4034,9 @@ assert(registeredStrokeCoverageCellRegionStart >= 0, "F5nxq registered stroke co
 assert(registeredStrokeCoverageCellProductionEnd > registeredStrokeCoverageCellRegionStart, "F5nxq production region must end before its test-only seams and factory");
 const registeredStrokeCoverageScanTestContract = [
     functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_run"),
-    functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_start_guard"),
-    functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_guard"),
-    functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_contract"),
+    functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_work_bound_contract"),
+    functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_contract"),
+    functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_normal_contract"),
 ].join("\n");
 for (const fragment of [
     "pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner:",
@@ -4290,9 +4290,11 @@ for (const fragment of [
 ]) {
     assert(registeredStrokeCoverageScanTestContract.includes(fragment), `F5nxr fixed test-only contract must include ${fragment}`);
 }
-assertMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTests, /gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_contract unit/, "F5nxr focused runtime must consume the fixed test-only contract without expanding the deep owner graph");
+for (const entry of ["normal", "work_bound", "coordinate"]) {
+    assertMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTests, new RegExp(`gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_${entry}_contract unit`), `F5nxr focused runtime must isolate the ${entry} owner graph`);
+}
 const registeredStrokeCoverageScanTestBoundary = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokeCoverageScanRegionStart);
-for (const helper of ["gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_force_push_failure", "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_contract"]) {
+for (const helper of ["gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_force_push_failure", "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_normal_contract", "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_work_bound_contract", "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_contract"]) {
     assert(registeredStrokeCoverageScanTestBoundary >= 0 && allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf(`fn ${helper}`, registeredStrokeCoverageScanTestBoundary) > registeredStrokeCoverageScanTestBoundary, `F5nxr helper must remain behind the test-only boundary: ${helper}`);
 }
 assertOrderedFragments(spec, ["F5nxr", "legacy stroke scan owner", "Quadratic", "packed mask"], "F5nxr spec must preserve registered authority, quadratic scan, and later packed-mask boundary");

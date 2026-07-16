@@ -11,7 +11,9 @@ const testOnlyNames = [
     "gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge",
     "gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner",
     "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_force_push_failure",
-    "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_normal_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_work_bound_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_contract",
 ];
 
 const probe = (testOnlyName) => `#entry main

@@ -168393,3 +168393,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - reviewで検出した一cell内の無制限workを修正し、edge/join count各4096以下、`sample_scale^2 * (edge_count * segment_count + join_count * 2 + 1) <= 1,048,576`、drain 4096 step以下、整数sampleの±2^24厳密変換と同範囲のfinite幾何中間値をtyped error境界にした。
 - registered module 52/52、Web GUI contract、normal compile isolation、`git diff --check`は通過した。focused external fixtureは固定test contract一呼出しまで縮小してもcompile phaseが180秒・360秒でtimeoutし、runtimeへ到達していない。issueはinvestigatingのまま、runtime、残る全gate、最終review、main統合は未完了である。
 - 再開条件はdeep test-only contractのcompiler materializationを完了させる根本修正、または同じproduction owner/state-machineを実行しつつcompile summaryを安全に分離するfixture境界である。packed mask、raster、runtime bridge、native/Web GUI表示と全体目標も未完成である。
+
+### F5nxr focused reachability split
+
+- 一つのumbrellaからdeep F5nxp factoryへ3回到達していたfixtureを、normal、work-bound、coordinateの3 entryへ分離し、各entryがfactoryを一度だけ呼ぶようにした。
+- 90秒/caseのmatrixではwork-bound start rejectionが49.4秒でruntime 1/1を通過した。normal drainとcoordinate drainはcompile timeoutで、scan実行へは到達していない。これによりfactory、F5nxq writer、F5nxr startではなく、scan/drain reachable graphのresource typecheck/owner summaryが残る停滞境界だと切り分けた。
+- issueはinvestigatingのまま、normal/coordinate runtimeと全gate・統合は未完了である。次は相互再帰のsample/edge/join traversalを明示cursorへ分割し、各micro-stepをboundedかつowner-bearingにする設計を先に行う。

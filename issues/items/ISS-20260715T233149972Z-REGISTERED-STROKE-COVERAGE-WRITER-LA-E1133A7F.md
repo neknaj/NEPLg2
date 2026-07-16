@@ -47,7 +47,7 @@ Add an F5nxr scan owner that consumes the F5nxq writer, borrows registered geome
 
 Focused runtime, module, source-policy, normal compile, docs, trunk, CLI, and subagent reviews.
 
-productionと固定test contractはmodule 52/52、source-policy contract、normal compile isolationを通過した。外部focused fixtureは最小wrapper呼出しでもcompile phaseが180秒・360秒でtimeoutし、runtimeへ到達していない。このtimeoutをruntime成功の代替にはしない。
+productionと固定test contractはmodule 52/52、source-policy contract、normal compile isolationを通過した。umbrella fixtureをfactory一回のnormal/work-bound/coordinate entryへ分離すると、work-bound start rejectionは49.4秒でruntime 1/1を通過したが、scan drainへ到達するnormalとcoordinateは各90秒compile timeoutだった。factoryとscan startは成立し、残る停滞はscan/drain reachable graphのresource summaryに局在する。このtimeoutをruntime成功の代替にはしない。
 
 ## Out of scope
 
