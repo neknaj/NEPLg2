@@ -1,5 +1,56 @@
 # GUI font registered simple glyph indexed stroke packed mask software drain start
 
+## Registered completion enters checked compositor tile payload
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_tile_payload\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"tile payload preserves descriptor plan bytes and bounds\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_normal_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_tile_payload"
+    test_report_finish test_report_bool report "tile payload preserves descriptor plan bytes and bounds" true result
+```
+
+## Invalid frame config preserves dirty owner before tile payload
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_tile_payload_entry_recovery\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"frame failure remains dirty-owner bearing\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_entry_recovery_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_tile_payload_entry_recovery"
+    test_report_finish test_report_bool report "frame failure remains dirty-owner bearing" true result
+```
+
+## Invalid tile index preserves tile plan
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_tile_payload_plan_recovery\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"tile index failure remains plan-owner bearing\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_index_recovery_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_tile_payload_plan_recovery"
+    test_report_finish test_report_bool report "tile index failure remains plan-owner bearing" true result
+```
+
 ## Registered completion enters compositor tile plan
 
 ```neplg2

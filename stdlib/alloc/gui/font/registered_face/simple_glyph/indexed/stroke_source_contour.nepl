@@ -24,6 +24,7 @@
 #import "alloc/gui/render2d/compositor_batch_range" as *
 #import "alloc/gui/render2d/compositor_byte_storage" as *
 #import "alloc/gui/render2d/compositor_tile_plan" as *
+#import "alloc/gui/render2d/compositor_tile_payload" as *
 #import "alloc/gui/render2d/compositor_batch_drain" as *
 #import "alloc/gui/render2d/compositor_frame_entry" as *
 #import "alloc/gui/render2d/dirty_surface" as *
@@ -3311,6 +3312,26 @@ pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftware
     Range %GuiRgba8888CompositorBatchRangeOwner
     Storage %GuiRgba8888CompositorByteStorageOwner
 
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorStage:
+    TilePlanBridge
+    TilePayloadPrepare
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorKind:
+    TilePlanBridgeFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorKind
+    TilePayloadPrepareFailed %GuiRgba8888CompositorTilePayloadPrepareErrorKind
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError:
+    TilePlanBridgeFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError
+    TilePayloadPrepareFailed %GuiRgba8888CompositorTilePayloadPrepareError
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery:
+    Completed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner
+    DirtyOwner %GuiRgba8888SoftwareSurfaceDirtyOwner
+    Entry %GuiRgba8888CompositorFrameEntryOwner
+    Range %GuiRgba8888CompositorBatchRangeOwner
+    Storage %GuiRgba8888CompositorByteStorageOwner
+    Plan %GuiRgba8888CompositorTilePlanOwner
+
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind:
     StatusNotCompleted
     StartValidationFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind
@@ -3464,6 +3485,32 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
                 GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeRecovery::Entry entry: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Entry entry
                 GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeRecovery::Range range: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Range range
         GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::TilePlanPrepareFailed lower: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Storage gui_rgba8888_compositor_tile_plan_prepare_error_storage lower
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_stage %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorStage \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePlanBridgeFailed _: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorStage::TilePlanBridge
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePayloadPrepareFailed _: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorStage::TilePayloadPrepare
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorKind \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePlanBridgeFailed lower: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorKind::TilePlanBridgeFailed gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_kind lower
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePayloadPrepareFailed lower: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorKind::TilePayloadPrepareFailed gui_rgba8888_compositor_tile_payload_prepare_error_kind lower
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_category_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError Option GuiError \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePlanBridgeFailed lower: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_category_value lower
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePayloadPrepareFailed lower: gui_rgba8888_compositor_tile_payload_prepare_error_category_value lower
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_recovery %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePlanBridgeFailed lower:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_recovery lower:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Completed completed: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Completed completed
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::DirtyOwner owner: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::DirtyOwner owner
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Entry entry: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Entry entry
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Range range: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Range range
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeRecovery::Storage storage: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Storage storage
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePayloadPrepareFailed lower: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Plan gui_rgba8888_compositor_tile_payload_prepare_error_plan lower
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteErrorKind \error: *field::get_ref error "kind"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner \error: field::get error "owner"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind \error: *field::get_ref error "kind"
@@ -3599,6 +3646,33 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
 //: lower errorをrecoveryへ一度だけ変換してnested ownerを閉じる
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError unit \error:
     gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_recovery_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_error_recovery error
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_recovery_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery unit \recovery:
+    match recovery:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Completed completed: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_free completed
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::DirtyOwner owner:
+            match gui_rgba8888_software_surface_dirty_owner_free owner:
+                Result::Ok _: unit
+                Result::Err _: unit
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Entry entry:
+            match gui_rgba8888_compositor_frame_entry_owner_free entry:
+                Result::Ok _: unit
+                Result::Err _: unit
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Range range:
+            match gui_rgba8888_compositor_batch_range_owner_free range:
+                Result::Ok _: unit
+                Result::Err _: unit
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Storage storage:
+            match gui_rgba8888_compositor_byte_storage_owner_free storage:
+                Result::Ok _: unit
+                Result::Err _: unit
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Plan plan:
+            match gui_rgba8888_compositor_tile_plan_owner_free plan:
+                Result::Ok _: unit
+                Result::Err _: unit
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_recovery_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_recovery error
 
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompleteError unit \error:
     gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free field::get error "owner"
@@ -3883,6 +3957,17 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
             match gui_rgba8888_compositor_tile_plan_prepare storage tile_config:
                 Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::TilePlanPrepareFailed lower
                 Result::Ok plan: Result::Ok plan
+
+//: registered completionを既存tile plan bridge経由でchecked tile payloadへ移す
+//:
+//: F5nyeとF5meを各1回だけ呼び、RLE境界へは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_payload %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig fn GuiRgba8888RowTilePlanConfig fn i32 Result GuiRgba8888CompositorTilePayloadOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError \completed\frame_config\tile_config\tile_index:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_plan completed frame_config tile_config:
+        Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePlanBridgeFailed lower
+        Result::Ok plan:
+            match gui_rgba8888_compositor_tile_payload_prepare plan tile_index:
+                Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePayloadPrepareFailed lower
+                Result::Ok payload: Result::Ok payload
 
 //: registered completionを既存frame entry bridge経由でbounded compositor batch drainへ移す
 //:
@@ -5163,6 +5248,140 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_tile_rows_recovery_contract %impure fn unit bool \_unit:
     gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_plan_bridge_test_contract 321 2
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_byte %fn &GuiRgba8888CompositorTilePayloadOwner fn i32 fn i32 bool \owner\index\expected:
+    match gui_rgba8888_compositor_tile_payload_owner_byte_at owner index:
+        Result::Ok actual: eq actual expected
+        Result::Err _: false
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_prepared %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner fn i32 bool \prepared\mode:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge_test_completed prepared:
+        Option::None: false
+        Option::Some completed:
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig if eq mode 1:
+                then gui_rgba8888_compositor_frame_entry_config 0 2
+                else gui_rgba8888_compositor_frame_entry_config 261 2
+            let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+            let tile_index %i32 if eq mode 2: then 1 else 0
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_payload completed frame_config tile_config tile_index:
+                Result::Ok payload:
+                    let descriptor_ok %bool match gui_rgba8888_compositor_tile_payload_owner_descriptor_checked &payload:
+                        Result::Err _: false
+                        Result::Ok descriptor: and and and and eq gui_rgba8888_row_tile_descriptor_tile_index &descriptor 0 eq gui_rgba8888_row_tile_descriptor_row_start &descriptor 3 eq gui_rgba8888_row_tile_descriptor_row_count &descriptor 1 eq gui_rgba8888_row_tile_descriptor_byte_offset &descriptor 0 eq gui_rgba8888_row_tile_descriptor_byte_count &descriptor 64
+                    let plan_ok %bool match gui_rgba8888_compositor_tile_payload_owner_plan_metadata_checked &payload:
+                        Result::Err _: false
+                        Result::Ok plan: and and eq gui_rgba8888_row_tile_plan_tile_count &plan 1 eq gui_rgba8888_row_tile_plan_byte_count &plan 64 eq gui_rgba8888_row_tile_plan_row_start &plan 3
+                    let count_ok %bool match gui_rgba8888_compositor_tile_payload_owner_byte_count_checked &payload:
+                        Result::Ok count: eq count 64
+                        Result::Err _: false
+                    let bytes_ok %bool and and and gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_byte &payload 28 11 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_byte &payload 29 22 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_byte &payload 30 33 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_byte &payload 31 21
+                    let bounds_ok %bool match gui_rgba8888_compositor_tile_payload_owner_byte_at &payload 64:
+                        Result::Err bounds_kind:
+                            match bounds_kind:
+                                GuiRgba8888RowTilePayloadReadErrorKind::PayloadIndexOutOfBounds: true
+                        Result::Ok _: false
+                    let free_ok %bool match gui_rgba8888_compositor_tile_payload_owner_free payload:
+                        Result::Ok _: true
+                        Result::Err _: false
+                    and and eq mode 0 descriptor_ok plan_ok count_ok bytes_ok bounds_ok free_ok
+                Result::Err error:
+                    let stage gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_stage &error
+                    let kind gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_kind &error
+                    let category gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_category_value &error
+                    let recovery gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_error_recovery error
+                    if eq mode 1:
+                        then:
+                            let stage_ok %bool match stage:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorStage::TilePlanBridge: true
+                                _: false
+                            let kind_ok %bool match kind:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorKind::TilePlanBridgeFailed _: true
+                                _: false
+                            let category_ok %bool match category:
+                                Option::Some gui_error:
+                                    match gui_error:
+                                        GuiError::InvalidGeometry: true
+                                        _: false
+                                _: false
+                            let recovery_ok %bool match recovery:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::DirtyOwner owner:
+                                    match gui_rgba8888_software_surface_dirty_owner_free owner:
+                                        Result::Ok _: true
+                                        Result::Err _: false
+                                other:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_recovery_free other
+                                    false
+                            and and stage_ok kind_ok category_ok recovery_ok
+                        else:
+                            let stage_ok %bool match stage:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorStage::TilePayloadPrepare: true
+                                _: false
+                            let kind_ok %bool match kind:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorKind::TilePayloadPrepareFailed lower_kind:
+                                    match lower_kind:
+                                        GuiRgba8888CompositorTilePayloadPrepareErrorKind::RowTilePayloadPrepareFailed row_kind:
+                                            match row_kind:
+                                                GuiRgba8888RowTilePayloadPrepareErrorKind::DescriptorInvalid descriptor_kind:
+                                                    match descriptor_kind:
+                                                        GuiRgba8888RowTilePlanDescriptorErrorKind::TileIndexOutOfBounds: true
+                                                        _: false
+                                                _: false
+                                _: false
+                            let category_ok %bool match category:
+                                Option::Some gui_error:
+                                    match gui_error:
+                                        GuiError::InvalidCommand: true
+                                        _: false
+                                _: false
+                            let recovery_ok %bool match recovery:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeRecovery::Plan plan:
+                                    let plan_ok %bool and and eq gui_rgba8888_compositor_tile_plan_owner_tile_count &plan 1 eq gui_rgba8888_compositor_tile_plan_owner_byte_count &plan 64 eq gui_rgba8888_compositor_tile_plan_owner_tile_rows &plan 1
+                                    match gui_rgba8888_compositor_tile_plan_owner_free plan:
+                                        Result::Ok _: plan_ok
+                                        Result::Err _: false
+                                other:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_recovery_free other
+                                    false
+                            and and eq mode 2 stage_ok kind_ok category_ok recovery_ok
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_registered %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskRegisteredResourceOwner fn i32 bool \table\resource\mode:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command resource:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_error_free error
+            false
+        Result::Ok prepared: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_prepared prepared mode
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_contract %impure fn i32 fn i32 bool \raw_id\mode:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_new 1:
+        Result::Err _: false
+        Result::Ok table:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_reservation raw_id:
+                Option::None:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+                    false
+                Option::Some reservation:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register table reservation:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register_error_free error
+                            false
+                        Result::Ok registration: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_registration_owner_with registration \table\resource: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_registered table resource mode
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_normal_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_contract 331 0
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_entry_recovery_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_contract 341 1
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_index_recovery_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_payload_bridge_test_contract 351 2
 
 #test
 fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_drain_test_prepared %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner fn i32 bool \prepared\mode:

@@ -11053,3 +11053,9 @@ The affine wrapper stores either the complete F5nyc error or complete F5mc prepa
 F5nye consumes the registered completed owner with existing entry config and caller tile-plan config. It calls public F5nyd exactly once and passes the untouched byte-storage owner to F5md `gui_rgba8888_compositor_tile_plan_prepare` exactly once. Success returns the existing tile-plan owner, preserving batch 0 frame/row metadata and the lower checked descriptor authority.
 
 The affine wrapper retains either the complete F5nyd error or complete F5md prepare error. Borrowed diagnostics precede consuming recovery; recovery returns completed, dirty-owner, entry, range, or storage authority. Descriptor row positions remain frame-absolute while byte offsets remain copied-storage-relative. F5nye does not duplicate earlier bridges, invoke lower tile-plan preparation directly, expose bytes/raw storage, or enter F5me tile payload, RLE, presentation, transport, host/platform/backend work, or fallback.
+
+### F5nyf registered direct compositor tile-payload bridge
+
+F5nyf consumes the registered completed owner with existing entry and tile-plan configs plus a caller tile index. It calls public F5nye exactly once and passes the untouched tile-plan owner to F5me `gui_rgba8888_compositor_tile_payload_prepare` exactly once. Success returns the existing checked tile-payload owner; descriptor rows remain frame-absolute, offsets remain payload-relative, and byte access remains delegated to F5me.
+
+The affine wrapper retains either the complete F5nye error or complete F5me prepare error. Borrowed diagnostics precede consuming recovery; recovery returns completed, dirty-owner, entry, range, storage, or plan authority. F5nyf does not duplicate earlier bridges, call lower row-tile APIs, expose raw storage, or enter F5mf RLE counting, encoding, presentation, transport, host/platform/backend work, or fallback.

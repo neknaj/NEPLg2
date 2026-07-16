@@ -168520,3 +168520,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - public F5nydを1回、既存F5mdを1回だけ呼ぶdirect bridgeを追加し、lower error全体とCompleted/DirtyOwner/Entry/Range/Storage recovery authorityを保持した。
 - successはframe 261、row start 3/count 1、tile rows/count 1、byte count 64、descriptor 0のframe-absolute row start 3/storage-relative offset 0を固定する。invalid entryはDirtyOwner、tile_rows 0はTileRowsInvalid/InvalidGeometryとmetadata/64 bytesを保つStorage recoveryを固定する。
 - focused doctest 3件、Web contract、normal compile isolation、既存F5md regression、trunk build、playground editor JSON 13/13、issues/diff checkを通過した。subagent pre-final reviewの指摘により既存F5nyd policyへF5md/tile-plan直接呼出禁止を復元し、最終差分・全体整合・履歴粒度reviewもPASSした。F5nyeはtile-plan metadataまでで全体は未完成、次は既存F5me tile-payload bridgeである。
+
+## 2026-07-16 F5nyf registered direct compositor tile-payload checkpoint
+
+- public F5nyeを1回、既存F5meを1回だけ呼ぶdirect bridgeを追加し、lower error全体とCompleted/DirtyOwner/Entry/Range/Storage/Plan recovery authorityを保持した。`plan.md`は参照のみで変更していない。
+- successはframe 261、row start 3/count 1、tile 0、payload byte count 64、offset 28..31のRGBA `(11,22,33,21)`、index 64のexact `PayloadIndexOutOfBounds`を固定した。invalid entryは`TilePlanBridgeFailed`/`InvalidGeometry`とDirtyOwner、tile index 1はnested `DescriptorInvalid`/`TileIndexOutOfBounds`/`InvalidCommand`とPlan recoveryを固定した。
+- focused doctest 3件、Web contract、normal compile isolation、既存F5nye/F5me regression、trunk build、playground editor JSON 13/13、issues/diff checkを通過した。subagent reviewの指摘によりflattened kindと任意Err判定を根本修正し、再reviewはPASSした。
+- F5nyfはchecked tile payloadまでであり、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。次は既存F5mf RLE count-startへのdirect bridgeである。

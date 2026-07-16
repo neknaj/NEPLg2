@@ -13687,3 +13687,10 @@ git diff --check
 - errorは`ByteStorageBridgeFailed`または`TilePlanPrepareFailed`としてlower owner-bearing error全体を保持し、borrowed diagnostic後のconsuming recoveryだけがCompleted/DirtyOwner/Entry/Range/Storageへ変換する。
 - success fixtureはframe 261、width 16、row start 3/count 1、tile rows/count 1、byte count 64、descriptor 0のtile index 0、frame-absolute row start 3、storage-relative offset 0を検証する。invalid entry configはDirtyOwner、tile_rows 0はTileRowsInvalid/InvalidGeometryとmetadata/bytesを保つStorage recoveryを検証する。
 - focused runtime、Web source policy、normal compile isolation、F5nyd/F5md regression、trunk/CLI、issues/diff check、subagent reviewを通す。F5nyeはF5me tile payload、RLE、present、transport、host/platform/backend、fallbackへ進まない。
+
+## Phase F5nyf: registered stroke direct compositor tile-payload bridge boundary
+
+- F5nxy completed owner、既存F5lz config、row-tile config、caller tile indexを受け、public F5nyeを1回呼び、success planを既存F5me `gui_rgba8888_compositor_tile_payload_prepare`へ1回渡す。F5nye以前を再実装しない。
+- errorは`TilePlanBridgeFailed`または`TilePayloadPrepareFailed`としてlower owner-bearing error全体を保持し、borrowed diagnostic後のconsuming recoveryだけがCompleted/DirtyOwner/Entry/Range/Storage/Planへ変換する。
+- success fixtureはframe 261、width 16、row start 3/count 1、tile 0、tile rows/count 1、byte count 64、payload-relative offsets 28..31のRGBA `(11,22,33,21)`とindex 64のbounds errorを検証する。invalid entry configはDirtyOwner、tile index 1は`TileIndexOutOfBounds`/`InvalidCommand`とmetadataを保つPlan recoveryを検証する。
+- focused runtime、Web source policy、normal compile isolation、F5nye/F5me regression、trunk/CLI、issues/diff check、subagent reviewを通す。F5nyfはF5mf RLE count、encode、present、transport、host/platform/backend、fallbackへ進まない。

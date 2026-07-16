@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-16T10:20:17.088Z",
+  "generated_at": "2026-07-16T10:58:32.556Z",
   "counts": {
-    "total": 1390,
+    "total": 1391,
     "open": 60,
-    "resolved": 1330,
+    "resolved": 1331,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 16,
+        "total": 17,
         "open": 0,
-        "resolved": 16
+        "resolved": 17
       },
       "nodesrc": {
         "total": 16,
@@ -11353,6 +11353,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260716T094750836Z-REGISTERED-STROKE-BYTE-STORAGE-LACKS-F4B3D0E1.md"
+    },
+    {
+      "id": "ISS-20260716T102434343Z-REGISTERED-TILE-PLAN-LACKS-TILE-PAYLOAD-5FDD3B75",
+      "title": "Registered tile plan lacks tile-payload bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-16",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T102434343Z-REGISTERED-TILE-PLAN-LACKS-TILE-PAYLOAD-5FDD3B75.md"
     },
     {
       "id": "ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP",

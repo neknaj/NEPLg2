@@ -8617,3 +8617,9 @@ batch-range bridge failureとbyte-storage prepare failureはlower owner-bearing 
 F5nyeはregistered completed owner、既存F5lz config、caller supplied row-tile configを受け、public F5nyd byte-storage bridge、既存F5md `gui_rgba8888_compositor_tile_plan_prepare`を各1回、この順で呼ぶ。successは既存tile-plan ownerをそのまま返し、batch 0のframe/row metadataとstorage-relative descriptor authorityを保持する。
 
 byte-storage bridge failureとtile-plan prepare failureはlower owner-bearing error全体を段階別variantに保持する。consuming recoveryはcompleted/dirty/entry/rangeまたはstorage authorityを返す。F5nyd以前を再実装せず、lower tile-plan API、byte payload/raw storageを公開しない。F5nyeはF5me tile payload、RLE、present、transport、host/platform/backend、fallbackへ進まない。
+
+### F5nyf registered stroke direct compositor tile-payload bridge
+
+F5nyfはregistered completed owner、既存F5lz config、row-tile config、caller tile indexを受け、public F5nye tile-plan bridge、既存F5me `gui_rgba8888_compositor_tile_payload_prepare`を各1回、この順で呼ぶ。successは既存tile-payload ownerをそのまま返し、frame-absolute row metadata、payload-relative offset、checked tile byte viewを保持する。
+
+tile-plan bridge failureとtile-payload prepare failureはlower owner-bearing error全体を段階別variantに保持する。consuming recoveryはcompleted/dirty/entry/range/storageまたはplan authorityを返す。F5nye以前を再実装せず、lower row-tile/raw storage APIを公開しない。F5nyfはF5mf RLE count、encode、present、transport、host/platform/backend、fallbackへ進まない。
