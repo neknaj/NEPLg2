@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-16T06:07:39.201Z",
+  "generated_at": "2026-07-16T06:29:03.424Z",
   "counts": {
-    "total": 1380,
+    "total": 1381,
     "open": 60,
-    "resolved": 1320,
+    "resolved": 1321,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 6,
+        "total": 7,
         "open": 0,
-        "resolved": 6
+        "resolved": 7
       },
       "nodesrc": {
         "total": 16,
@@ -11203,6 +11203,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260716T054858471Z-REGISTERED-PACKED-STROKE-MASK-LACKS--F0A84E95.md"
+    },
+    {
+      "id": "ISS-20260716T061352536Z-REGISTERED-PACKED-STROKE-MASK-LACKS--10ACCA4B",
+      "title": "Registered packed stroke mask lacks a sealed prepared command owner",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-16",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T061352536Z-REGISTERED-PACKED-STROKE-MASK-LACKS--10ACCA4B.md"
     },
     {
       "id": "ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP",

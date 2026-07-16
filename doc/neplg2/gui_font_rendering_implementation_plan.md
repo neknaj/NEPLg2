@@ -13612,3 +13612,12 @@ git diff --check
 - source policyはmetadata-only table、owner-bearing typeのno Clone/Copy、no owner-bearing Vec payload、no alpha copy、no command/platform/fallback/compositor依存を固定する。
 - registered module、normal compile、Web GUI contract、issues/diff check、subagent差分/全体整合reviewを通す。checkpointを全体完成と扱わず、全gate後だけ統合する。
 - F5nxuはprepared command、command emission、host-visible upload、software drain、platform表示へ進まない。後続はF5nxv sealed prepared command、F5nxw drain/transportとする。
+
+## Phase F5nxv: registered stroke packed alpha-mask sealed prepared command boundary
+
+- F5nxu registered resource ownerをsole lifetime/metadata authorityとして消費し、stored recordとnested F5nxt reservationから再導出したexpected recordをcommand構築前に照合する。
+- positive id、nested F5nxs shape/storage、rect/shape整合、mask id/rect/paint/width/height/cell count/alpha maxの一致をtyped owner-bearing errorでfail closedに検査する。SourceOverはF5nxt型の先行evidenceとし、保持しないblend値の再検査を主張しない。
+- equality成功後だけ`render_command_alpha_mask_rect`を呼び、Copy commandとregistered resource ownerをno Clone/Copy sealed prepared ownerに閉じ込める。error pathはcommandを持たずresource ownerを回収/freeできるようにする。
+- raw command accessor/borrow/arbitrary callback/split consuming accessorを禁止するsource policyと、success、metadata mismatch、recovery、no-command-on-errorのfocused runtime fixtureを追加する。
+- registered module、normal compile、Web GUI contract、issues/diff check、subagent差分/全体整合reviewを通す。checkpointを全体完成と扱わず、全gate後だけ統合する。
+- F5nxvはcommand emission、host-visible upload/renderability、software drain、platform表示へ進まない。後続F5nxwはprepared owner全体を消費するdrain/transport境界とする。

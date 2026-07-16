@@ -168452,3 +168452,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nxt reservationをsole storage authorityとして保持し、table VecにはCopy metadata recordだけを入れる。成功はupdated table+registered resource、失敗はtable+original reservationのpair recoveryとし、split consuming accessorを禁止する。
 - positive id、nested F5nxs shape/storage、shapeと一致するrect width/height、duplicate idをpush前に検査する。F5nxtが保持しないblendや独立paint authorityを再検証したとは主張しない。private table内の一意性だけを証明し、host-visible upload/renderabilityを主張しない。
 - metadata-only record/table、registered resource、paired success/error recoveryを実装した。normal/recovery focused runtime、registered module 50/50、normal compile、Web GUI source-policy、issues/diff checkは通過した。subagent review、checkpoint commit、統合は未完了である。後続はF5nxv sealed prepared command、F5nxw drain/transportである。
+
+# 2026-07-16 F5nxv registered mask sealed prepared command design checkpoint
+
+- F5nxuは`33bc2eb57`までorigin/mainへ統合済みで、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。
+- 次phaseをF5nxv registered stroke packed alpha-mask sealed prepared command boundaryとし、issue `ISS-20260716T061352536Z-REGISTERED-PACKED-STROKE-MASK-LACKS--10ACCA4B`を作成した。
+- F5nxu registered resource ownerをsole lifetime/metadata authorityとし、stored/expected recordの一致後だけalpha-mask commandを作る。Copy commandとresource ownerはsealed ownerに閉じ込め、raw command accessor/borrow/arbitrary callback/split consumptionを禁止する。
+- SourceOverはF5nxt型の先行evidenceとし、F5nxvはhost upload/renderabilityを証明しない。sealed prepared owner、全record equality、owner-bearing error/recoveryを実装し、focused normal/recovery、registered module 50/50、normal compile、Web GUI source-policy、issues/diff checkは通過した。review、checkpoint、統合は未完了で、後続はF5nxw drain/transportである。

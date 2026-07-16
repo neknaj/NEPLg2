@@ -8543,3 +8543,11 @@ F5nxuはF5nxt reservation ownerを消費し、registered stroke packed mask id�
 recordはmask id、rect、paint、width、height、cell count、alpha maxを保持する。lookupはCopy recordだけを返し、storage borrow、host upload、renderability、backend availabilityを証明しない。registrationはpositive id、F5nxs invariant、shapeと一致するrect width/height、既存id重複をpush前に検査する。SourceOverはF5nxt reservation型の構築済みevidenceであり、blendを保持しないF5nxuが再検証したとは主張しない。duplicateはtableを変更せず拒否し、push failureはreturned table storageとoriginal reservation ownerをpairで回収可能にする。success/errorとも片側だけを取り出すconsuming accessorを公開しない。
 
 F5nxuはprepared `RenderCommand::AlphaMaskRect`、command stream emission、resource upload、software pixel drain、DrawTarget/RenderTarget、platform/backend API、fallback、shadow、compositorへ進まない。一意性はこのprivate table内のrecord idについてだけ証明する。
+
+### Registered stroke packed alpha-mask sealed prepared command boundary
+
+F5nxvはF5nxuのregistered resource ownerを唯一のlifetime/metadata authorityとして消費し、stored recordとnested reservationから再導出したexpected recordを照合した後だけ`render_command_alpha_mask_rect`を呼ぶ。作られた`RenderCommand`とregistered resource ownerはClone/Copyでないsealed prepared ownerに同時に閉じ込める。
+
+prepareはpositive mask id、nested F5nxs shape/storage invariant、rectとshapeのwidth/height、mask id、rect、paint、width、height、cell count、alpha maxのstored/expected equalityをcommand構築前に検査する。SourceOverはF5nxt reservation型が保持する先行evidenceであり、F5nxvがblend値を再検査したとは主張しない。error pathはcommandを作らずregistered resource ownerを回収可能にする。
+
+prepared ownerはraw `RenderCommand`、borrow、raw commandを渡すarbitrary callback、ownerとcommandを分離するconsuming accessorを公開しない。F5nxvはcommand stream emission、table lookup/register/push、host upload、renderability、software pixel drain、DrawTarget/RenderTarget、platform/backend API、fallback、shadow、compositorへ進まない。後続F5nxwがprepared owner全体を消費し、resource lifetimeとcommand lifetimeを分断しないdrain/transport境界を作る。

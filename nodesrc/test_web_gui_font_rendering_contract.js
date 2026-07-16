@@ -481,6 +481,7 @@ const guiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTests = read("tes
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table.n.md");
+const guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePrepareCommandTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command.n.md");
 const guiFontRegisteredJoinGeometryPolicyMatrixTests = read("tests/stdlib/gui_font_registered_join_geometry_policy_matrix.n.md");
 const guiFontSfntGlyfSpanIndexTests = read("tests/stdlib/gui_font_sfnt_glyf_span_index.n.md");
 const guiFontSfntGlyfIndexedPathTests = read("tests/stdlib/gui_font_sfnt_glyf_indexed_path.n.md");
@@ -4487,7 +4488,7 @@ for (const entry of ["normal", "recovery"]) {
 assertOrderedFragments(spec, ["F5nxt", "positive `AlphaMaskId`", "SourceOver", "resource table登録"], "F5nxt spec must preserve authority, reservation metadata, and later registration boundary");
 assertOrderedFragments(implementationPlan, ["Phase F5nxt", "sole authority", "SourceOver", "resource table"], "F5nxt plan must preserve authority, derived rect, and later resource phases");
 const registeredStrokePackedMaskResourceTableRegionStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceRecord:");
-const registeredStrokePackedMaskResourceTableRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokePackedMaskResourceTableRegionStart);
+const registeredStrokePackedMaskResourceTableRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\npub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner:", registeredStrokePackedMaskResourceTableRegionStart);
 assert(registeredStrokePackedMaskResourceTableRegionStart >= 0 && registeredStrokePackedMaskResourceTableRegionEnd > registeredStrokePackedMaskResourceTableRegionStart, "F5nxu production resource-table region must exist before test seams");
 const registeredStrokePackedMaskResourceTableRegion = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourceTableRegionStart, registeredStrokePackedMaskResourceTableRegionEnd));
 const registeredStrokePackedMaskResourceTableValidate = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_validate");
@@ -4572,6 +4573,69 @@ for (const entry of ["normal", "recovery"]) {
 }
 assertOrderedFragments(spec, ["F5nxu", "metadata-only", "duplicate", "RenderCommand::AlphaMaskRect"], "F5nxu spec must preserve registered authority, metadata-only registration, and later command boundary");
 assertOrderedFragments(implementationPlan, ["Phase F5nxu", "metadata-only", "duplicate", "F5nxv"], "F5nxu plan must preserve validation/recovery and the later prepared-command phase");
+const registeredStrokePackedMaskResourcePrepareCommandRegionStart = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner:");
+const registeredStrokePackedMaskResourcePrepareCommandRegionEnd = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.indexOf("\n#test", registeredStrokePackedMaskResourcePrepareCommandRegionStart);
+assert(registeredStrokePackedMaskResourcePrepareCommandRegionStart >= 0 && registeredStrokePackedMaskResourcePrepareCommandRegionEnd > registeredStrokePackedMaskResourcePrepareCommandRegionStart, "F5nxv production prepared-command region must exist before test seams");
+const registeredStrokePackedMaskResourcePrepareCommandRegion = allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.slice(registeredStrokePackedMaskResourcePrepareCommandRegionStart, registeredStrokePackedMaskResourcePrepareCommandRegionEnd);
+const registeredStrokePackedMaskResourcePrepareCommand = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command");
+const registeredStrokePackedMaskResourcePrepareCommandRecordEqual = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_record_equal");
+for (const fragment of [
+    "resource %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskRegisteredResourceOwner",
+    "command %RenderCommand",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePrepareCommandError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePrepareCommandRejected",
+]) {
+    assert(registeredStrokePackedMaskResourcePrepareCommandRegion.includes(fragment), `F5nxv must seal registered authority with its command and retain owner-bearing rejection: ${fragment}`);
+}
+for (const ownerType of ["GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner", "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePrepareCommandError", "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePrepareCommandRejected"]) {
+    assertNoMatch(registeredStrokePackedMaskResourcePrepareCommandRegion, new RegExp(`impl (?:Clone|Copy) for ${ownerType}(?![A-Za-z0-9_])`), `F5nxv owner-bearing type must remain affine: ${ownerType}`);
+}
+assertNoMatch(registeredStrokePackedMaskResourcePrepareCommandRegion, /pub fn [^\n]*(?:&?RenderCommand|fn RenderCommand|impure fn RenderCommand)/, "F5nxv must not expose a raw command accessor or command callback");
+assertNoMatch(registeredStrokePackedMaskResourcePrepareCommandRegion, /prepared_command_owner_(?:command|with|into|take|split)/, "F5nxv must not expose command escape or split-owner helpers");
+assertOrderedFragments(
+    registeredStrokePackedMaskResourcePrepareCommandRecordEqual,
+    ["resource_record_mask_id left", "resource_record_rect left", "resource_record_paint left", "alpha_mask_id_raw &left_id", "gui_rect_x &left_rect", "gui_rect_y &left_rect", "gui_rect_width &left_rect", "gui_rect_height &left_rect", "resource_prepare_command_rgba_equal left_color right_color", "resource_record_width_px left", "resource_record_height_px left", "resource_record_cell_count left", "resource_record_alpha_max left"],
+    "F5nxv must compare every stored/expected record field before command construction",
+);
+assert(registeredStrokePackedMaskResourcePrepareCommandRecordEqual.includes("gui_paint_color &left_paint") && registeredStrokePackedMaskResourcePrepareCommandRecordEqual.includes("gui_paint_color &right_paint"), "F5nxv record equality must include every paint color channel through the RGBA equality helper");
+assertOrderedFragments(
+    registeredStrokePackedMaskResourcePrepareCommand,
+    [
+        "registered_resource_owner_record &resource",
+        "le alpha_mask_id_raw &mask_id 0",
+        "field::get_ref &resource \"reservation\"",
+        "resource_table_record_from_reservation reservation",
+        "resource_prepare_command_record_equal &record &expected",
+        "ResourceRecordMismatch resource",
+        "resource_record_rect &record",
+        "resource_record_paint &record",
+        "render_command_alpha_mask_rect mask_id rect paint",
+        "ResourcePreparedCommandOwner resource command",
+    ],
+    "F5nxv must fully validate and compare registered metadata before the sole command construction",
+);
+assert((registeredStrokePackedMaskResourcePrepareCommandRegion.match(/render_command_alpha_mask_rect/g) || []).length === 1, "F5nxv production region must contain exactly one AlphaMaskRect constructor call");
+assertNoMatch(
+    registeredStrokePackedMaskResourcePrepareCommandRegion,
+    /resource_table_(?:new|lookup|register|contains)|command_buffer|resource_drain|software_surface|render2d|platform|backend|upload|present|fallback|shadow|compositor|Canvas|DOM/,
+    "F5nxv must not re-register resources or enter F5nxw drain, upload, compositor, or platform phases",
+);
+for (const fragment of [
+    "resource_prepare_command_test_normal_contract",
+    "resource_prepare_command_test_record_mismatch unit",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePrepareCommandErrorKind::ResourceRecordMismatch",
+    "resource_prepare_command_error_rejected error",
+    "resource_prepare_command_rejected_with rejected",
+    "resource_prepare_command_test_storage unit",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePrepareCommandErrorKind::AlphaStorageLenMismatch",
+]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(fragment), `F5nxv focused runtime contract must include ${fragment}`);
+}
+for (const entry of ["normal", "recovery"]) {
+    assertMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePrepareCommandTests, new RegExp(`gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_test_${entry}_contract unit`), `F5nxv focused doctest must isolate the ${entry} owner graph`);
+}
+assertOrderedFragments(spec, ["F5nxv", "sealed prepared owner", "raw `RenderCommand`", "F5nxw"], "F5nxv spec must preserve sealed command ownership and later drain boundary");
+assertOrderedFragments(implementationPlan, ["Phase F5nxv", "render_command_alpha_mask_rect", "sealed prepared owner", "F5nxw"], "F5nxv plan must preserve validation, command sealing, and the later drain phase");
 for (const fragment of [
     "gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset_owner0 0",
     "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted",
