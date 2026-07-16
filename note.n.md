@@ -168399,3 +168399,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 一つのumbrellaからdeep F5nxp factoryへ3回到達していたfixtureを、normal、work-bound、coordinateの3 entryへ分離し、各entryがfactoryを一度だけ呼ぶようにした。
 - 90秒/caseのmatrixではwork-bound start rejectionが49.4秒でruntime 1/1を通過した。normal drainとcoordinate drainはcompile timeoutで、scan実行へは到達していない。これによりfactory、F5nxq writer、F5nxr startではなく、scan/drain reachable graphのresource typecheck/owner summaryが残る停滞境界だと切り分けた。
 - issueはinvestigatingのまま、normal/coordinate runtimeと全gate・統合は未完了である。次は相互再帰のsample/edge/join traversalを明示cursorへ分割し、各micro-stepをboundedかつowner-bearingにする設計を先に行う。
+
+### F5nxr micro-step cursor design
+
+- writerだけをresource-bearingに保ち、CellBegin、SampleBegin、Edge、QuadraticSegment、JoinSegment、SampleCommit、CellCommitと各index/parity/coverageをCopy cursorへ移す。pollはterminal-before-budgetを維持し、budget 0は不変、budget 1は一つの数値またはwriter transitionだけを進め、1超をowner-bearing errorにする。
+- Lineは1 crossing、Quadraticは1 chord、Bevel/Miter/Roundは1 connector、SampleCommitは1 sample、CellCommitはF5nxq push 1回に限定する。push failureは同じCellCommit cursorを返し、completionはterminal-readyなCellBeginだけが行う。
+- migrationはcursor型とphase invariant、pure one-segment helper、micro-step、push/completion recovery、0/1 poll、differential fixtureの順とし、最後に再帰samples/edges/quadratic/joins/drainを削除する。この設計checkpointはruntime成功やissue完成ではない。

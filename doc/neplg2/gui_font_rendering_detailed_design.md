@@ -402,6 +402,8 @@ F5nxr scan ownerはF5nxq writer、quadratic subdivision config、cell indexを�
 
 Quadratic projectionはsource quadraticを`0..N`のbounded parameterで評価し、endpoint normalを同じparameterで補間する。Leftはnormalを加算し、Rightはnormalを減算してdirected ordinalを`N-i`へ反転する。crossingはcount加算ではなくparityで畳み、巨大edge/join countによるi32 overflowを避ける。sample座標はwide arithmeticからf32へ変換し、整数sampleは±2^24内で厳密変換し、edge、join、quadratic intermediateはfiniteかつ同範囲として検査する。startはedge/join countを各4096以下、`sample_scale^2 * (edge_count * N + join_count * 2 + 1)`をi64で事前検査して1,048,576以下に固定し、drainは一回4096 step以下に制限する。
 
+F5nxrの実行cursorはwriterだけをresource-bearing fieldとし、phase、cell/sample/edge/quadratic/join index、parity、coverage、sample座標をCopy値として保持する。phaseはCellBegin、SampleBegin、Edge、QuadraticSegment、JoinSegment、SampleCommit、CellCommitであり、一回のpollはterminalを先に検査してからbudget 0ならownerを不変返却し、budget 1なら一つのline chord、connector、sample commit、またはcell pushだけを進める。budget 1超はowner-bearing errorとする。これによりsample、geometry、drainの再帰を廃止し、runtime stackとresource summaryの双方を有限にする。
+
 bounded drainはowner invariantとterminalをbudgetより先に検査する。非terminalの1 stepはcoverageをF5nxq pushへ一度だけ渡し、成功後にcell indexとwritten countがともに1進んだことを要求する。push/completion failureはwriterをscan ownerへ戻し、exact fullだけをcompleted raw coverage ownerへ進める。
 
 F5nxa単体はRegisteredIndexedOwnerからRegisteredIndexedActionOwnerを作るdiagnostic / lower boundaryである。canonical F5nxb以降のowner DAGはRegisteredIndexedOwnerからActionSummaryOwner Runningを直接開始し、内部でF5nxa ownerを作る。そこからActionSummaryCompletedOwnerを経てF5nxc OutlineStorageOwnerへ進むsuccess branchと、ActionSummaryRejectedOwnerからdiagnostics / freeへ進むrejected branchに分かれる。F5nxc ownerはcompleted ownerを分解せずnested authorityとして保持する。その後RegisteredIndexedEndpointOwner、PointXOwner、PointYOwner、EdgeOwner、CommandTagOwner、CommandStreamOwner、CommandWriterOwner、StrokeSourceOwnerへ進む。
