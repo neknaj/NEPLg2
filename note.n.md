@@ -168503,3 +168503,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - budget 0は`StepBudgetExhausted`/emitted 0からentryを回収しbudget 1で完了、direct budget 1は`Completed`/emitted 1、budget -1は`InvalidBudget`/`InvalidCommand`とexact metadata付きentry recoveryを確認した。
 - focused doctest 2件、Web GUI source-policy、normal compile isolation、issues/diff check、subagent design/diff/全体整合reviewを通過した。registered cleanupでsurface free failureをunitへ畳む既存制約は継承する。
 - F5nybは単一bounded batch drainまでであり、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。次はrecovered entry authorityから既存F5mb batch rangeへのregistered payload metadata bridgeを選定する。
+
+## 2026-07-16 F5nyc registered direct compositor batch-range checkpoint
+
+- F5ma/F5nyb後のentryはcursorが進行済みでbatch descriptorを失うため、payload経路をF5nya entryから既存F5mbへ直接分岐した。first rangeのbatch index 0、row start 3/count 1とmetadata、invalid configのowner recoveryを確認した。
+- focused doctest、Web GUI contract、normal compile isolation、issues/diff checkを通過し、subagentの最終差分・全体整合・履歴粒度reviewはいずれもPASSだった。F5mb固有failure recoveryは既存F5mb contractへ委譲し、focused fixtureはhonestなentry failure recoveryを固定する。F5nycはrange metadataまでであり全体は未完成、次は既存F5mc byte storage bridgeである。

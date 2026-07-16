@@ -4651,6 +4651,7 @@ const registeredStrokePackedMaskResourceSoftwareDrainComplete = allocFontRegiste
 const registeredStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_dirty_owner");
 const registeredStrokePackedMaskResourceSoftwareDrainCompositorEntryBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_frame_entry");
 const registeredStrokePackedMaskResourceSoftwareDrainCompositorBatchDrainBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_compositor_batch_drain_budget");
+const registeredStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_batch_range");
 const registeredStrokePackedMaskResourceSoftwareDrainErrorKindFromTable = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_error_kind_from_table");
 for (const fragment of [
     "prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner",
@@ -4830,6 +4831,30 @@ for (const entry of [
 assertOrderedFragments(spec, ["F5nyb", "F5nya entry bridge", "F5ma bounded batch drain", "既存F5ma terminal", "budget 0", "F5mb"], "F5nyb spec must preserve bounded continuation and later payload scope");
 assertOrderedFragments(detailedDesign, ["F5nyb", "F5nya entry bridge once", "F5ma compositor batch-drain budget once", "StepBudgetExhausted", "reconstruct the compositor entry owner", "F5mb"], "F5nyb design must preserve lower terminal and staged recovery authority");
 assertOrderedFragments(implementationPlan, ["Phase F5nyb", "F5nya entry bridge", "gui_rgba8888_compositor_batch_drain_budget", "budget 0 terminal", "negative budget entry recovery", "F5mb"], "F5nyb plan must preserve fixed delegation, continuation, and later scope");
+assertOrderedFragments(
+    registeredStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridge,
+    ["completed_owner_into_compositor_frame_entry completed config", "FrameEntryBridgeFailed lower", "Result::Ok entry", "gui_rgba8888_compositor_batch_range_prepare entry", "BatchRangePrepareFailed lower", "Result::Ok range"],
+    "F5nyc must call F5nya and F5mb exactly once in owner-preserving order",
+);
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridge.match(/completed_owner_into_compositor_frame_entry completed config/g) || []).length === 1, "F5nyc must call F5nya exactly once");
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridge.match(/gui_rgba8888_compositor_batch_range_prepare entry/g) || []).length === 1, "F5nyc must call F5mb exactly once");
+assertNoMatch(registeredStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridge, /(?:compositor_batch_drain|row_byte|tile|rle|scheduler|transport|upload|present|host|platform|backend|fallback)/i, "F5nyc must not route through F5ma/F5nyb or enter byte/payload/platform work");
+for (const typeName of [
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridgeError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridgeRecovery",
+]) {
+    assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${typeName}\\b`), `F5nyc owner-bearing ${typeName} must remain affine`);
+}
+for (const entry of [
+    "software_drain_compositor_batch_range_bridge_test_normal_contract",
+    "software_drain_compositor_batch_range_bridge_test_entry_recovery_contract",
+]) {
+    assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour.includes(entry), `F5nyc production fixture must include ${entry}`);
+    assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainTests.includes(entry), `F5nyc focused doctest must execute ${entry}`);
+}
+assertOrderedFragments(spec, ["F5nyc", "F5nya", "F5mb", "batch index 0", "F5ma/F5nyb", "F5mc"], "F5nyc spec must preserve the direct range path and later byte-storage scope");
+assertOrderedFragments(detailedDesign, ["F5nyc", "F5nya", "F5mb", "batch index 0", "F5ma or F5nyb", "F5mc"], "F5nyc design must preserve descriptor authority and staged recovery");
+assertOrderedFragments(implementationPlan, ["Phase F5nyc", "F5nya", "gui_rgba8888_compositor_batch_range_prepare", "batch index 0", "F5ma/F5nyb", "F5mc"], "F5nyc plan must preserve direct delegation and later byte-storage scope");
 for (const fragment of [
     "resource_software_drain_test_normal_contract",
     "software_drain_owner_cell_index &owner 0",

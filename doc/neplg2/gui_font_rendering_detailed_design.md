@@ -11035,3 +11035,9 @@ F5nyb consumes the registered completed owner, the existing compositor entry con
 Success returns `GuiRgba8888CompositorBatchDrainTerminal` directly. The existing F5ma status, emitted-count, metadata, terminal-to-entry continuation, and free contracts remain authoritative. A zero budget may return `StepBudgetExhausted`; consuming that terminal back into an entry and retrying preserves bounded scheduler progress.
 
 The affine error stores either the complete F5nya owner-bearing error or the complete F5ma owner-bearing error. Diagnostics are borrowed before consuming recovery. Entry-bridge recovery preserves its completed/dirty-owner stage, while batch-drain recovery uses F5ma to reconstruct the compositor entry owner. F5nyb does not enter F5mb range, row-byte storage, tile/RLE encoding, scheduler loops, present, transport, host/platform/backend code, or fallback behavior.
+
+### F5nyc registered direct compositor batch-range bridge
+
+F5nyc takes the registered completed owner and existing compositor entry config. It invokes F5nya once, then passes the untouched entry directly to F5mb `gui_rgba8888_compositor_batch_range_prepare` once. The success owner therefore retains the first descriptor at batch index 0 together with the original frame and row metadata.
+
+The two owner-bearing lower errors remain distinct stages, and consuming recovery preserves completed, dirty-owner, or entry authority. This direct branch must not follow F5ma or F5nyb: either drain path advances the cursor and can discard the descriptor needed by F5mb. F5nyc stops before F5mc row-byte storage, tile/RLE encoding, presentation, transport, host/platform/backend work, or fallback.

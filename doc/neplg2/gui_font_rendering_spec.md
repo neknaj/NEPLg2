@@ -8599,3 +8599,9 @@ F5nybはregistered completed owner、既存F5lz config、batch budgetを受け�
 entry bridge failureとbatch drain failureはlower owner-bearing error全体を段階別variantに保持する。diagnostic読取後のconsuming recoveryだけがF5nya recoveryまたはF5maから再構成したentry ownerを返す。budget 0 terminalはentryへ戻して再試行できる。
 
 F5nybはF5mb以降のrange/row byte/tile/RLE、scheduler loop、present、transport、host/platform/backend、fallbackへ進まない。
+
+### F5nyc registered stroke direct compositor batch-range bridge
+
+F5nycはregistered completed ownerと既存F5lz configを受け、F5nya frame-entry bridge、既存F5mb `gui_rgba8888_compositor_batch_range_prepare`を各1回、この順で呼ぶ。成功時は既存range ownerを返し、最初のrangeはbatch index 0とframe/row metadataを保持する。
+
+frame-entry failureとbatch-range prepare failureはlower owner-bearing errorを段階別variantに保持し、consuming recoveryはcompleted/dirty/entry authorityを返す。F5ma/F5nybを先に通すとcursor進行によりdescriptorを失うため、このpayload経路では経由してはならない。F5nycはF5mc row byte storage、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。

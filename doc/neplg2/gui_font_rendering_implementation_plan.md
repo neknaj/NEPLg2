@@ -13667,3 +13667,9 @@ git diff --check
 - entry bridge failureとbatch drain failureはlower owner-bearing error全体を段階別variantに保持する。diagnostic読取後のconsuming recoveryだけがcompleted/dirty ownerまたはentry ownerを返す。
 - focused runtimeはbudget 0 continuation、budget 1 completion、negative budget entry recoveryとexact metadataを検査する。source policy、normal compile、issues/diff check、subagent reviewを通す。
 - F5nybはF5mb以降のrange/row byte/tile/RLE、scheduler loop、present、transport、host/platform/backend、fallbackへ進まない。
+
+## Phase F5nyc: registered stroke direct compositor batch-range bridge boundary
+
+- F5nxy completed ownerと既存F5lz configを受け、F5nyaを1回呼んだ直後のentryを既存F5mb `gui_rgba8888_compositor_batch_range_prepare`へ1回渡す。
+- success fixtureは最初のbatch index 0、row start/count、frame metadataを検証し、entry failure fixtureはtyped stage/categoryとowner recoveryを検証する。
+- F5ma/F5nyb後はdescriptor authorityが失われ得るためpayload経路に使用しない。F5nycはF5mc row byte storage、tile/RLE、present、transport、host/platform/backend、fallbackへ進まない。

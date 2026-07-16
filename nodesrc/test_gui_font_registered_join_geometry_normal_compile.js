@@ -21,6 +21,8 @@ const testOnlyNames = [
     "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_drain_test_continuation_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_drain_test_complete_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_drain_test_recovery_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_range_bridge_test_normal_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_batch_range_bridge_test_entry_recovery_contract",
 ];
 
 const probe = (testOnlyName) => `#entry main
