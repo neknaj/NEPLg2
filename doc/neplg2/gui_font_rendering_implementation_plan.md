@@ -13838,3 +13838,10 @@ git diff --check
 - upstream二十層とthird command stepの第二十一層をlossless nested resultに保持する。productionのF5mt API allowlistは`step_finish_owner`、`step`の順だけとし、result、descriptor、phase、EndFrame payloadを読まない。
 - production-derived fixtureでEndFrame payloadとcanonical descriptor双方のmetadata 263/16/3/1、surface 7/frame 263、expected run/pixel count 1/16を63、next `Completed`を64として検証し、owner free後の合計127とRun/EndFrame step error cleanupを保持する。
 - F5nyz/F5mt回帰、21層source policy、normal compile、trunk/CLIを通す。F5nzaはEndFrame commandだけで停止し、次のF5nzbがcontinuation ownerをF5mt stepへexactly once渡してterminal `Completed` resultを保持する。F5mu record、host executionはさらに後続phaseとする。
+
+## Phase F5nzb: registered stroke compositor RLE terminal Completed boundary
+
+- public F5nza successのEndFrame stepからcontinuation ownerを既存F5mt finish-ownerでexactly once回収し、そのownerを既存F5mt stepへexactly once渡す。
+- upstream二十一層とterminal command stepの第二十二層をlossless nested resultに保持する。productionのF5mt API allowlistは`step_finish_owner`、`step`の順だけとし、terminal result、descriptor、phaseを読まない。
+- production-derived fixtureだけが`Completed` resultとcanonical metadata 263/16/3/1、surface 7/frame 263、expected run/pixel count 1/16を63、owner phase `Completed`を64として検証し、owner free後の合計127とEndFrame/terminal step error cleanupを保持する。
+- F5nza/F5mt回帰、22層source policy、normal compile、trunk/CLIを通す。F5nzbはterminal `Completed` stepをopaqueに保持し、次のF5nzcがF5mu record projectionへ接続する。host executionはさらに後続phaseとする。

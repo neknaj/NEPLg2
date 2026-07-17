@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T11:17:03.431Z",
+  "generated_at": "2026-07-17T11:27:47.183Z",
   "counts": {
-    "total": 1413,
-    "open": 60,
+    "total": 1414,
+    "open": 61,
     "resolved": 1353,
     "by_area": {
       "stdlib": {
@@ -15,6 +15,11 @@
         "total": 665,
         "open": 28,
         "resolved": 637
+      },
+      "GUI_FONT": {
+        "total": 39,
+        "open": 1,
+        "resolved": 38
       },
       "RESOURCE": {
         "total": 5,
@@ -90,11 +95,6 @@
         "total": 22,
         "open": 0,
         "resolved": 22
-      },
-      "GUI_FONT": {
-        "total": 38,
-        "open": 0,
-        "resolved": 38
       },
       "nodesrc": {
         "total": 16,
@@ -523,6 +523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
+    },
+    {
+      "id": "ISS-20260717T112109760Z-REGISTERED-ENDFRAME-STEP-LACKS-TERMI-72FA9B6A",
+      "title": "Registered EndFrame step lacks terminal Completed bridge",
+      "area": "GUI_FONT",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_command_cursor_completed.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T112109760Z-REGISTERED-ENDFRAME-STEP-LACKS-TERMI-72FA9B6A.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",

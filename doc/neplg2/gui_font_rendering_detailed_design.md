@@ -11140,6 +11140,10 @@ F5nyz adapterはF5nyyの十九層result graphを再包装し、BeginFrame step s
 
 F5nza adapterはF5nyzの二十層result graphを再包装し、Run step successだけをF5mt step-finish-ownerへexactly once渡し、回収したcontinuationをF5mt stepへexactly once移送する。third-step successまたはcommand-cursor ownerを回収できるstep errorを第二十一層へ置く。productionのF5mt API allowlistは`step_finish_owner`、`step`の順だけとし、result、descriptor、phase、EndFrame payloadを読まない。fixtureはEndFrame payloadとcanonical descriptor双方のmetadata 263/16/3/1、surface 7、frame 263、expected run/pixel count 1/16を接続したaccumulatorで63、`Completed`だけを64として積み上げ、owner free後の合計127を確認する。F5nzaはF5nzbのterminal `Completed` step、F5mu record projection、host executionより前で停止する。
 
+### F5nzb registered direct compositor RLE terminal Completed bridge
+
+F5nzb adapterはF5nzaの二十一層result graphを再包装し、EndFrame step successだけをF5mt step-finish-ownerへexactly once渡し、回収したcontinuationをF5mt stepへexactly once移送する。terminal-step successまたはcommand-cursor ownerを回収できるstep errorを第二十二層へ置く。productionのF5mt API allowlistは`step_finish_owner`、`step`の順だけとし、terminal result、descriptor、phaseを読まない。fixtureだけが`Completed` resultを受理し、canonical metadata 263/16/3/1、surface 7、frame 263、expected run/pixel count 1/16を接続したaccumulatorで63、`Completed` phaseを64として積み上げ、owner free後の合計127を確認する。F5nzbはF5nzcのF5mu record projection、host executionより前で停止する。
+
 ### F5nyg registered direct compositor RLE count-start bridge
 
 F5nyg lives in the dedicated `stroke_compositor_tile_rle_count_start.nepl` extension so importing F5mf does not pollute the large stroke module's overload and trait namespace. It consumes the registered completed owner with existing entry/tile configs and tile index. It calls public F5nyf exactly once and passes the untouched payload owner to F5mf `gui_rgba8888_compositor_tile_rle_count_start` exactly once. Success returns the existing count owner with frame/row metadata, zero accumulated runs, pixel cursor zero, and Ready status.
