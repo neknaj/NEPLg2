@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T11:33:05.502Z",
+  "generated_at": "2026-07-17T14:51:23.027Z",
   "counts": {
-    "total": 1414,
+    "total": 1415,
     "open": 60,
-    "resolved": 1354,
+    "resolved": 1355,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -95,6 +95,11 @@
         "total": 39,
         "open": 0,
         "resolved": 39
+      },
+      "gui-font": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "nodesrc": {
         "total": 16,
@@ -11743,6 +11748,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T112109760Z-REGISTERED-ENDFRAME-STEP-LACKS-TERMI-72FA9B6A.md"
+    },
+    {
+      "id": "ISS-20260717T113857267Z-F5NZC-REGISTERED-TERMINAL-HOST-COMMA-39CC9EBA",
+      "title": "F5nzc registered terminal host-command record projection",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_terminal_record.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T113857267Z-F5NZC-REGISTERED-TERMINAL-HOST-COMMA-39CC9EBA.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

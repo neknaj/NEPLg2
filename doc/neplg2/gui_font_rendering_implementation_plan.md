@@ -13845,3 +13845,10 @@ git diff --check
 - upstream二十一層とterminal command stepの第二十二層をlossless nested resultに保持する。productionのF5mt API allowlistは`step_finish_owner`、`step`の順だけとし、terminal result、descriptor、phaseを読まない。
 - production-derived fixtureだけが`Completed` resultとcanonical metadata 263/16/3/1、surface 7/frame 263、expected run/pixel count 1/16を63、owner phase `Completed`を64として検証し、owner free後の合計127とEndFrame/terminal step error cleanupを保持する。
 - F5nza/F5mt回帰、22層source policy、normal compile、trunk/CLIを通す。F5nzbはterminal `Completed` stepをopaqueに保持し、次のF5nzcがF5mu record projectionへ接続する。host executionはさらに後続phaseとする。
+
+## Phase F5nzc: registered terminal F5mu projection owner
+
+- public F5nzb successのterminal stepをborrowしたまま既存F5mu projectionへexactly once渡し、F5mu resultを再構築しない。
+- upstream二十二層をlosslessに保持し、terminal stepとCopy projection resultをprivate constructorで新しいmove-only ownerへ同居させて第二十三層authorityとする。
+- productionはprojection result、step result、descriptor、phaseを読まない。fixtureだけがterminal `Completed` projectionを確認し、consuming recoveryでstepをexactly once回収してcanonical descriptor、`Completed` phase、owner cleanupを検証する。
+- F5nzb/F5mu回帰、23層source policy、normal compile、trunk/CLIを通す。F5nzcはhost execution、F5mv virtual drain、schedulerより前で停止し、次のF5nzdがBeginFrame command stepをF5mu actual record projectionへ接続する。

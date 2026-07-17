@@ -160,10 +160,6 @@ fn gui_rgba8888_row_tile_rle_present_run_cursor_validate_descriptor %fn &GuiRgba
                                 then Result::Err GuiRgba8888RowTileRlePresentRunCursorStartErrorKind::EncodedByteCountMismatch
                                 else Result::Ok total_run_count
 
-fn gui_rgba8888_row_tile_rle_present_run_cursor_packet_ref %fn &GuiRgba8888RowTileRlePresentRunCursorOwner &GuiRgba8888RowTileRlePacketOwner \owner:
-    let present %&GuiRgba8888RowTileRlePresentFrameOwner field::get_ref owner "present"
-    field::get_ref present "packet"
-
 pub fn gui_rgba8888_row_tile_rle_present_run_cursor_owner_next_record_index %fn &GuiRgba8888RowTileRlePresentRunCursorOwner i32 \owner:
     *field::get_ref owner "next_record_index"
 
@@ -231,7 +227,8 @@ pub fn gui_rgba8888_row_tile_rle_present_run_cursor_step %fn GuiRgba8888RowTileR
                             let result %GuiRgba8888RowTileRlePresentRunCursorStepResult GuiRgba8888RowTileRlePresentRunCursorStepResult::Completed
                             Result::Ok gui_rgba8888_row_tile_rle_present_run_cursor_step_new owner result
                         else:
-                            let packet %&GuiRgba8888RowTileRlePacketOwner gui_rgba8888_row_tile_rle_present_run_cursor_packet_ref &owner
+                            let present_ref %&GuiRgba8888RowTileRlePresentFrameOwner field::get_ref &owner "present"
+                            let packet %&GuiRgba8888RowTileRlePacketOwner field::get_ref present_ref "packet"
                             match gui_rgba8888_row_tile_rle_packet_record_at packet next_record_index:
                                 Result::Err kind:
                                     Result::Err gui_rgba8888_row_tile_rle_present_run_cursor_step_error GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::PacketRecordReadFailed kind owner

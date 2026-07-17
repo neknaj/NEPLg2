@@ -8713,3 +8713,7 @@ F5nzaはpublic F5nyzを1回だけ呼び、Run step successからcontinuation own
 ### F5nzb registered stroke compositor RLE terminal Completed bridge
 
 F5nzbはpublic F5nzaを1回だけ呼び、EndFrame step successからcontinuation ownerを既存F5mt finish-ownerで1回だけ回収し、そのownerを既存F5mt stepへ1回だけ渡す。既存二十一層とterminal command stepの第二十二層をlossless nested `Result`として保持し、productionはterminal result、descriptor、phaseを解釈しない。production-derived fixtureだけがresultを`Completed`へ絞り、canonical descriptorのmetadata 263/16/3/1、surface 7、frame 263、expected run count 1、pixel count 16をevidence 63、owner phase `Completed`を64として検証し、owner free後の合計を127とする。production graphはfixture-freeで、次のF5nzcによるF5mu record projection、host executionより前で停止する。
+
+### F5nzc registered terminal F5mu projection owner
+
+F5nzcはpublic F5nzbを1回だけ呼び、第二十二層terminal stepをborrowしたまま既存F5mu host-command projectionへ1回だけ渡す。projection resultは再構築せず、元のmove-only terminal stepとF5muのCopy resultを新しいownerに同居させて第二十三層authorityとする。productionはprojection result、step result、descriptor、phaseを解釈せず、host execution、virtual drain、schedulerへ進まない。production-derived fixtureだけがF5mu resultをterminal `Completed`へ絞り、ownerからstepを1回だけ回収してcanonical descriptorと`Completed` phaseを検証し、command-cursor ownerを閉じる。次のF5nzdはBeginFrame command stepをF5mu record projectionへ接続し、actual typed recordをvirtual drainより前で保持する。

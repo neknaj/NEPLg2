@@ -2385,3 +2385,6 @@ F5ek は、F5eg `LoopAction` を actual real scheduler loop / headless app-loop 
 F5ek policy は `scheduler_policy` と `timer_policy` のみを持つ。`LoopExecutorCompletePolicy` を policy 内へ保持しないため、timer policy authority は二重化しない。Execute branch は F5ei `loop_executor_complete_with_policy_refs` を使い、timer branch と同じ `timer_policy` を借用する。
 
 `RealLoopStepInput` は `ClockDelta`、caller supplied `ExecutorOutcome`、explicit `CompleteAck` を持つ。入力種別が action と合わない場合は action owner と input owner を持つ mismatch error を返す。fallback、silent no-op、executor outcome 合成は禁止する。
+### Registered stroke compositor F5nzc terminal projection boundary
+
+F5nzcはregistered stroke compositorのF5nzb terminal command-cursor stepをborrowし、既存F5mu metadata-preserving host-command projectionへexactly once渡す。第二十三層はprojection resultだけではなく、元のmove-only stepとCopy resultを同居させるowner authorityである。production adapterはresult、descriptor、phaseを解釈せず、host execution、virtual drain、schedulerへ進まない。terminal `Completed`の検証とstep recovery/cleanupはfixtureに限定し、次のF5nzdでBeginFrameのactual record projectionを接続する。

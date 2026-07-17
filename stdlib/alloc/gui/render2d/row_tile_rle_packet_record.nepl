@@ -251,10 +251,6 @@ fn gui_rgba8888_row_tile_rle_packet_record_validate_run_extent %fn &GuiRgba8888R
                                 then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunEndOutOfBounds
                                 else Result::Ok unit
 
-fn gui_rgba8888_row_tile_rle_packet_record_storage_ref %fn &GuiRgba8888RowTileRlePacketOwner &RegionToken u8 \packet:
-    let encoded %&GuiRgba8888RowTileRleEncodedOwner field::get_ref packet "encoded"
-    field::get_ref encoded "storage"
-
 //: gui_rgba8888_row_tile_rle_packet_record_at: packet 内の encoded record を typed run に[戻/もど]す
 //:
 //: [契約/けいやく]:
@@ -276,7 +272,8 @@ pub fn gui_rgba8888_row_tile_rle_packet_record_at %fn &GuiRgba8888RowTileRlePack
                             Result::Err kind
                         Result::Ok base:
                             let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &descriptor
-                            let storage %&RegionToken u8 gui_rgba8888_row_tile_rle_packet_record_storage_ref packet
+                            let encoded %&GuiRgba8888RowTileRleEncodedOwner field::get_ref packet "encoded"
+                            let storage %&RegionToken u8 field::get_ref encoded "storage"
                             match gui_rgba8888_row_tile_rle_packet_record_read_i32_le storage encoded_byte_count base:
                                 Result::Err kind:
                                     Result::Err kind
