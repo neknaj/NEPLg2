@@ -6,12 +6,14 @@
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_completed" as completed_bridge
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_encode_seed" as seed_bridge
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_encode_cursor" as cursor_bridge
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_writer_plan" as writer_plan_bridge
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture" as count_fixture
 #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
 #import "alloc/gui/render2d/compositor_tile_rle_count_completed" as *
 #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
 #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+#import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
 #import "alloc/gui/render2d/compositor_tile_rle_count" as *
 #import "alloc/gui/render2d/compositor_tile_payload" as *
 #import "alloc/gui/render2d/compositor_tile_plan" as *
@@ -409,7 +411,7 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_sof
                                 Result::Ok count_completed:
                                     let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_count_completed_owner_metadata &count_completed
                                     let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 261 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
-                                    let count_ok %bool eq gui_rgba8888_compositor_tile_rle_count_completed_owner_total_run_count &count_completed 3
+                                    let count_ok %bool eq gui_rgba8888_compositor_tile_rle_count_completed_owner_total_run_count &count_completed 1
                                     let index_ok %bool eq gui_rgba8888_compositor_tile_rle_count_completed_owner_cursor_next_pixel_index &count_completed 16
                                     match gui_rgba8888_compositor_tile_rle_count_completed_owner_free count_completed:
                                         Result::Ok _: and and and eq mode 0 metadata_ok count_ok index_ok
@@ -463,7 +465,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
                                         Result::Ok seed:
                                             let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encode_seed_owner_metadata &seed
                                             let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 261 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
-                                            let total_ok %bool eq gui_rgba8888_compositor_tile_rle_encode_seed_owner_total_run_count &seed 3
+                                            let total_ok %bool eq gui_rgba8888_compositor_tile_rle_encode_seed_owner_total_run_count &seed 1
                                             let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_payload seed
                                             let bytes_ok %bool match gui_rgba8888_compositor_tile_payload_owner_byte_count_checked &payload:
                                                 Result::Ok count: eq count 64
@@ -510,7 +512,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
                                                 Result::Ok cursor:
                                                     let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encode_cursor_owner_metadata &cursor
                                                     let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 261 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
-                                                    let total_ok %bool eq gui_rgba8888_compositor_tile_rle_encode_cursor_owner_total_run_count &cursor 3
+                                                    let total_ok %bool eq gui_rgba8888_compositor_tile_rle_encode_cursor_owner_total_run_count &cursor 1
                                                     let next_ok %bool eq gui_rgba8888_compositor_tile_rle_encode_cursor_owner_cursor_next_pixel_index &cursor 0
                                                     let pixels_ok %bool eq gui_rgba8888_compositor_tile_rle_encode_cursor_owner_cursor_pixel_count &cursor 16
                                                     let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_cursor_owner_finish_payload cursor
@@ -520,3 +522,66 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
                                                     match gui_rgba8888_compositor_tile_payload_owner_free payload:
                                                         Result::Ok _: and and and and metadata_ok total_ok next_ok pixels_ok bytes_ok
                                                         Result::Err _: false
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_writer_plan_bridge_test_success_contract %impure fn unit i32 \_unit:
+    match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed 471:
+        Option::None: sub 0 1
+        Option::Some completed:
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 261 2
+            let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+            match writer_plan_bridge::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_writer_plan_budget completed frame_config tile_config 0 64:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_error_contract error
+                    sub 0 2
+                Result::Ok step_result:
+                    match step_result:
+                        Result::Err error:
+                            match gui_rgba8888_compositor_tile_rle_count_step_error_free error:
+                                Result::Ok _: sub 0 3
+                                Result::Err _: sub 0 4
+                        Result::Ok completed_result:
+                            match completed_result:
+                                Result::Err error:
+                                    match gui_rgba8888_compositor_tile_rle_count_completed_error_free error:
+                                        Result::Ok _: sub 0 5
+                                        Result::Err _: sub 0 6
+                                Result::Ok seed_result:
+                                    match seed_result:
+                                        Result::Err error:
+                                            match gui_rgba8888_compositor_tile_rle_encode_seed_error_free error:
+                                                Result::Ok _: sub 0 7
+                                                Result::Err _: sub 0 8
+                                        Result::Ok cursor_result:
+                                            match cursor_result:
+                                                Result::Err error:
+                                                    match gui_rgba8888_compositor_tile_rle_encode_cursor_error_free error:
+                                                        Result::Ok _: sub 0 9
+                                                        Result::Err _: sub 0 10
+                                                Result::Ok plan_result:
+                                                    match plan_result:
+                                                        Result::Err error:
+                                                            match gui_rgba8888_compositor_tile_rle_writer_plan_error_free error:
+                                                                Result::Ok _: sub 0 11
+                                                                Result::Err _: sub 0 12
+                                                        Result::Ok plan:
+                                                            let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_writer_plan_owner_metadata &plan
+                                                            let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 261 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
+                                                            let total_ok %bool eq gui_rgba8888_compositor_tile_rle_writer_plan_owner_total_run_count &plan 1
+                                                            let capacity_ok %bool eq gui_rgba8888_compositor_tile_rle_writer_plan_owner_encoded_byte_count &plan 12
+                                                            let next_ok %bool eq gui_rgba8888_compositor_tile_rle_writer_plan_owner_cursor_next_pixel_index &plan 0
+                                                            let pixels_ok %bool eq gui_rgba8888_compositor_tile_rle_writer_plan_owner_cursor_pixel_count &plan 16
+                                                            let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_writer_plan_owner_finish_payload plan
+                                                            let bytes_ok %bool match gui_rgba8888_compositor_tile_payload_owner_byte_count_checked &payload:
+                                                                Result::Ok count: eq count 64
+                                                                Result::Err _: false
+                                                            let metadata_evidence %i32 if metadata_ok then 1 else 0
+                                                            let total_evidence %i32 if total_ok then 2 else 0
+                                                            let capacity_evidence %i32 if capacity_ok then 4 else 0
+                                                            let next_evidence %i32 if next_ok then 8 else 0
+                                                            let pixels_evidence %i32 if pixels_ok then 16 else 0
+                                                            let bytes_evidence %i32 if bytes_ok then 32 else 0
+                                                            let evidence %i32 add add add add add metadata_evidence total_evidence capacity_evidence next_evidence pixels_evidence bytes_evidence
+                                                            match gui_rgba8888_compositor_tile_payload_owner_free payload:
+                                                                Result::Ok _: evidence
+                                                                Result::Err _: sub 0 13

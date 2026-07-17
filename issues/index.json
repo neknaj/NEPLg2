@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T04:38:16.452Z",
+  "generated_at": "2026-07-17T05:27:20.572Z",
   "counts": {
-    "total": 1397,
+    "total": 1398,
     "open": 60,
-    "resolved": 1337,
+    "resolved": 1338,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 22,
+        "total": 23,
         "open": 0,
-        "resolved": 22
+        "resolved": 23
       },
       "nodesrc": {
         "total": 16,
@@ -11488,6 +11488,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T042512548Z-REGISTERED-RLE-ENCODE-SEED-LACKS-REA-529ADF36.md"
+    },
+    {
+      "id": "ISS-20260717T044341305Z-REGISTERED-READY-RLE-CURSOR-LACKS-WR-B9911FAE",
+      "title": "Registered ready RLE cursor lacks writer plan bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_writer_plan.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T044341305Z-REGISTERED-READY-RLE-CURSOR-LACKS-WR-B9911FAE.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

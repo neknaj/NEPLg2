@@ -11070,11 +11070,15 @@ F5nyi lives in `stroke_compositor_tile_rle_count_completed.nepl`. It invokes pub
 
 ### F5nyj registered direct compositor RLE encode-seed bridge
 
-F5nyj lives in `stroke_compositor_tile_rle_encode_seed.nepl`. It invokes public F5nyi exactly once, preserves its start, step, and completed layers, and only on completed success invokes existing F5mi exactly once. The innermost result retains either the complete seed error with completed-owner recovery or the metadata-bearing seed owner. The production-derived fixture verifies frame metadata, exact total run count 3, and payload recovery with 64 bytes. The boundary stops before F5mj cursor restart, writer/storage transport, packets, and presentation.
+F5nyj lives in `stroke_compositor_tile_rle_encode_seed.nepl`. It invokes public F5nyi exactly once, preserves its start, step, and completed layers, and only on completed success invokes existing F5mi exactly once. The innermost result retains either the complete seed error with completed-owner recovery or the metadata-bearing seed owner. The production-derived fixture verifies frame metadata, exact total run count 1, and payload recovery with 64 bytes. The boundary stops before F5mj cursor restart, writer/storage transport, packets, and presentation.
 
 ### F5nyk registered direct compositor RLE encode-cursor bridge
 
-F5nyk lives in `stroke_compositor_tile_rle_encode_cursor.nepl`. It invokes public F5nyj exactly once, preserves its four existing error layers, and only on seed success invokes existing F5mj exactly once. The fifth result retains either the complete cursor error with payload recovery or the metadata-bearing ready cursor owner. The production-derived fixture verifies frame metadata, run count 3, cursor range 0/16, and payload recovery with 64 bytes. The boundary stops before F5mk writer planning, storage, packets, and presentation.
+F5nyk lives in `stroke_compositor_tile_rle_encode_cursor.nepl`. It invokes public F5nyj exactly once, preserves its four existing error layers, and only on seed success invokes existing F5mj exactly once. The fifth result retains either the complete cursor error with payload recovery or the metadata-bearing ready cursor owner. The production-derived fixture verifies frame metadata, run count 1, cursor range 0/16, and payload recovery with 64 bytes. The boundary stops before F5mk writer planning, storage, packets, and presentation.
+
+### F5nyl registered direct compositor RLE writer-plan bridge
+
+F5nyl adapter は F5nyk の五層 result graph を分解せず再包装し、cursor success branch だけで F5mk を呼ぶ。F5mk が返す metadata、total run count、checked encoded byte count、cursor progress と recovery owner をそのまま第六層へ置く。production-derived payloadは1 runでcapacityは12 bytesとなる。有効な正数run countからlower writer-plan errorは自然到達不能なのでfixtureで偽造せず、既存F5mk error/recovery regressionへ委譲する。production graph は fixture-free とし、F5ml storage allocation より前で停止する。
 
 ### F5nyg registered direct compositor RLE count-start bridge
 

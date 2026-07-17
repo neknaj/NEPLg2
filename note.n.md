@@ -168594,19 +168594,25 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 ## 2026-07-17 F5nyi registered RLE completed-count bridge implementation
 
 - 専用`stroke_compositor_tile_rle_count_completed.nepl`を追加し、public F5nyhを1回、そのstep success ownerだけを既存F5mhへ1回渡すtriple nested bridgeを実装した。start/step/completedの三error authorityは加工せず保持し、encodeやpresentへ進まない。
-- isolated production fixture由来のfocused testで、completed metadataとexact run count 3/cursor 16、zero-budget `CountNotCompleted`から回収したmetadata付きReady count ownerの0/0 progress、negative budgetのtyped middle error、invalid frameのouter error/DirtyOwnerを検証する。
+- isolated production fixture由来のfocused testで、completed metadataとexact run count 1/cursor 16、zero-budget `CountNotCompleted`から回収したmetadata付きReady count ownerの0/0 progress、negative budgetのtyped middle error、invalid frameのouter error/DirtyOwnerを検証する。F5nylでwriter-plan実値を観測し、旧期待3を1へ訂正した。
 - Web source-policyはF5nyh/F5mh exact-once、F5nyg/F5mg direct bypass禁止、encode/present禁止を固定した。plan.mdとの差異はなく、F5mi以降、native provider、shaping/layout、rasterization、presentationを含む最終目標は未完成である。
 - Focused F5nyi 4経路、F5nyh/F5mh回帰、normal compile isolation、Web source-policy、issues/diff check、`trunk build`、trunk後Playground editor CLI JSON 13/13を通過した。subagentのpending recovery/exact evidence指摘を修正し、再reviewはblockingなしとなった。
 
 ## 2026-07-17 F5nyj registered RLE encode-seed bridge implementation
 
 - 専用`stroke_compositor_tile_rle_encode_seed.nepl`を追加し、public F5nyiを1回、そのcompleted success ownerだけを既存F5miへ1回渡すquadruple nested bridgeを実装した。start/step/completed/seed error authorityを加工せず保持し、F5mj cursor restart以降へ進まない。
-- production-only isolated fixture由来のreachable successでframe metadata 261/16/3/1、exact run count 3、payload byte count 64とpayload owner回収/freeを検証する。自然到達不能なseed errorは偽造せず既存F5mi回帰へ委譲する。
+- production-only isolated fixture由来のreachable successでframe metadata 261/16/3/1、exact run count 1、payload byte count 64とpayload owner回収/freeを検証する。自然到達不能なseed errorは偽造せず既存F5mi回帰へ委譲する。F5nylで旧期待3を実値1へ訂正した。
 - plan.mdとの差異はない。encode cursor、writer、storage、packet、native/GUI表示とフォントレンダリングエンジン・GUIライブラリ全体は未完成である。
 - Focused F5nyj success、既存F5nyi staged recovery 4経路、F5mi回帰、Web source-policy、新規helper normal compile isolation、issues/diff check、`trunk build`、trunk後Playground editor CLI JSON 13/13を通過した。subagent差分reviewはblockingなしである。
 
 ## 2026-07-17 F5nyk registered RLE encode-cursor implementation
 
-- 新branchでpublic F5nyj successを既存F5mjへ1回渡す五層nested bridgeとproduction-only fixture由来のreachable cursor testを追加した。metadata 261/16/3/1、run count 3、cursor 0/16、payload 64のfocused doctestは通過した。
+- 新branchでpublic F5nyj successを既存F5mjへ1回渡す五層nested bridgeとproduction-only fixture由来のreachable cursor testを追加した。metadata 261/16/3/1、run count 1、cursor 0/16、payload 64を保持する。F5nylで旧期待3を実値1へ訂正した。
 - source policy、normal isolation router、仕様・phase plan・todoを更新し、focused F5nyk、F5nyj/F5mj回帰、Web source-policy、新規helper normal compile isolation、issues/diff check、`trunk build`、trunk後Playground editor JSON 13/13を通過した。subagent差分・全体整合reviewはblockingなしである。
 - F5nykはready cursorまでであり、F5mk writer plan、storage、packet、native/GUI表示とフォントレンダリングエンジン・GUIライブラリ全体は未完成である。
+
+## 2026-07-17 F5nyl registered RLE writer-plan bridge implementation
+
+- F5nykの五層nested resultを保持したまま、cursor successだけを既存F5mkへ1回渡す六層lossless bridgeを追加した。
+- focused fixtureはmetadata 261/16/3/1、production-derived run count 1、checked capacity 12、cursor 0/16、payload 64 bytesとfreeを検証する。F5ml storage、write、packet、presentと全体目標は未完成である。
+- focused F5nylと既存F5mk回帰、Web source-policy、targeted normal isolation、issues/diff check、一時npm.cmd shim経由のtrunk build、trunk後Playground editor JSON 13/13を通過した。subagent指摘のphase見出し順、issue根拠、自然到達不能error委譲、todoを修正した。
