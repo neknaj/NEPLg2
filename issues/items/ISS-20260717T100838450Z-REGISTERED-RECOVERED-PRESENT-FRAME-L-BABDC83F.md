@@ -23,7 +23,9 @@ The registered compositor graph recovers present-frame authority but cannot ente
 
 ## 根拠
 
-- 未記入
+- F5nywはcompleted run authorityをmetadata付きpresent-frame ownerへ戻すが、registered graphにはそのownerを既存F5mt startへ渡すadapterがない。
+- descriptor-before-start、F5mr run-cursor restart、start-error recoveryは既存F5mtが所有するため、registered側はF5nyw successをexactly once移送し、既存十七層とF5mt startの第十八層を保持する必要がある。
+- このissueは`BeginPending` command-cursor authorityまでを対象とし、F5mt step、BeginFrame/Run/EndFrame発行、record/host executionを完成条件に含めない。
 
 ## 問題
 

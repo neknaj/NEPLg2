@@ -8693,3 +8693,7 @@ F5nyvはpublic F5nyuを1回だけ呼び、first-step successを`gui_rgba8888_com
 ### F5nyw registered stroke compositor RLE present-frame recovery bridge
 
 F5nywはpublic F5nyvを1回だけ呼び、completed-step successだけを既存F5ms `gui_rgba8888_compositor_tile_rle_present_run_step_finish_present_frame`へ1回だけ渡す。既存十六層とpresent-frame rewrapの第十七層をlossless nested `Result`として保持し、F5mr/F5mqのmetadata-before-owner-moveとrewrap recoveryを再実装しない。production-derived fixtureはmetadata 263/16/3/1、surface 7、frame 263、expected run count 1、pixel count 16、owner freeをevidence 31で検証する。third step、direct rewrap、F5mt command cursor、packet record、host executionへは進まない。続くF5nyxがrecovered present ownerをF5mtへexactly once渡す。
+
+### F5nyx registered stroke compositor RLE command-cursor start bridge
+
+F5nyxはpublic F5nywを1回だけ呼び、recovered present-frame successだけを既存F5mt `gui_rgba8888_compositor_tile_rle_present_command_cursor_start`へ1回だけ渡す。既存十七層とcommand-cursor startの第十八層をlossless nested `Result`として保持し、F5mtが所有するdescriptor-before-start、F5mr restart、start-error recoveryを再実装しない。successは`BeginPending` command-cursor ownerまでであり、production graphはfixture-freeでF5mt step、`BeginFrame`、Run、EndFrame、packet record、host executionより前で停止する。次のF5nyyが既存F5mt stepを1回だけ呼び、最初の`BeginFrame` commandを保持する。

@@ -462,6 +462,7 @@ const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleRunCursor 
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleRunStep = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_run_step.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCompletedStep = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_completed_step.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRlePresentFrameRecovery = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_present_frame_recovery.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCommandCursorStart = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_command_cursor_start.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountStepTest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountFixture = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink);
@@ -5250,6 +5251,21 @@ assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDr
 assertOrderedFragments(spec, ["### F5nyv registered stroke compositor RLE completed-step bridge", "### F5nyw registered stroke compositor RLE present-frame recovery bridge", "finish_present_frame", "F5nyx", "F5mt"], "F5nyw spec heading order");
 assertOrderedFragments(detailedDesign, ["### F5nyv registered direct compositor RLE completed-step bridge", "### F5nyw registered direct compositor RLE present-frame recovery bridge", "finish-present-frame", "F5nyx", "F5mt"], "F5nyw design heading order");
 assertOrderedFragments(implementationPlan, ["## Phase F5nyv", "## Phase F5nyw", "finish-present-frame", "F5nyx", "F5mt"], "F5nyw plan heading order");
+
+const registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleCommandCursorStartBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCommandCursorStart, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_command_cursor_start_budget");
+const f5nyxErrorBranches = Array.from({ length: 18 }, (_, depth) => `Result::Err lower: ${"Result::Ok ".repeat(depth)}Result::Err lower`);
+assertOrderedFragments(registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleCommandCursorStartBridge, [...f5nyxErrorBranches, `${"Result::Ok ".repeat(18)}cursor`], "F5nyx must preserve all eighteen owner-bearing result layers in order");
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleCommandCursorStartBridge.match(/present_frame_recovery_budget completed surface frame_config tile_config tile_index remaining_steps/g) || []).length === 1, "F5nyx must call F5nyw exactly once");
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleCommandCursorStartBridge.match(/gui_rgba8888_compositor_tile_rle_present_command_cursor_start present/g) || []).length === 1, "F5nyx must call F5mt start exactly once");
+const f5nyxCommandCursorCalls = [...registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleCommandCursorStartBridge.matchAll(/\b(gui_rgba8888_compositor_tile_rle_present_command_cursor_[a-z_]+)\b/g)].map((match) => match[1]);
+assert(f5nyxCommandCursorCalls.length === 1 && f5nyxCommandCursorCalls[0] === "gui_rgba8888_compositor_tile_rle_present_command_cursor_start", "F5nyx must only call the F5mt command-cursor start API");
+assert(registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleCommandCursorStartBridge.includes("SurfaceId"), "F5nyx must forward caller supplied typed SurfaceId");
+assertNoMatch(withoutComments(registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleCommandCursorStartBridge), /surface_id_result|surface_id_raw|surface_id_unchecked|frame_id_result|present_frame_rewrap\s|present_run_cursor_start|present_run_step_|present_command_cursor_step/, "F5nyx must not reconstruct, restart, step, or split authority");
+assertNoMatch(withoutComments(registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleCommandCursorStartBridge), /(?:BeginFrame|RunPending|EndFrame|packet_record|record_reader|host|dispatch|scheduler|transport|platform|backend|fallback)/, "F5nyx must stop at BeginPending command-cursor authority");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCommandCursorStart, /#test\b|stroke_compositor_tile_rle_count_fixture/, "F5nyx production extension must remain fixture-free");
+assertOrderedFragments(spec, ["### F5nyw registered stroke compositor RLE present-frame recovery bridge", "### F5nyx registered stroke compositor RLE command-cursor start bridge", "F5mt", "F5nyy", "BeginFrame"], "F5nyx spec heading order");
+assertOrderedFragments(detailedDesign, ["### F5nyw registered direct compositor RLE present-frame recovery bridge", "### F5nyx registered direct compositor RLE command-cursor start bridge", "F5mt", "F5nyy", "BeginFrame"], "F5nyx design heading order");
+assertOrderedFragments(implementationPlan, ["## Phase F5nyw", "## Phase F5nyx", "F5mt", "F5nyy", "BeginFrame"], "F5nyx plan heading order");
 for (const fragment of [
     "resource_software_drain_test_normal_contract",
     "software_drain_owner_cell_index &owner 0",

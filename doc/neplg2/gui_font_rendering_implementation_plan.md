@@ -13810,3 +13810,10 @@ git diff --check
 - upstream十六層とpresent-frame rewrapの第十七層をlossless nested resultに保持し、F5mr/F5mq recoveryやowner constructionを再実装しない。
 - production-derived fixtureでmetadata、surface/frame、expected run/pixel countとowner freeをevidence 31として検証し、rewrap error cleanupを保持する。
 - F5nyv/F5ms/F5mr回帰、source policy、normal compile、trunk/CLIを通す。次のF5nyxがrecovered present ownerをF5mt command cursor startへexactly once渡し、packet recordとhost executionは後続phaseとする。
+
+## Phase F5nyx: registered stroke compositor RLE command-cursor start boundary
+
+- public F5nyw successのrecovered present-frame ownerだけを既存F5mt command-cursor startへexactly once渡す。
+- upstream十七層とcommand-cursor startの第十八層をlossless nested resultに保持し、F5mt/F5mrのdescriptor projection、run-cursor restart、start-error recoveryを再実装しない。
+- production-derived fixtureで`BeginPending`、descriptor metadata 263/16/3/1、surface/frame、expected run/pixel count、owner freeを検証し、start error cleanupを保持する。
+- F5nyw/F5mt/F5mr回帰、18層source policy、normal compile、trunk/CLIを通す。F5nyxはF5mt step前で停止し、次のF5nyyが既存F5mt stepをexactly once呼んで最初の`BeginFrame`を保持する。Run/EndFrame、packet record、host executionはさらに後続phaseとする。
