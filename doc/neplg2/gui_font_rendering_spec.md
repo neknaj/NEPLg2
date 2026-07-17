@@ -8689,3 +8689,7 @@ F5nyuはpublic F5nytを1回だけ呼び、run-cursor successだけを既存F5ms 
 ### F5nyv registered stroke compositor RLE completed-step bridge
 
 F5nyvはpublic F5nyuを1回だけ呼び、first-step successを`gui_rgba8888_compositor_tile_rle_present_run_step_finish_owner`で1回だけnext ownerへ戻してから、既存F5ms `gui_rgba8888_compositor_tile_rle_present_run_step_one`へ1回だけ渡す。既存十五層とsecond run-stepの第十六層をlossless nested `Result`として保持する。production-derived one-run fixtureはexplicit `Completed`、metadata 263/16/3/1、next record index 1、total run count 1、step freeをevidence 7で検証する。third stepは実行しない。次のF5nywはcompleted stepを既存`gui_rgba8888_compositor_tile_rle_present_run_step_finish_present_frame`へexactly once渡し、present-frame rewrap errorを第十七層に保持して停止する。続くF5nyxはF5mt command cursorを開始し、packet recordとhost executionはさらに後続phaseとする。
+
+### F5nyw registered stroke compositor RLE present-frame recovery bridge
+
+F5nywはpublic F5nyvを1回だけ呼び、completed-step successだけを既存F5ms `gui_rgba8888_compositor_tile_rle_present_run_step_finish_present_frame`へ1回だけ渡す。既存十六層とpresent-frame rewrapの第十七層をlossless nested `Result`として保持し、F5mr/F5mqのmetadata-before-owner-moveとrewrap recoveryを再実装しない。production-derived fixtureはmetadata 263/16/3/1、surface 7、frame 263、expected run count 1、pixel count 16、owner freeをevidence 31で検証する。third step、direct rewrap、F5mt command cursor、packet record、host executionへは進まない。続くF5nyxがrecovered present ownerをF5mtへexactly once渡す。

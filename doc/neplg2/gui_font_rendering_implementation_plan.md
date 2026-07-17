@@ -13803,3 +13803,10 @@ git diff --check
 - upstream十五層とsecond run-stepの第十六層をlossless nested resultに保持し、third stepやlower owner recoveryを再実装しない。
 - production-derived one-run fixtureでexplicit `Completed`、metadata、next record index 1、total run count 1、step freeをevidence 7として検証する。
 - F5nyu/F5ms回帰、source policy、normal compile、trunk/CLIを通す。次のF5nywはcompleted stepを既存finish-present-frameへexactly once渡し、present-frame owner/rewrap errorを第十七層に保持して停止する。続くF5nyxはF5mt command cursorを開始し、packet recordとhost executionはさらに後続phaseとする。
+
+## Phase F5nyw: registered stroke compositor RLE present-frame recovery boundary
+
+- public F5nyv successのcompleted stepだけを既存F5ms finish-present-frameへexactly once渡す。
+- upstream十六層とpresent-frame rewrapの第十七層をlossless nested resultに保持し、F5mr/F5mq recoveryやowner constructionを再実装しない。
+- production-derived fixtureでmetadata、surface/frame、expected run/pixel countとowner freeをevidence 31として検証し、rewrap error cleanupを保持する。
+- F5nyv/F5ms/F5mr回帰、source policy、normal compile、trunk/CLIを通す。次のF5nyxがrecovered present ownerをF5mt command cursor startへexactly once渡し、packet recordとhost executionは後続phaseとする。
