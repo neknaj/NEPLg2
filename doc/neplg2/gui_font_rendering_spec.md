@@ -8705,3 +8705,7 @@ F5nyyはpublic F5nyxを1回だけ呼び、`BeginPending` command-cursor success�
 ### F5nyz registered stroke compositor RLE Run step bridge
 
 F5nyzはpublic F5nyyを1回だけ呼び、BeginFrame step successからcontinuation ownerを既存F5mt finish-ownerで1回だけ回収し、そのownerを既存F5mt stepへ1回だけ渡す。既存十九層とsecond command stepの第二十層をlossless nested `Result`として保持し、productionはfirst-step resultやsecond-step `Run` commandを解釈しない。production-derived fixtureはcanonical descriptorのmetadata 263/16/3/1、surface 7、frame 263、expected run count 1、pixel count 16、typed runのoffset 0/count 16/color 11/22/33/44をevidence 511、next `RunPending` phaseをevidence 512として検証し、owner free後の合計を1023とする。production graphはfixture-freeで、次のF5nzaによる`EndFrame` step、F5mu record、host executionより前で停止する。
+
+### F5nza registered stroke compositor RLE EndFrame step bridge
+
+F5nzaはpublic F5nyzを1回だけ呼び、Run step successからcontinuation ownerを既存F5mt finish-ownerで1回だけ回収し、そのownerを既存F5mt stepへ1回だけ渡す。既存二十層とthird command stepの第二十一層をlossless nested `Result`として保持し、productionはRun result、EndFrame result、descriptor、phaseを解釈しない。production-derived fixtureはEndFrame payloadとcanonical descriptor双方のmetadata 263/16/3/1、surface 7、frame 263、expected run count 1、pixel count 16をevidence 63、next `Completed` phaseを64として検証し、owner free後の合計を127とする。production graphはfixture-freeで、次のF5nzbによるterminal `Completed` step、F5mu record、host executionより前で停止する。
