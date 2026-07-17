@@ -74,4 +74,3 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
                                                                                                                             match gui_rgba8888_compositor_tile_rle_present_run_step_one cursor:
                                                                                                                                 Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
                                                                                                                                 Result::Ok completed: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok completed
-
