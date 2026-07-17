@@ -168616,3 +168616,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nykの五層nested resultを保持したまま、cursor successだけを既存F5mkへ1回渡す六層lossless bridgeを追加した。
 - focused fixtureはmetadata 261/16/3/1、production-derived run count 1、checked capacity 12、cursor 0/16、payload 64 bytesとfreeを検証する。F5ml storage、write、packet、presentと全体目標は未完成である。
 - focused F5nylと既存F5mk回帰、Web source-policy、targeted normal isolation、issues/diff check、一時npm.cmd shim経由のtrunk build、trunk後Playground editor JSON 13/13を通過した。subagent指摘のphase見出し順、issue根拠、自然到達不能error委譲、todoを修正した。
+
+## 2026-07-17 F5nym registered RLE storage bridge implementation
+
+- public F5nylを1回呼び、writer-plan successだけを既存F5mlへ1回渡す七層lossless bridgeを追加した。fixtureはmetadata 261/16/3/1、run count 1、capacity 12、cursor 0/16、storage freeの31 evidenceを通過した。
+- Focused F5nym evidence 31、upstream F5nyl evidence 63、既存F5ml storage/error recovery回帰、Web source-policy、targeted normal isolation、issues/diff check、`git diff --check`、一時`npm.cmd` shim経由の`trunk build`、trunk後Playground editor JSON 13/13を通過した。subagent差分reviewはblockingなしで、全体整合reviewの指摘により自然到達不能なallocation failureをfixtureで偽造せず既存F5ml回帰へ委譲する説明をspecとsource-policyへ同期した。
+- F5mm write cursor、encoded seal、packet、present、native/GUI表示とフォントレンダリングエンジン・GUIライブラリ全体は未完成である。

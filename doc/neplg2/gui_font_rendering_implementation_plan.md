@@ -13734,3 +13734,10 @@ git diff --check
 - 六層 nested result に upstream と writer-plan error authority を lossless に保持する。有効run countから自然到達不能なwriter-plan errorは偽造せず、既存F5mk error/recovery regressionへ委譲する。
 - focused fixture で metadata、production-derived run count 1、12-byte checked capacity、cursor 0/16、64-byte payload roundtrip を検証する。
 - F5nyk/F5mk回帰、source policy、normal compile、trunk/CLIを通し、F5ml storage、writer step、encoded packet、present は後続 phase とする。
+
+## Phase F5nym: registered stroke compositor RLE storage bridge boundary
+
+- public F5nylをexact-onceで呼び、writer-plan successのみ既存F5ml storage prepareへexact-onceで渡す。
+- 七層nested resultにupstreamとstorage prepare error authorityをlosslessに保持する。自然到達不能なallocation failureは偽造せず既存F5ml回帰へ委譲する。
+- focused fixtureでmetadata、run count 1、capacity 12、cursor 0/16、storage freeを検証する。
+- F5nyl/F5ml回帰、source policy、normal compile、trunk/CLIを通し、F5mm write cursor以降は後続phaseとする。

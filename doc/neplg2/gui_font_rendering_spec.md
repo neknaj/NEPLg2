@@ -8649,3 +8649,7 @@ F5nykは専用extension `stroke_compositor_tile_rle_encode_cursor.nepl` に置�
 ### F5nyl registered stroke compositor RLE writer-plan bridge
 
 F5nyl は public F5nyk を 1 回だけ呼び、ready cursor success だけを既存 F5mk `gui_rgba8888_compositor_tile_rle_writer_plan_prepare` へ 1 回渡す。start、step、completed、seed、cursor、writer-plan の六層 owner-bearing error を nested `Result` の同じ段に保持し、checked total run count から exact encoded byte capacity を得る。有効F5nyk successのrun countからwriter-plan errorは自然到達不能なので偽造せず、error/recovery検証は既存F5mk回帰へ委譲する。F5ml storage、write、encoded seal、packet、native/GUI present には進まない。
+
+### F5nym registered stroke compositor RLE storage bridge
+
+F5nymはpublic F5nylを1回だけ呼び、writer-plan successだけを既存F5ml `gui_rgba8888_compositor_tile_rle_storage_prepare`へ1回渡す。start、step、completed、seed、cursor、writer-plan、storageの七層owner-bearing errorをnested `Result`で保持する。production-derived planはrun count 1、exact capacity 12 bytesで、successはmetadataとcursor 0/16を保ったallocated storage ownerとなる。有効なsmall capacityからallocation failureは自然到達不能なのでfixtureで偽造せず、error/recovery検証は既存F5ml回帰へ委譲する。F5mm write cursor、encoded seal、packet、native/GUI presentには進まない。
