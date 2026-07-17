@@ -1571,14 +1571,11 @@ fn emit_linear_addr_from_local(ptr_local: u32, offset: i32, insts: &mut Vec<Inst
 }
 
 fn emit_zero_linear_bytes(ptr_local: u32, size: i32, insts: &mut Vec<Instruction<'static>>) {
-    for off in 0..size {
-        emit_linear_addr_from_local(ptr_local, off, insts);
+    if size > 0 {
+        emit_linear_addr_from_local(ptr_local, 0, insts);
         insts.push(Instruction::I32Const(0));
-        insts.push(Instruction::I32Store8(MemArg {
-            offset: 0,
-            align: 0,
-            memory_index: 0,
-        }));
+        insts.push(Instruction::I32Const(size));
+        insts.push(Instruction::MemoryFill(0));
     }
 }
 
@@ -1590,19 +1587,14 @@ fn emit_copy_linear_bytes(
     size: i32,
     insts: &mut Vec<Instruction<'static>>,
 ) {
-    for off in 0..size {
-        emit_linear_addr_from_local(dst_local, dst_offset + off, insts);
-        emit_linear_addr_from_local(src_local, src_offset + off, insts);
-        insts.push(Instruction::I32Load8U(MemArg {
-            offset: 0,
-            align: 0,
-            memory_index: 0,
-        }));
-        insts.push(Instruction::I32Store8(MemArg {
-            offset: 0,
-            align: 0,
-            memory_index: 0,
-        }));
+    if size > 0 {
+        emit_linear_addr_from_local(dst_local, dst_offset, insts);
+        emit_linear_addr_from_local(src_local, src_offset, insts);
+        insts.push(Instruction::I32Const(size));
+        insts.push(Instruction::MemoryCopy {
+            dst_mem: 0,
+            src_mem: 0,
+        });
     }
 }
 
@@ -3289,6 +3281,7 @@ mod tests {
     use alloc::vec::Vec;
 
     use super::{
+        emit_copy_linear_bytes, emit_zero_linear_bytes,
         export_neplobj_direct_call_fragments_for_wasm,
         generate_wasm_with_neplobj_direct_call_fragments,
         plan_neplobj_direct_call_fragments_for_wasm, NeplObjWasmDirectCallLinkPlanReject,
@@ -3312,6 +3305,10 @@ mod tests {
         materialized_callable_symbol_for_link_symbol, PublicCallableLinkSymbol,
     };
     use crate::types::{TypeCtx, TypeId};
+    use wasm_encoder::Instruction;
+    use wasm_encoder::{
+        CodeSection, Function, FunctionSection, MemorySection, MemoryType, Module, TypeSection,
+    };
 
     fn link_symbol(name: &str, signature_hash: u64) -> PublicCallableLinkSymbol {
         PublicCallableLinkSymbol {
@@ -4174,5 +4171,87 @@ mod tests {
                     crate::diagnostic_codes::WasmDiagnosticCode::NeplObjDirectCallLinkInvalid,
                 ),
             )));
+    }
+    /// aggregate の初期化は payload サイズに比例する命令列を生成しない。
+    #[test]
+    fn aggregate_zero_uses_constant_size_bulk_memory_sequence() {
+        let mut instructions = Vec::new();
+        emit_zero_linear_bytes(3, 1_000_000, &mut instructions);
+
+        assert_eq!(instructions.len(), 4);
+        assert!(matches!(instructions[0], Instruction::LocalGet(3)));
+        assert!(matches!(instructions[1], Instruction::I32Const(0)));
+        assert!(matches!(instructions[2], Instruction::I32Const(1_000_000)));
+        assert!(matches!(instructions[3], Instruction::MemoryFill(0)));
+    }
+
+    /// aggregate の move copy は overlap を含めて memory.copy の意味論を使う。
+    #[test]
+    fn aggregate_copy_uses_constant_size_bulk_memory_sequence() {
+        let mut instructions = Vec::new();
+        emit_copy_linear_bytes(1, 4, 2, 8, 1_000_000, &mut instructions);
+
+        assert_eq!(instructions.len(), 8);
+        assert!(matches!(instructions[0], Instruction::LocalGet(1)));
+        assert!(matches!(instructions[3], Instruction::LocalGet(2)));
+        assert!(matches!(instructions[6], Instruction::I32Const(1_000_000)));
+        assert!(matches!(
+            instructions[7],
+            Instruction::MemoryCopy {
+                dst_mem: 0,
+                src_mem: 0
+            }
+        ));
+    }
+
+    /// zero-byte aggregate は address 評価も memory operation も生成しない。
+    #[test]
+    fn zero_size_aggregate_memory_operations_emit_nothing() {
+        let mut instructions = Vec::new();
+        emit_zero_linear_bytes(1, 0, &mut instructions);
+        emit_copy_linear_bytes(1, 0, 2, 0, 0, &mut instructions);
+
+        assert!(instructions.is_empty());
+    }
+
+    /// backend が生成する bulk-memory sequence は既定 target feature で妥当な Wasm になる。
+    #[test]
+    fn aggregate_bulk_memory_sequence_validates() {
+        let mut module = Module::new();
+        let mut types = TypeSection::new();
+        types.ty().function([], []);
+        module.section(&types);
+        let mut functions = FunctionSection::new();
+        functions.function(0);
+        module.section(&functions);
+        let mut memory = MemorySection::new();
+        memory.memory(MemoryType {
+            minimum: 1,
+            maximum: None,
+            memory64: false,
+            shared: false,
+            page_size_log2: None,
+        });
+        module.section(&memory);
+        let mut body = Function::new([]);
+        body.instruction(&Instruction::I32Const(0));
+        body.instruction(&Instruction::I32Const(0));
+        body.instruction(&Instruction::I32Const(16));
+        body.instruction(&Instruction::MemoryFill(0));
+        body.instruction(&Instruction::I32Const(16));
+        body.instruction(&Instruction::I32Const(0));
+        body.instruction(&Instruction::I32Const(16));
+        body.instruction(&Instruction::MemoryCopy {
+            dst_mem: 0,
+            src_mem: 0,
+        });
+        body.instruction(&Instruction::End);
+        let mut code = CodeSection::new();
+        code.function(&body);
+        module.section(&code);
+
+        wasmparser::Validator::new()
+            .validate_all(&module.finish())
+            .expect("aggregate bulk-memory sequence must validate");
     }
 }
