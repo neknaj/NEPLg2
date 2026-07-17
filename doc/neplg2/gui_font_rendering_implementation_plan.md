@@ -13789,3 +13789,10 @@ git diff --check
 - upstream十三層とrun-cursor startの第十四層をlossless nested resultに保持し、metadata-before-owner-move、lower F5co start、F5mq rewrapを含むstart failure recoveryを再実装しない。
 - production-derived fixtureでmetadata、initial record index 0、total run count 1、owner freeをevidence 7として検証する。自然到達不能なstart errorは既存F5mr回帰へ委譲する。
 - F5nys/F5mr回帰、source policy、normal compile、trunk/CLIを通し、F5ms run step、command cursor、packet record、host execution以降は後続phaseとする。
+
+## Phase F5nyu: registered stroke compositor RLE first run-step bridge boundary
+
+- public F5nyt successのrun-cursor ownerだけを既存F5ms run-step-oneへexactly once渡す。
+- upstream十四層とrun-stepの第十五層をlossless nested resultに保持し、metadata-before-owner-move、lower F5co step、result/next-owner recoveryを再実装しない。
+- production-derived fixtureでfirst `RunReady`、metadata、next record index 1、total run count 1、step freeをevidence 7として検証する。自然到達不能なstep errorは既存F5ms回帰へ委譲する。
+- F5nyt/F5ms回帰、source policy、normal compile、trunk/CLIを通し、second step、F5mt command cursor、packet record、host execution以降は後続phaseとする。

@@ -8681,3 +8681,7 @@ F5nysはpublic F5nyrを1回だけ呼び、packet successとcaller supplied typed
 ### F5nyt registered stroke compositor RLE present run-cursor bridge
 
 F5nytはpublic F5nysを1回だけ呼び、present-frame successだけを既存F5mr `gui_rgba8888_compositor_tile_rle_present_run_cursor_start`へ1回だけ渡す。既存十三層とrun-cursor startの第十四層をlossless nested `Result`として保持する。metadata-before-owner-move、lower F5co start、F5mq rewrapを含むstart failure recoveryをF5mrへ委譲する。production-derived fixtureはmetadata、initial record index 0、total run count 1、owner freeをevidence 7で検証する。自然到達不能なstart errorは既存F5mr回帰へ委譲し、F5ms run step、command cursor、packet record、host executionには進まない。
+
+### F5nyu registered stroke compositor RLE first run-step bridge
+
+F5nyuはpublic F5nytを1回だけ呼び、run-cursor successだけを既存F5ms `gui_rgba8888_compositor_tile_rle_present_run_step_one`へ1回だけ渡す。既存十四層とrun-stepの第十五層をlossless nested `Result`として保持する。metadata-before-owner-move、lower F5co step、result/next-owner recoveryをF5msへ委譲する。production-derived fixtureはfirst result `RunReady`、metadata 263/16/3/1、next record index 1、total run count 1、step freeをevidence 7で検証する。自然到達不能なstep errorは既存F5ms回帰へ委譲し、second step、command cursor、packet record、host executionには進まない。

@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T09:00:43.631Z",
+  "generated_at": "2026-07-17T09:12:35.982Z",
   "counts": {
-    "total": 1406,
-    "open": 60,
+    "total": 1407,
+    "open": 61,
     "resolved": 1346,
     "by_area": {
       "stdlib": {
@@ -15,6 +15,11 @@
         "total": 665,
         "open": 28,
         "resolved": 637
+      },
+      "GUI_FONT": {
+        "total": 32,
+        "open": 1,
+        "resolved": 31
       },
       "RESOURCE": {
         "total": 5,
@@ -90,11 +95,6 @@
         "total": 22,
         "open": 0,
         "resolved": 22
-      },
-      "GUI_FONT": {
-        "total": 31,
-        "open": 0,
-        "resolved": 31
       },
       "nodesrc": {
         "total": 16,
@@ -523,6 +523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
+    },
+    {
+      "id": "ISS-20260717T090423969Z-REGISTERED-RUN-CURSOR-LACKS-RUN-STEP-BRIDGE",
+      "title": "Registered run cursor lacks run-step bridge",
+      "area": "GUI_FONT",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_run_step.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T090423969Z-REGISTERED-RUN-CURSOR-LACKS-RUN-STEP-BRIDGE.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
