@@ -13796,3 +13796,10 @@ git diff --check
 - upstream十四層とrun-stepの第十五層をlossless nested resultに保持し、metadata-before-owner-move、lower F5co step、result/next-owner recoveryを再実装しない。
 - production-derived fixtureでfirst `RunReady`、metadata、next record index 1、total run count 1、step freeをevidence 7として検証する。自然到達不能なstep errorは既存F5ms回帰へ委譲する。
 - F5nyt/F5ms回帰、source policy、normal compile、trunk/CLIを通し、second step、F5mt command cursor、packet record、host execution以降は後続phaseとする。
+
+## Phase F5nyv: registered stroke compositor RLE completed-step bridge boundary
+
+- public F5nyu successのfirst stepを既存finish-owner projectionでexactly once消費し、next run-cursor ownerだけを既存F5msへexactly once渡す。
+- upstream十五層とsecond run-stepの第十六層をlossless nested resultに保持し、third stepやlower owner recoveryを再実装しない。
+- production-derived one-run fixtureでexplicit `Completed`、metadata、next record index 1、total run count 1、step freeをevidence 7として検証する。
+- F5nyu/F5ms回帰、source policy、normal compile、trunk/CLIを通す。次のF5nywはcompleted stepを既存finish-present-frameへexactly once渡し、present-frame owner/rewrap errorを第十七層に保持して停止する。続くF5nyxはF5mt command cursorを開始し、packet recordとhost executionはさらに後続phaseとする。
