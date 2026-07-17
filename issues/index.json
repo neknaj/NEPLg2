@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T05:47:09.970Z",
+  "generated_at": "2026-07-17T06:08:44.330Z",
   "counts": {
-    "total": 1399,
+    "total": 1400,
     "open": 60,
-    "resolved": 1339,
+    "resolved": 1340,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 24,
+        "total": 25,
         "open": 0,
-        "resolved": 24
+        "resolved": 25
       },
       "nodesrc": {
         "total": 16,
@@ -11518,6 +11518,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T053248243Z-REGISTERED-RLE-WRITER-PLAN-LACKS-STO-E6D26A76.md"
+    },
+    {
+      "id": "ISS-20260717T055242353Z-REGISTERED-RLE-STORAGE-LACKS-WRITE-C-5F6CFAAD",
+      "title": "Registered RLE storage lacks write cursor bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_write_cursor.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T055242353Z-REGISTERED-RLE-STORAGE-LACKS-WRITE-C-5F6CFAAD.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

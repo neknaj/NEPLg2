@@ -11084,6 +11084,10 @@ F5nyl adapter は F5nyk の五層 result graph を分解せず再包装し、cur
 
 F5nym adapterはF5nylの六層result graphを再包装し、writer-plan success branchだけでF5ml storage prepareを呼ぶ。F5mlが保持するmetadata、total run count 1、encoded byte count 12、cursor 0/16とstorage authorityを第七層へ置く。有効なsmall capacityではallocation failureをfixtureで強制せず、既存F5ml error/recovery regressionへ委譲する。production graphはfixture-freeで、F5mm write cursorより前で停止する。
 
+### F5nyn registered direct compositor RLE write-cursor bridge
+
+F5nyn adapterはF5nymの七層result graphを再包装し、storage success branchだけでF5mm write cursor startを呼ぶ。F5mmが保持するmetadata、total run count 1、encoded byte count 12、cursor 0/16、written run / byte count 0とwriter authorityを第八層へ置く。有効なproduction storageではstart failureをfixtureで強制せず、既存F5mm error/recovery regressionへ委譲する。production graphはfixture-freeで、F5mn write stepより前で停止する。
+
 ### F5nyg registered direct compositor RLE count-start bridge
 
 F5nyg lives in the dedicated `stroke_compositor_tile_rle_count_start.nepl` extension so importing F5mf does not pollute the large stroke module's overload and trait namespace. It consumes the registered completed owner with existing entry/tile configs and tile index. It calls public F5nyf exactly once and passes the untouched payload owner to F5mf `gui_rgba8888_compositor_tile_rle_count_start` exactly once. Success returns the existing count owner with frame/row metadata, zero accumulated runs, pixel cursor zero, and Ready status.

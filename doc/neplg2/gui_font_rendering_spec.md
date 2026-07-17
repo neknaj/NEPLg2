@@ -8653,3 +8653,7 @@ F5nyl は public F5nyk を 1 回だけ呼び、ready cursor success だけを既
 ### F5nym registered stroke compositor RLE storage bridge
 
 F5nymはpublic F5nylを1回だけ呼び、writer-plan successだけを既存F5ml `gui_rgba8888_compositor_tile_rle_storage_prepare`へ1回渡す。start、step、completed、seed、cursor、writer-plan、storageの七層owner-bearing errorをnested `Result`で保持する。production-derived planはrun count 1、exact capacity 12 bytesで、successはmetadataとcursor 0/16を保ったallocated storage ownerとなる。有効なsmall capacityからallocation failureは自然到達不能なのでfixtureで偽造せず、error/recovery検証は既存F5ml回帰へ委譲する。F5mm write cursor、encoded seal、packet、native/GUI presentには進まない。
+
+### F5nyn registered stroke compositor RLE write-cursor bridge
+
+F5nynはpublic F5nymを1回だけ呼び、storage successだけを既存F5mm `gui_rgba8888_compositor_tile_rle_write_cursor_start`へ1回渡す。start、step、completed、seed、cursor、writer-plan、storage、write-cursorの八層owner-bearing errorをnested `Result`で保持する。production-derived storageはrun count 1、capacity 12 bytes、cursor 0/16を保ち、write cursor start直後のwritten run / byte countは0である。有効なF5ml storageからstart failureは自然到達不能なのでfixtureで偽造せず、error/recovery検証は既存F5mm回帰へ委譲する。F5mn write step、encoded seal、packet、native/GUI presentには進まない。

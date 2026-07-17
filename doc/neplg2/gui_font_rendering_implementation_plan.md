@@ -13741,3 +13741,10 @@ git diff --check
 - 七層nested resultにupstreamとstorage prepare error authorityをlosslessに保持する。自然到達不能なallocation failureは偽造せず既存F5ml回帰へ委譲する。
 - focused fixtureでmetadata、run count 1、capacity 12、cursor 0/16、storage freeを検証する。
 - F5nyl/F5ml回帰、source policy、normal compile、trunk/CLIを通し、F5mm write cursor以降は後続phaseとする。
+
+## Phase F5nyn: registered stroke compositor RLE write-cursor bridge boundary
+
+- public F5nymをexact-onceで呼び、storage successのみ既存F5mm write cursor startへexact-onceで渡す。
+- 八層nested resultにupstreamとwrite cursor start error authorityをlosslessに保持する。自然到達不能なstart failureは偽造せず既存F5mm回帰へ委譲する。
+- focused fixtureでmetadata、run count 1、capacity 12、cursor 0/16、written run / byte count 0、write cursor freeを検証する。
+- F5nym/F5mm回帰、source policy、normal compile、trunk/CLIを通し、F5mn write step以降は後続phaseとする。

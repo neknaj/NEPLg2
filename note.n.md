@@ -168622,3 +168622,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - public F5nylを1回呼び、writer-plan successだけを既存F5mlへ1回渡す七層lossless bridgeを追加した。fixtureはmetadata 261/16/3/1、run count 1、capacity 12、cursor 0/16、storage freeの31 evidenceを通過した。
 - Focused F5nym evidence 31、upstream F5nyl evidence 63、既存F5ml storage/error recovery回帰、Web source-policy、targeted normal isolation、issues/diff check、`git diff --check`、一時`npm.cmd` shim経由の`trunk build`、trunk後Playground editor JSON 13/13を通過した。subagent差分reviewはblockingなしで、全体整合reviewの指摘により自然到達不能なallocation failureをfixtureで偽造せず既存F5ml回帰へ委譲する説明をspecとsource-policyへ同期した。
 - F5mm write cursor、encoded seal、packet、present、native/GUI表示とフォントレンダリングエンジン・GUIライブラリ全体は未完成である。
+
+## 2026-07-17 F5nyn registered RLE write-cursor bridge implementation
+
+- public F5nymを1回呼び、storage successだけを既存F5mm write cursor startへ1回渡す八層lossless bridgeを追加した。fixtureはmetadata 262/16/3/1、run count 1、capacity 12、cursor 0/16、written run / byte count 0、write cursor freeのevidence 127を通過した。
+- 初回focused compile failureはproduction owner graphではなく、新stanzaのmetadata fence、`with tests`位置、target/effect、report終端がcanonical doctest契約から逸脱したことが原因だった。既存F5nym stanzaと同じ形式へ修正し、trunk前後のfocused F5nyn、upstream F5nym evidence 31、既存F5mm回帰、Web source-policy、targeted normal isolation、issues/diff check、`git diff --check`、`trunk build`、trunk後Playground editor JSON 13/13を通過した。
+- subagent差分・compiler・全体整合reviewの指摘によりissue根拠とdoctest rootを修正した。F5mn write step、encoded seal、packet、present、native/GUI表示とフォントレンダリングエンジン・GUIライブラリ全体は未完成である。
