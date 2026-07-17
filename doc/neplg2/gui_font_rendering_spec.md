@@ -8637,3 +8637,7 @@ F5nyhは専用extension `stroke_compositor_tile_rle_count_step.nepl` に置き�
 ### F5nyi registered stroke compositor RLE completed-count bridge
 
 F5nyiは専用extension `stroke_compositor_tile_rle_count_completed.nepl` に置き、public F5nyhを1回呼び、そのstep success ownerだけをfinishして既存F5mh completed prepareへ1回渡す。triple nested `Result`はF5nyg start error、F5mg step error、F5mh completed errorをそれぞれ加工せず保持する。zero budgetのPendingはF5mhの`CountNotCompleted`と元count ownerを返し、十分なbudgetだけがmetadata付きcompleted count evidenceを返す。F5nyiはF5mi encode seed、writer、packet、presentへ進まない。
+
+### F5nyj registered stroke compositor RLE encode-seed bridge
+
+F5nyjは専用extension `stroke_compositor_tile_rle_encode_seed.nepl` に置き、public F5nyiを1回呼び、そのcompleted success ownerだけを既存F5mi encode-seed prepareへ1回渡す。quadruple nested `Result`はstart、step、completed、seed errorを加工せず保持する。有効completed evidenceから自然到達不能なseed errorを偽造せず、successはmetadataとexact run countを保つ。F5nyjはF5mj cursor restart、writer、storage、packet、presentへ進まない。

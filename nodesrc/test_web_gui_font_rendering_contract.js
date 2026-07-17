@@ -448,6 +448,7 @@ const allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour = read("stdli
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountStart = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountStep = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountCompleted = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_completed.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleEncodeSeed = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_encode_seed.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountStepTest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountFixture = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink);
@@ -5015,6 +5016,19 @@ for (const fragment of ["GuiRgba8888RowTileRleCountCompletedErrorKind::CountNotC
 assertOrderedFragments(spec, ["F5nyi", "F5nyh", "F5mh", "F5mi"], "F5nyi spec must preserve count continuation order");
 assertOrderedFragments(detailedDesign, ["F5nyi", "F5nyh", "F5mh", "F5mi"], "F5nyi design must preserve count continuation order");
 assertOrderedFragments(implementationPlan, ["Phase F5nyi", "F5nyh", "F5mh", "F5mi"], "F5nyi plan must preserve count continuation order");
+const registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleEncodeSeedBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleEncodeSeed, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_encode_seed_budget");
+assertOrderedFragments(registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleEncodeSeedBridge, ["count_completed_budget completed frame_config tile_config tile_index remaining_steps", "Result::Err lower: Result::Err lower", "Result::Err lower: Result::Ok Result::Err lower", "Result::Err lower: Result::Ok Result::Ok Result::Err lower", "gui_rgba8888_compositor_tile_rle_encode_seed_prepare count_completed", "Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Err lower", "Result::Ok seed: Result::Ok Result::Ok Result::Ok Result::Ok seed"], "F5nyj must preserve all four owner-bearing result layers");
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleEncodeSeedBridge.match(/count_completed_budget completed frame_config tile_config tile_index remaining_steps/g) || []).length === 1, "F5nyj must call F5nyi exactly once");
+assert((registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleEncodeSeedBridge.match(/gui_rgba8888_compositor_tile_rle_encode_seed_prepare count_completed/g) || []).length === 1, "F5nyj must call F5mi exactly once after completed success");
+assertNoMatch(withoutComments(registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleEncodeSeedBridge), /(?:encode_cursor|cursor_start|writer|storage|packet|scheduler|transport|upload|present|host|platform|backend|fallback)/i, "F5nyj must stop before cursor restart and transport");
+assertNoMatch(withoutComments(registeredStrokePackedMaskResourceSoftwareDrainCompositorTileRleEncodeSeedBridge), /count_step_budget|count_completed_prepare|row_tile_rle_encode_seed_prepare/, "F5nyj must not bypass F5nyi or F5mi");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleEncodeSeed, /#test\b|stroke_compositor_tile_rle_count_fixture|BridgeTerminal|BridgeRecovery/, "F5nyj production extension must remain fixture-free and lossless");
+assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountStepTest.includes("software_drain_compositor_tile_rle_encode_seed_bridge_test_success_contract"), "F5nyj test adapter must include reachable seed success");
+assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainTests.includes("software_drain_compositor_tile_rle_encode_seed_bridge_test_success_contract"), "F5nyj focused doctest must execute reachable seed success");
+for (const fragment of ["encode_seed_owner_metadata &seed", "metadata_frame_id &metadata 261", "encode_seed_owner_total_run_count &seed 3", "encode_seed_owner_finish_payload seed", "byte_count_checked &payload", "eq count 64"]) assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountStepTest.includes(fragment), `F5nyj fixture must preserve seed evidence: ${fragment}`);
+assertOrderedFragments(spec, ["F5nyj", "F5nyi", "F5mi", "F5mj"], "F5nyj spec must preserve encode continuation order");
+assertOrderedFragments(detailedDesign, ["F5nyj", "F5nyi", "F5mi", "F5mj"], "F5nyj design must preserve encode continuation order");
+assertOrderedFragments(implementationPlan, ["Phase F5nyj", "F5nyi", "F5mi", "F5mj"], "F5nyj plan must preserve encode continuation order");
 for (const fragment of [
     "resource_software_drain_test_normal_contract",
     "software_drain_owner_cell_index &owner 0",

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T03:57:46.510Z",
+  "generated_at": "2026-07-17T04:21:50.661Z",
   "counts": {
-    "total": 1395,
+    "total": 1396,
     "open": 60,
-    "resolved": 1335,
+    "resolved": 1336,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 20,
+        "total": 21,
         "open": 0,
-        "resolved": 20
+        "resolved": 21
       },
       "nodesrc": {
         "total": 16,
@@ -11458,6 +11458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T032246602Z-REGISTERED-RLE-COUNT-CONTINUATION-LA-21484E79.md"
+    },
+    {
+      "id": "ISS-20260717T040516834Z-REGISTERED-COMPLETED-RLE-COUNT-LACKS-39C7A401",
+      "title": "Registered completed RLE count lacks encode-seed bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_encode_seed.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T040516834Z-REGISTERED-COMPLETED-RLE-COUNT-LACKS-39C7A401.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

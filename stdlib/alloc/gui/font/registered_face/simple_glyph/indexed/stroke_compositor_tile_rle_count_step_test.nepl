@@ -4,10 +4,12 @@
 
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step" as step_bridge
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_completed" as completed_bridge
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_encode_seed" as seed_bridge
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture" as count_fixture
 #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
 #import "alloc/gui/render2d/compositor_tile_rle_count_completed" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
 #import "alloc/gui/render2d/compositor_tile_rle_count" as *
 #import "alloc/gui/render2d/compositor_tile_payload" as *
 #import "alloc/gui/render2d/compositor_tile_plan" as *
@@ -426,3 +428,44 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_completed_bridge_test_entry_recovery_contract %impure fn unit bool \_unit:
     gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_completed_bridge_test_contract 451 3 0
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_encode_seed_bridge_test_success_contract %impure fn unit bool \_unit:
+    match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed 461:
+        Option::None: false
+        Option::Some completed:
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 261 2
+            let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+            match seed_bridge::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_encode_seed_budget completed frame_config tile_config 0 64:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_error_contract error
+                    false
+                Result::Ok step_result:
+                    match step_result:
+                        Result::Err error:
+                            match gui_rgba8888_compositor_tile_rle_count_step_error_free error:
+                                Result::Ok _: false
+                                Result::Err _: false
+                        Result::Ok completed_result:
+                            match completed_result:
+                                Result::Err error:
+                                    match gui_rgba8888_compositor_tile_rle_count_completed_error_free error:
+                                        Result::Ok _: false
+                                        Result::Err _: false
+                                Result::Ok seed_result:
+                                    match seed_result:
+                                        Result::Err error:
+                                            match gui_rgba8888_compositor_tile_rle_encode_seed_error_free error:
+                                                Result::Ok _: false
+                                                Result::Err _: false
+                                        Result::Ok seed:
+                                            let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encode_seed_owner_metadata &seed
+                                            let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 261 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
+                                            let total_ok %bool eq gui_rgba8888_compositor_tile_rle_encode_seed_owner_total_run_count &seed 3
+                                            let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_payload seed
+                                            let bytes_ok %bool match gui_rgba8888_compositor_tile_payload_owner_byte_count_checked &payload:
+                                                Result::Ok count: eq count 64
+                                                Result::Err _: false
+                                            match gui_rgba8888_compositor_tile_payload_owner_free payload:
+                                                Result::Ok _: and and metadata_ok total_ok bytes_ok
+                                                Result::Err _: false

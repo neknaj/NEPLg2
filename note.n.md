@@ -168597,3 +168597,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - isolated production fixture由来のfocused testで、completed metadataとexact run count 3/cursor 16、zero-budget `CountNotCompleted`から回収したmetadata付きReady count ownerの0/0 progress、negative budgetのtyped middle error、invalid frameのouter error/DirtyOwnerを検証する。
 - Web source-policyはF5nyh/F5mh exact-once、F5nyg/F5mg direct bypass禁止、encode/present禁止を固定した。plan.mdとの差異はなく、F5mi以降、native provider、shaping/layout、rasterization、presentationを含む最終目標は未完成である。
 - Focused F5nyi 4経路、F5nyh/F5mh回帰、normal compile isolation、Web source-policy、issues/diff check、`trunk build`、trunk後Playground editor CLI JSON 13/13を通過した。subagentのpending recovery/exact evidence指摘を修正し、再reviewはblockingなしとなった。
+
+## 2026-07-17 F5nyj registered RLE encode-seed bridge implementation
+
+- 専用`stroke_compositor_tile_rle_encode_seed.nepl`を追加し、public F5nyiを1回、そのcompleted success ownerだけを既存F5miへ1回渡すquadruple nested bridgeを実装した。start/step/completed/seed error authorityを加工せず保持し、F5mj cursor restart以降へ進まない。
+- production-only isolated fixture由来のreachable successでframe metadata 261/16/3/1、exact run count 3、payload byte count 64とpayload owner回収/freeを検証する。自然到達不能なseed errorは偽造せず既存F5mi回帰へ委譲する。
+- plan.mdとの差異はない。encode cursor、writer、storage、packet、native/GUI表示とフォントレンダリングエンジン・GUIライブラリ全体は未完成である。
+- Focused F5nyj success、既存F5nyi staged recovery 4経路、F5mi回帰、Web source-policy、新規helper normal compile isolation、issues/diff check、`trunk build`、trunk後Playground editor CLI JSON 13/13を通過した。subagent差分reviewはblockingなしである。
