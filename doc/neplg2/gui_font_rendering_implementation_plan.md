@@ -13761,3 +13761,10 @@ git diff --check
 - public F5nyo successからnext write cursor authorityだけを回収し、既存F5mn one-step writerをexactly once再利用する。
 - startからsecond write-stepまでの十層error graphをlosslessに保ち、1-run fixtureで`Completed`とmetadata/progress evidence 255を検証する。
 - F5nyo/F5mn回帰、source policy、normal compile、trunk/CLIを通し、F5mo encoded seal以降は後続phaseとする。
+
+## Phase F5nyq: registered stroke compositor RLE encoded seal bridge boundary
+
+- public F5nyp successからterminal write cursor authorityだけを回収し、既存F5mo encoded sealへexactly once渡す。
+- startからterminal write completionまでの十層とencoded sealの第十一層をlossless nested resultに保持する。
+- production-derived 1-run fixtureでsealed metadata、run count 1、encoded bytes 12、cursor 16/16、owner freeをevidence 31として検証する。
+- F5nyp/F5mo回帰、source policy、normal compile、trunk/CLIを通し、F5mp packet construction以降は後続phaseとする。

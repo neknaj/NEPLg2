@@ -11096,6 +11096,10 @@ F5nyo adapterはF5nynの八層result graphを再包装し、write-cursor success
 
 F5nyp adapterはF5nyoの九層result graphを再包装し、first-step successが所有するnext write cursorだけを回収してF5mn one-step writerをexactly once再呼出しする。second stepの`Completed`またはowner-bearing errorを第十層へ置き、既存error authorityを平坦化しない。1-run fixtureはmetadataとfully-written progressを保持した明示的terminalを検証する。production graphはfixture-freeで、F5mo encoded sealより前で停止する。
 
+### F5nyq registered direct compositor RLE encoded seal bridge
+
+F5nyq adapterはF5nypの十層result graphを再包装し、terminal successが所有するwrite cursorだけを回収してF5mo encoded sealをexactly once呼び出す。seal successまたはowner-bearing seal errorを第十一層へ置き、upstream authorityを平坦化しない。production-derived 1-run fixtureはsealed ownerのmetadata、run count 1、encoded bytes 12、cursor 16/16とfreeをevidence 31で検証する。production graphはfixture-freeで、F5mp packet constructionより前で停止する。
+
 ### F5nyg registered direct compositor RLE count-start bridge
 
 F5nyg lives in the dedicated `stroke_compositor_tile_rle_count_start.nepl` extension so importing F5mf does not pollute the large stroke module's overload and trait namespace. It consumes the registered completed owner with existing entry/tile configs and tile index. It calls public F5nyf exactly once and passes the untouched payload owner to F5mf `gui_rgba8888_compositor_tile_rle_count_start` exactly once. Success returns the existing count owner with frame/row metadata, zero accumulated runs, pixel cursor zero, and Ready status.

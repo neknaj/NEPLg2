@@ -8665,3 +8665,7 @@ F5nyoはpublic F5nynを1回だけ呼び、write-cursor successだけを既存F5m
 ### F5nyp registered stroke compositor RLE write completion bridge
 
 F5nypはpublic F5nyoを1回だけ呼び、first write-step successからnext writer authorityを回収して既存F5mn `gui_rgba8888_compositor_tile_rle_write_step_one`へ1回だけ再度渡す。既存九層とsecond write-stepの十層目をlossless nested `Result`として保持する。production-derived 1-run fixtureではsecond stepが`Completed`となり、metadata、total run count 1、encoded byte count 12、written run/byte 1/12、cursor 16/16を保持する。F5mo encoded seal、packet、native/GUI presentには進まない。
+
+### F5nyq registered stroke compositor RLE encoded seal bridge
+
+F5nyqはpublic F5nypを1回だけ呼び、terminal write-step successからwrite cursor authorityを回収して既存F5mo `gui_rgba8888_compositor_tile_rle_encoded_seal`へ1回だけ渡す。startからterminal write completionまでの十層とencoded sealの第十一層をlossless nested `Result`として保持する。production-derived 1-run fixtureはsealed metadata、total run count 1、encoded byte count 12、cursor 16/16、owner freeをevidence 31で検証する。F5mp packet、native/GUI present、transportには進まない。
