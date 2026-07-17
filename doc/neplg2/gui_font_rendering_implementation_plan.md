@@ -13768,3 +13768,10 @@ git diff --check
 - startからterminal write completionまでの十層とencoded sealの第十一層をlossless nested resultに保持する。
 - production-derived 1-run fixtureでsealed metadata、run count 1、encoded bytes 12、cursor 16/16、owner freeをevidence 31として検証する。
 - F5nyp/F5mo回帰、source policy、normal compile、trunk/CLIを通し、F5mp packet construction以降は後続phaseとする。
+
+## Phase F5nyr: registered stroke compositor RLE packet bridge boundary
+
+- public F5nyq successのsealed encoded ownerだけを既存F5mp packet preparationへexactly once渡す。
+- upstream十一層とpacket prepareの第十二層をlossless nested resultに保持し、lower descriptor validation、packet owner construction、encoded owner recoveryを再実装しない。
+- production-derived fixtureでmetadata、packet identity、plan/tile range、surface shape、tiling、pixel count、run count 1、encoded bytes 12、owner freeをevidence 255として検証する。自然到達不能なpacket prepare errorは既存F5mp回帰へ委譲する。
+- F5nyq/F5mp回帰、source policy、normal compile、trunk/CLIを通し、SurfaceId、F5mq present-frame、packet record、host transport以降は後続phaseとする。

@@ -11100,6 +11100,10 @@ F5nyp adapterはF5nyoの九層result graphを再包装し、first-step success�
 
 F5nyq adapterはF5nypの十層result graphを再包装し、terminal successが所有するwrite cursorだけを回収してF5mo encoded sealをexactly once呼び出す。seal successまたはowner-bearing seal errorを第十一層へ置き、upstream authorityを平坦化しない。production-derived 1-run fixtureはsealed ownerのmetadata、run count 1、encoded bytes 12、cursor 16/16とfreeをevidence 31で検証する。production graphはfixture-freeで、F5mp packet constructionより前で停止する。
 
+### F5nyr registered direct compositor RLE packet bridge
+
+F5nyr adapterはF5nyqの十一層result graphを再包装し、encoded successだけをF5mp packet preparationへexactly once移送する。packet successまたはencoded ownerを保持するprepare errorを第十二層へ置き、metadata copy、lower descriptor validation、error recoveryは既存F5mpへ委譲する。production-derived fixtureはmetadata付きpacket descriptor全体とowner freeをevidence 255で検証する。production graphはfixture-freeで、SurfaceIdを受けず、F5mq present-frame、packet record、host transportより前で停止する。
+
 ### F5nyg registered direct compositor RLE count-start bridge
 
 F5nyg lives in the dedicated `stroke_compositor_tile_rle_count_start.nepl` extension so importing F5mf does not pollute the large stroke module's overload and trait namespace. It consumes the registered completed owner with existing entry/tile configs and tile index. It calls public F5nyf exactly once and passes the untouched payload owner to F5mf `gui_rgba8888_compositor_tile_rle_count_start` exactly once. Success returns the existing count owner with frame/row metadata, zero accumulated runs, pixel cursor zero, and Ready status.

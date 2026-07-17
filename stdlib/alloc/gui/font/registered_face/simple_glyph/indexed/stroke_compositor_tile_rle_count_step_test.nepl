@@ -12,6 +12,7 @@
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_write_step" as write_step_bridge
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_write_completed" as write_completed_bridge
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_encoded" as encoded_bridge
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_packet" as packet_bridge
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture" as count_fixture
 #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
@@ -23,6 +24,7 @@
 #import "alloc/gui/render2d/compositor_tile_rle_write_cursor" as *
 #import "alloc/gui/render2d/compositor_tile_rle_write_step" as *
 #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+#import "alloc/gui/render2d/compositor_tile_rle_packet" as *
 #import "alloc/gui/render2d/compositor_tile_rle_count" as *
 #import "alloc/gui/render2d/compositor_tile_payload" as *
 #import "alloc/gui/render2d/compositor_tile_plan" as *
@@ -794,6 +796,101 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_sof
             match gui_rgba8888_compositor_tile_rle_encoded_owner_free encoded:
                 Result::Ok _: evidence
                 Result::Err _: sub 0 25
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_packet_bridge_test_consume %impure fn Result GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorTileRlePacketPrepareError i32 \packet_result:
+    match packet_result:
+        Result::Err error:
+            match gui_rgba8888_compositor_tile_rle_packet_prepare_error_free error:
+                Result::Ok _: sub 0 26
+                Result::Err _: sub 0 27
+        Result::Ok packet:
+            let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_packet_owner_metadata &packet
+            let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 263 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
+            let identity_ok %bool and and eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_frame_id &packet 263 eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_batch_index &packet 0 eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_tile_index &packet 0
+            let plan_ok %bool and eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_plan_row_start &packet 3 eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_plan_row_count &packet 1
+            let tile_ok %bool and eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_row_start &packet 3 eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_row_count &packet 1
+            let shape_ok %bool and and eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_width &packet 16 eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_height &packet 16 eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_stride_bytes &packet 64
+            let tiling_ok %bool and eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_tile_rows &packet 1 eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_tile_count &packet 1
+            let pixels_ok %bool eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_pixel_count &packet 16
+            let encoded_ok %bool and eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_total_run_count &packet 1 eq gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_encoded_byte_count &packet 12
+            let evidence %i32 add add add add add add add if metadata_ok then 1 else 0 if identity_ok then 2 else 0 if plan_ok then 4 else 0 if tile_ok then 8 else 0 if shape_ok then 16 else 0 if tiling_ok then 32 else 0 if pixels_ok then 64 else 0 if encoded_ok then 128 else 0
+            match gui_rgba8888_compositor_tile_rle_packet_owner_free packet:
+                Result::Ok _: evidence
+                Result::Err _: sub 0 28
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_packet_bridge_test_success_contract %impure fn unit i32 \_unit:
+    match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed 473:
+        Option::None: sub 0 1
+        Option::Some completed:
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 263 2
+            let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+            match packet_bridge::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_packet_budget completed frame_config tile_config 0 64:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_error_contract error
+                    sub 0 2
+                Result::Ok a:
+                    match a:
+                        Result::Err error:
+                            match gui_rgba8888_compositor_tile_rle_count_step_error_free error:
+                                Result::Ok _: sub 0 3
+                                Result::Err _: sub 0 4
+                        Result::Ok b:
+                            match b:
+                                Result::Err error:
+                                    match gui_rgba8888_compositor_tile_rle_count_completed_error_free error:
+                                        Result::Ok _: sub 0 5
+                                        Result::Err _: sub 0 6
+                                Result::Ok c:
+                                    match c:
+                                        Result::Err error:
+                                            match gui_rgba8888_compositor_tile_rle_encode_seed_error_free error:
+                                                Result::Ok _: sub 0 7
+                                                Result::Err _: sub 0 8
+                                        Result::Ok d:
+                                            match d:
+                                                Result::Err error:
+                                                    match gui_rgba8888_compositor_tile_rle_encode_cursor_error_free error:
+                                                        Result::Ok _: sub 0 9
+                                                        Result::Err _: sub 0 10
+                                                Result::Ok e:
+                                                    match e:
+                                                        Result::Err error:
+                                                            match gui_rgba8888_compositor_tile_rle_writer_plan_error_free error:
+                                                                Result::Ok _: sub 0 11
+                                                                Result::Err _: sub 0 12
+                                                        Result::Ok f:
+                                                            match f:
+                                                                Result::Err error:
+                                                                    match gui_rgba8888_compositor_tile_rle_storage_prepare_error_free error:
+                                                                        Result::Ok _: sub 0 13
+                                                                        Result::Err _: sub 0 14
+                                                                Result::Ok g:
+                                                                    match g:
+                                                                        Result::Err error:
+                                                                            match gui_rgba8888_compositor_tile_rle_write_cursor_start_error_free error:
+                                                                                Result::Ok _: sub 0 15
+                                                                                Result::Err _: sub 0 16
+                                                                        Result::Ok h:
+                                                                            match h:
+                                                                                Result::Err first_error:
+                                                                                    match gui_rgba8888_compositor_tile_rle_write_step_error_free first_error:
+                                                                                        Result::Ok _: sub 0 17
+                                                                                        Result::Err _: sub 0 18
+                                                                                Result::Ok i:
+                                                                                    match i:
+                                                                                        Result::Err second_error:
+                                                                                            match gui_rgba8888_compositor_tile_rle_write_step_error_free second_error:
+                                                                                                Result::Ok _: sub 0 19
+                                                                                                Result::Err _: sub 0 20
+                                                                                        Result::Ok j:
+                                                                                            match j:
+                                                                                                Result::Err seal_error:
+                                                                                                    match gui_rgba8888_compositor_tile_rle_encoded_seal_error_free seal_error:
+                                                                                                        Result::Ok _: sub 0 21
+                                                                                                        Result::Err _: sub 0 22
+                                                                                                Result::Ok packet_result:
+                                                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_packet_bridge_test_consume packet_result
 
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_encoded_bridge_test_success_contract %impure fn unit i32 \_unit:

@@ -8669,3 +8669,7 @@ F5nypはpublic F5nyoを1回だけ呼び、first write-step successからnext wri
 ### F5nyq registered stroke compositor RLE encoded seal bridge
 
 F5nyqはpublic F5nypを1回だけ呼び、terminal write-step successからwrite cursor authorityを回収して既存F5mo `gui_rgba8888_compositor_tile_rle_encoded_seal`へ1回だけ渡す。startからterminal write completionまでの十層とencoded sealの第十一層をlossless nested `Result`として保持する。production-derived 1-run fixtureはsealed metadata、total run count 1、encoded byte count 12、cursor 16/16、owner freeをevidence 31で検証する。F5mp packet、native/GUI present、transportには進まない。
+
+### F5nyr registered stroke compositor RLE packet bridge
+
+F5nyrはpublic F5nyqを1回だけ呼び、sealed encoded successだけを既存F5mp `gui_rgba8888_compositor_tile_rle_packet_prepare`へ1回だけ渡す。既存十一層とpacket prepareの第十二層をlossless nested `Result`として保持し、packet validation、descriptor construction、prepare error recoveryを再実装しない。production-derived fixtureはmetadataとpacket descriptorのframe/batch/tile、plan/tile range、shape/tiling、pixel/run/encoded-byte counts、owner freeをevidence 255で検証する。自然到達不能なpacket prepare errorは既存F5mp回帰へ委譲し、F5mq present-frame、packet record、native/GUI transportには進まない。
