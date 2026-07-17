@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T08:29:10.231Z",
+  "generated_at": "2026-07-17T08:43:46.077Z",
   "counts": {
     "total": 1405,
-    "open": 61,
-    "resolved": 1344,
+    "open": 60,
+    "resolved": 1345,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "GUI_FONT": {
-        "total": 30,
-        "open": 1,
-        "resolved": 29
       },
       "RESOURCE": {
         "total": 5,
@@ -95,6 +90,11 @@
         "total": 22,
         "open": 0,
         "resolved": 22
+      },
+      "GUI_FONT": {
+        "total": 30,
+        "open": 0,
+        "resolved": 30
       },
       "nodesrc": {
         "total": 16,
@@ -523,21 +523,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260717T082657637Z-REGISTERED-RLE-PACKET-LACKS-PRESENT-FRAME-BRIDGE",
-      "title": "Registered RLE packet lacks present-frame bridge",
-      "area": "GUI_FONT",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-17",
-      "updated": "2026-07-17",
-      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_present_frame.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260717T082657637Z-REGISTERED-RLE-PACKET-LACKS-PRESENT-FRAME-BRIDGE.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -11608,6 +11593,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T080413117Z-REGISTERED-ENCODED-RLE-OWNER-LACKS-PACKET-BRIDGE.md"
+    },
+    {
+      "id": "ISS-20260717T082657637Z-REGISTERED-RLE-PACKET-LACKS-PRESENT-FRAME-BRIDGE",
+      "title": "Registered RLE packet lacks present-frame bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_present_frame.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T082657637Z-REGISTERED-RLE-PACKET-LACKS-PRESENT-FRAME-BRIDGE.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
