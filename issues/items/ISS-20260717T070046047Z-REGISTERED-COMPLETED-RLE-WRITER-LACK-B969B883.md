@@ -2,8 +2,8 @@
 id: ISS-20260717T070046047Z-REGISTERED-COMPLETED-RLE-WRITER-LACK-B969B883
 title: "Registered completed RLE writer lacks encoded seal bridge"
 area: GUI_FONT
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-17
@@ -40,4 +40,4 @@ Add F5nyq lossless bridge from F5nyp terminal success to existing F5mo seal, wit
 
 ## 検証
 
-Production-derived fixture preserves metadata and sealed counts, and all gates pass.
+F5nyq production-derived fixtureはsealed metadata、run count 1、encoded bytes 12、cursor 16/16、owner freeをevidence 31でtrunk前後に確認した。upstream F5nyp evidence 255、lower F5mo回帰、F5nyq test-only helperのnormal compile隔離、Web source-policy、issues/diff check、trunk build、Playground editor CLI JSON 13/13を通過した。全45 helper normal isolationは20分間CPU計算を継続したためbounded stopし、新規F5nyq helperを同じnormal-mode compiler経路で単独検証した。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T07:02:59.343Z",
+  "generated_at": "2026-07-17T07:59:10.661Z",
   "counts": {
     "total": 1403,
-    "open": 61,
-    "resolved": 1342,
+    "open": 60,
+    "resolved": 1343,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "GUI_FONT": {
-        "total": 28,
-        "open": 1,
-        "resolved": 27
       },
       "RESOURCE": {
         "total": 5,
@@ -95,6 +90,11 @@
         "total": 22,
         "open": 0,
         "resolved": 22
+      },
+      "GUI_FONT": {
+        "total": 28,
+        "open": 0,
+        "resolved": 28
       },
       "nodesrc": {
         "total": 16,
@@ -523,21 +523,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260717T070046047Z-REGISTERED-COMPLETED-RLE-WRITER-LACK-B969B883",
-      "title": "Registered completed RLE writer lacks encoded seal bridge",
-      "area": "GUI_FONT",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-17",
-      "updated": "2026-07-17",
-      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_encoded.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260717T070046047Z-REGISTERED-COMPLETED-RLE-WRITER-LACK-B969B883.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -11578,6 +11563,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T063919545Z-REGISTERED-STROKE-RLE-PATH-LACKS-COM-14D00AE4.md"
+    },
+    {
+      "id": "ISS-20260717T070046047Z-REGISTERED-COMPLETED-RLE-WRITER-LACK-B969B883",
+      "title": "Registered completed RLE writer lacks encoded seal bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_encoded.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T070046047Z-REGISTERED-COMPLETED-RLE-WRITER-LACK-B969B883.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
