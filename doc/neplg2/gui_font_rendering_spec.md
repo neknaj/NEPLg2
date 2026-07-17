@@ -8677,3 +8677,7 @@ F5nyrはpublic F5nyqを1回だけ呼び、sealed encoded successだけを既存F
 ### F5nys registered stroke compositor RLE present-frame bridge
 
 F5nysはpublic F5nyrを1回だけ呼び、packet successとcaller supplied typed `SurfaceId`だけを既存F5mq `gui_rgba8888_compositor_tile_rle_present_frame_prepare`へ1回だけ渡す。既存十二層とpresent-frame prepareの第十三層をlossless nested `Result`として保持する。SurfaceIdやFrameIdをregistered側で再構築せず、frame照合、lower present owner construction、packet recoveryをF5mqへ委譲する。production-derived fixtureはmetadata、surface 7、frame 263、expected run count 1、pixel count 16、owner freeをevidence 31で検証する。自然到達不能なprepare errorは既存F5mq回帰へ委譲し、F5mr run cursor、packet record、host executionには進まない。
+
+### F5nyt registered stroke compositor RLE present run-cursor bridge
+
+F5nytはpublic F5nysを1回だけ呼び、present-frame successだけを既存F5mr `gui_rgba8888_compositor_tile_rle_present_run_cursor_start`へ1回だけ渡す。既存十三層とrun-cursor startの第十四層をlossless nested `Result`として保持する。metadata-before-owner-move、lower F5co start、F5mq rewrapを含むstart failure recoveryをF5mrへ委譲する。production-derived fixtureはmetadata、initial record index 0、total run count 1、owner freeをevidence 7で検証する。自然到達不能なstart errorは既存F5mr回帰へ委譲し、F5ms run step、command cursor、packet record、host executionには進まない。

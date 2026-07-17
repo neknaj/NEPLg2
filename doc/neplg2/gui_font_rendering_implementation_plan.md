@@ -13782,3 +13782,10 @@ git diff --check
 - upstream十二層とpresent-frame prepareの第十三層をlossless nested resultに保持し、SurfaceId/FrameId再構築、frame照合、lower present owner construction、packet recoveryを再実装しない。
 - production-derived fixtureでmetadata、surface 7、frame 263、expected run count 1、pixel count 16、owner freeをevidence 31として検証する。自然到達不能なpresent prepare errorは既存F5mq回帰へ委譲する。
 - F5nyr/F5mq回帰、source policy、normal compile、trunk/CLIを通し、F5mr run cursor、packet record、host execution以降は後続phaseとする。
+
+## Phase F5nyt: registered stroke compositor RLE present run-cursor bridge boundary
+
+- public F5nys successのpresent-frame ownerだけを既存F5mr run-cursor startへexactly once渡す。
+- upstream十三層とrun-cursor startの第十四層をlossless nested resultに保持し、metadata-before-owner-move、lower F5co start、F5mq rewrapを含むstart failure recoveryを再実装しない。
+- production-derived fixtureでmetadata、initial record index 0、total run count 1、owner freeをevidence 7として検証する。自然到達不能なstart errorは既存F5mr回帰へ委譲する。
+- F5nys/F5mr回帰、source policy、normal compile、trunk/CLIを通し、F5ms run step、command cursor、packet record、host execution以降は後続phaseとする。
