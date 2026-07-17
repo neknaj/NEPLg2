@@ -8641,3 +8641,7 @@ F5nyiは専用extension `stroke_compositor_tile_rle_count_completed.nepl` に置
 ### F5nyj registered stroke compositor RLE encode-seed bridge
 
 F5nyjは専用extension `stroke_compositor_tile_rle_encode_seed.nepl` に置き、public F5nyiを1回呼び、そのcompleted success ownerだけを既存F5mi encode-seed prepareへ1回渡す。quadruple nested `Result`はstart、step、completed、seed errorを加工せず保持する。有効completed evidenceから自然到達不能なseed errorを偽造せず、successはmetadataとexact run countを保つ。F5nyjはF5mj cursor restart、writer、storage、packet、presentへ進まない。
+
+### F5nyk registered stroke compositor RLE encode-cursor bridge
+
+F5nykは専用extension `stroke_compositor_tile_rle_encode_cursor.nepl` に置き、public F5nyjを1回呼び、そのseed success ownerだけを既存F5mj encode-cursor startへ1回渡す。五層nested `Result`はstart、step、completed、seed、cursor errorを加工せず保持する。有効seedから自然到達不能なcursor errorを偽造せず、successはmetadata、run count、ready cursor範囲を保つ。F5nykはF5mk writer plan、storage、packet、presentへ進まない。

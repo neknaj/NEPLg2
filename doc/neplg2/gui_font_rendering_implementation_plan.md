@@ -13721,3 +13721,9 @@ git diff --check
 - 専用`stroke_compositor_tile_rle_encode_seed.nepl`でpublic F5nyiを1回呼び、completed success ownerだけを既存F5miへ1回渡す。
 - quadruple nested `Result`でstart、step、completed、seed error/successをlosslessに保持する。自然到達不能なseed error fixtureは偽造せず、既存F5mi回帰とsource policyへ委譲する。
 - production-derived fixtureでmetadata、exact run count 3、payload byte count 64とowner回収を検証する。F5nyi/F5mi回帰、source policy、normal compile、trunk/CLIを通し、F5mj cursor restart以降へ進まない。
+
+## Phase F5nyk: registered stroke compositor RLE encode-cursor bridge boundary
+
+- 専用`stroke_compositor_tile_rle_encode_cursor.nepl`でpublic F5nyjを1回呼び、seed success ownerだけを既存F5mjへ1回渡す。
+- 五層nested `Result`でstart、step、completed、seed、cursor error/successをlosslessに保持する。自然到達不能なcursor error fixtureは偽造せず、既存F5mj回帰とsource policyへ委譲する。
+- production-derived fixtureでmetadata、run count 3、cursor 0/16、payload byte count 64とowner回収を検証する。F5nyj/F5mj回帰、source policy、normal compile、trunk/CLIを通し、F5mk writer plan以降へ進まない。

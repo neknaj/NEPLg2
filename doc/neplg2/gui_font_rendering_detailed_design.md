@@ -11072,6 +11072,10 @@ F5nyi lives in `stroke_compositor_tile_rle_count_completed.nepl`. It invokes pub
 
 F5nyj lives in `stroke_compositor_tile_rle_encode_seed.nepl`. It invokes public F5nyi exactly once, preserves its start, step, and completed layers, and only on completed success invokes existing F5mi exactly once. The innermost result retains either the complete seed error with completed-owner recovery or the metadata-bearing seed owner. The production-derived fixture verifies frame metadata, exact total run count 3, and payload recovery with 64 bytes. The boundary stops before F5mj cursor restart, writer/storage transport, packets, and presentation.
 
+### F5nyk registered direct compositor RLE encode-cursor bridge
+
+F5nyk lives in `stroke_compositor_tile_rle_encode_cursor.nepl`. It invokes public F5nyj exactly once, preserves its four existing error layers, and only on seed success invokes existing F5mj exactly once. The fifth result retains either the complete cursor error with payload recovery or the metadata-bearing ready cursor owner. The production-derived fixture verifies frame metadata, run count 3, cursor range 0/16, and payload recovery with 64 bytes. The boundary stops before F5mk writer planning, storage, packets, and presentation.
+
 ### F5nyg registered direct compositor RLE count-start bridge
 
 F5nyg lives in the dedicated `stroke_compositor_tile_rle_count_start.nepl` extension so importing F5mf does not pollute the large stroke module's overload and trait namespace. It consumes the registered completed owner with existing entry/tile configs and tile index. It calls public F5nyf exactly once and passes the untouched payload owner to F5mf `gui_rgba8888_compositor_tile_rle_count_start` exactly once. Success returns the existing count owner with frame/row metadata, zero accumulated runs, pixel cursor zero, and Ready status.
