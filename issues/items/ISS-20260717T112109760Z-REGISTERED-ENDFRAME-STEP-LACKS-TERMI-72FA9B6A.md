@@ -2,8 +2,8 @@
 id: ISS-20260717T112109760Z-REGISTERED-ENDFRAME-STEP-LACKS-TERMI-72FA9B6A
 title: "Registered EndFrame step lacks terminal Completed bridge"
 area: GUI_FONT
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-17
@@ -41,4 +41,4 @@ Add F5nzb lossless bridge that consumes F5nza step owner exactly once, calls F5m
 
 ## 検証
 
-Fixture must prove terminal Completed, Completed continuation, cleanup, policies, normal compile, build, CLI, regressions, and reviews.
+Production-derived fixtureはterminal `Completed`、canonical descriptor metadata 263/16/3/1、surface 7、frame 263、run count 1、pixel count 16、Completed continuation、owner freeをevidence 127でtrunk前後に確認した。upstream F5nza evidence 127、lower F5mt/F5mr回帰、新規helperのnormal compile隔離、Web source-policy、issues/diff check、release trunk build、Playground editor CLI JSON 13/13、subagent差分・runtime・policy/docs reviewを通過した。
