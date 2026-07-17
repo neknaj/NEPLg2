@@ -2,8 +2,8 @@
 id: ISS-20260717T100838450Z-REGISTERED-RECOVERED-PRESENT-FRAME-L-BABDC83F
 title: "Registered recovered present frame lacks command-cursor start bridge"
 area: GUI_FONT
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-17
@@ -41,4 +41,4 @@ Add F5nyx lossless bridge from F5nyw success to exactly one F5mt command-cursor 
 
 ## 検証
 
-Runtime fixture, source-policy, normal isolation, lower regression, trunk build, CLI JSON and subagent review.
+F5nyx production-derived fixtureは`BeginPending`、metadata 263/16/3/1、surface 7、frame 263、expected run count 1、pixel count 16、owner freeをevidence 63でtrunk前後に確認した。upstream F5nyw evidence 31、lower F5mt/F5mr回帰、新規helperのnormal compile隔離、Web source-policy、issues/diff check、trunk build、Playground editor CLI JSON 13/13、subagent差分・runtime・policy/docs reviewを通過した。既存helper全件normal isolationは過去sliceで20分bounded stopとなったため、新規F5nyx helperを同じnormal-mode compiler経路で単独検証した。
