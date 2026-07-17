@@ -2,8 +2,8 @@
 id: ISS-20260717T104946194Z-REGISTERED-BEGINFRAME-STEP-LACKS-FIR-56B88B5F
 title: "Registered BeginFrame step lacks first Run command bridge"
 area: GUI_FONT
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-17
@@ -41,4 +41,4 @@ Add F5nyz lossless bridge that consumes the F5nyy step owner exactly once, calls
 
 ## 検証
 
-Production-derived fixture must prove first Run payload, canonical descriptor, RunPending continuation, cleanup, source policy, normal compile, build, CLI, regression, and reviews.
+Production-derived fixtureは最初のRun offset 0/count 16/RGBA 11/22/33/44、canonical descriptor metadata 263/16/3/1、surface 7、frame 263、run count 1、pixel count 16、RunPending continuation、owner freeをevidence 1023でtrunk前後に確認した。upstream F5nyy evidence 127、lower F5mt/F5mr回帰、新規helperのnormal compile隔離、Web source-policy、issues/diff check、release trunk build、Playground editor CLI JSON 13/13、subagent差分・runtime・policy/docs reviewを通過した。
