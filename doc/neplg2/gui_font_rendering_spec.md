@@ -8633,3 +8633,7 @@ tile-payload bridge failureとRLE count-start failureはlower owner-bearing erro
 ### F5nyh registered stroke direct compositor bounded RLE count-step bridge
 
 F5nyhは専用extension `stroke_compositor_tile_rle_count_step.nepl` に置き、public F5nyg count-startを1回、そのsuccess ownerだけを既存F5mg bounded count-stepへ1回渡す。outer `Result`のErrはF5nyg start error、outer Ok内のinner `Result`はF5mg step errorまたは既存stepを加工せず保持する。start failure時はF5mgを呼ばず、step failureはfake count ownerを作らず既存F5mg errorのpayload authorityを保持する。completed count、encode、presentへは進まず、F5mh completed evidenceは後続phaseに残す。
+
+### F5nyi registered stroke compositor RLE completed-count bridge
+
+F5nyiは専用extension `stroke_compositor_tile_rle_count_completed.nepl` に置き、public F5nyhを1回呼び、そのstep success ownerだけをfinishして既存F5mh completed prepareへ1回渡す。triple nested `Result`はF5nyg start error、F5mg step error、F5mh completed errorをそれぞれ加工せず保持する。zero budgetのPendingはF5mhの`CountNotCompleted`と元count ownerを返し、十分なbudgetだけがmetadata付きcompleted count evidenceを返す。F5nyiはF5mi encode seed、writer、packet、presentへ進まない。

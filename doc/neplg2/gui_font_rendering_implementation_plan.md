@@ -13709,3 +13709,9 @@ git diff --check
 - 専用`stroke_compositor_tile_rle_count_step.nepl`でpublic F5nygを1回呼び、success count ownerとcaller budgetを既存F5mgへ1回だけ渡す。
 - outer `Result`のErrにF5nyg error chain、outer Ok内のinner `Result`にF5mg error全体またはstep authorityを保持する。start failureではF5mgを呼ばず、lower consuming recoveryを変換せず、fake count continuationを作らない。
 - focused fixtureでouter Err、outer Ok(inner Err)、outer Ok(inner Ok)の三terminal、PendingからCompletedへの継続、invalid budgetのkind/category/progress/entry owner recovery、upstream FrameIdInvalid/DirtyOwnerを固定し、source policy、normal compile、F5nyg/F5mg回帰を通す。F5mh completed count、encode、presentへ進まない。
+
+## Phase F5nyi: registered stroke compositor RLE completed-count bridge boundary
+
+- 専用`stroke_compositor_tile_rle_count_completed.nepl`でpublic F5nyhを1回呼び、step successから回収したcount ownerだけを既存F5mhへ1回渡す。
+- triple nested `Result`でF5nyg start error、F5mg step error、F5mh completed error/successをlosslessに保持する。Pendingを独自判定せず、F5mhの`CountNotCompleted`とcount owner recoveryへ委譲する。
+- focused fixtureでcompleted metadata/total-run/cursor、zero-budget pending error、negative-budget step error、invalid-frame start errorを検証する。F5nyh/F5mh回帰、source policy、normal compile、trunk/CLIを通し、F5mi encode seed以降へ進まない。

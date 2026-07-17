@@ -1,5 +1,27 @@
 # GUI font registered simple glyph indexed stroke packed mask software drain start
 
+## Registered count continuation produces completed RLE evidence
+
+neplg2:test[stdio, normalize_newlines]
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_rle_count_completed\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"completed authority\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"pending owner recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"invalid budget authority\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"invalid frame authority\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as * with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test" as * with tests
+fn main %impure fn void i32 \void:
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_rle_count_completed"
+    let report1 %TestReport test_report_push report (assert "completed authority" gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_completed_bridge_test_completed_contract unit)
+    let report2 %TestReport test_report_push report1 (assert "pending owner recovery" gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_completed_bridge_test_pending_contract unit)
+    let report3 %TestReport test_report_push report2 (assert "invalid budget authority" gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_completed_bridge_test_budget_recovery_contract unit)
+    let report4 %TestReport test_report_push report3 (assert "invalid frame authority" gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_completed_bridge_test_entry_recovery_contract unit)
+    test_report_exit_code test_report_print_stdout report4
+```
+
 ## Registered completion advances one bounded compositor tile RLE count step
 
 neplg2:test[stdio, normalize_newlines]

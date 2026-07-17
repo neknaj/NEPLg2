@@ -168590,3 +168590,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nyh 3件、移設後F5nyg 3件、既存F5mg 2件、Web source-policy、normal compile isolation、`cargo test -p nepl-core --lib` 883件、`cargo check --manifest-path nepl-web/Cargo.toml`、issues/diff checkを通過した。
 - 一時`npm.cmd` shim経由の`trunk build`と、trunk後Playground editor CLI JSON 13/13（`failedCount=0`）を通過した。subagent差分・compiler・全体整合・履歴粒度reviewの指摘を反映し、2 content commitsをff-only統合する粒度が適切と確認した。
 - F5nyhはbounded count-stepまでであり、completed count evidence、encode、native/GUI表示、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。次は既存F5mh completed count evidenceへのdirect phaseである。
+
+## 2026-07-17 F5nyi registered RLE completed-count bridge implementation
+
+- 専用`stroke_compositor_tile_rle_count_completed.nepl`を追加し、public F5nyhを1回、そのstep success ownerだけを既存F5mhへ1回渡すtriple nested bridgeを実装した。start/step/completedの三error authorityは加工せず保持し、encodeやpresentへ進まない。
+- isolated production fixture由来のfocused testで、completed metadataとexact run count 3/cursor 16、zero-budget `CountNotCompleted`から回収したmetadata付きReady count ownerの0/0 progress、negative budgetのtyped middle error、invalid frameのouter error/DirtyOwnerを検証する。
+- Web source-policyはF5nyh/F5mh exact-once、F5nyg/F5mg direct bypass禁止、encode/present禁止を固定した。plan.mdとの差異はなく、F5mi以降、native provider、shaping/layout、rasterization、presentationを含む最終目標は未完成である。
+- Focused F5nyi 4経路、F5nyh/F5mh回帰、normal compile isolation、Web source-policy、issues/diff check、`trunk build`、trunk後Playground editor CLI JSON 13/13を通過した。subagentのpending recovery/exact evidence指摘を修正し、再reviewはblockingなしとなった。

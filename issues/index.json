@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T03:16:24.182Z",
+  "generated_at": "2026-07-17T03:57:46.510Z",
   "counts": {
-    "total": 1394,
+    "total": 1395,
     "open": 60,
-    "resolved": 1334,
+    "resolved": 1335,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 19,
+        "total": 20,
         "open": 0,
-        "resolved": 19
+        "resolved": 20
       },
       "nodesrc": {
         "total": 16,
@@ -11443,6 +11443,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260716T150000000Z-REGISTERED-STROKE-COVERAGE-WRITER-F5NXQ.md"
+    },
+    {
+      "id": "ISS-20260717T032246602Z-REGISTERED-RLE-COUNT-CONTINUATION-LA-21484E79",
+      "title": "Registered RLE count continuation lacks completed evidence bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_completed.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T032246602Z-REGISTERED-RLE-COUNT-CONTINUATION-LA-21484E79.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

@@ -1,0 +1,25 @@
+//: # registered stroke compositor tile RLE completed count bridge
+//: F5nyh count continuationをF5mh completed count evidenceへ接続します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step" as count_step_bridge
+#import "alloc/gui/render2d/compositor_tile_rle_count_completed" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+#import "core/result" as *
+
+//: registered completionからbounded count stepとcompleted evidence昇格を各1回だけ進める
+//:
+//: outer ResultはF5nyg start error、middle ResultはF5mg step error、inner ResultはF5mh completed errorを保持します。
+//: step successのcount ownerだけをF5mhへ渡し、pending判定を再実装せず、encodeやpresentへは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_count_completed_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig impure fn GuiRgba8888RowTilePlanConfig impure fn i32 impure fn i32 Result Result Result GuiRgba8888CompositorTileRleCountCompletedOwner GuiRgba8888CompositorTileRleCountCompletedError GuiRgba8888CompositorTileRleCountStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeError \completed\frame_config\tile_config\tile_index\remaining_steps:
+    match count_step_bridge::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_count_step_budget completed frame_config tile_config tile_index remaining_steps:
+        Result::Err lower: Result::Err lower
+        Result::Ok step_result:
+            match step_result:
+                Result::Err lower: Result::Ok Result::Err lower
+                Result::Ok step:
+                    let count %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_step_finish_owner step
+                    match gui_rgba8888_compositor_tile_rle_count_completed_prepare count:
+                        Result::Err lower: Result::Ok Result::Ok Result::Err lower
+                        Result::Ok completed_count: Result::Ok Result::Ok Result::Ok completed_count
