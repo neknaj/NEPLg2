@@ -13748,3 +13748,10 @@ git diff --check
 - 八層nested resultにupstreamとwrite cursor start error authorityをlosslessに保持する。自然到達不能なstart failureは偽造せず既存F5mm回帰へ委譲する。
 - focused fixtureでmetadata、run count 1、capacity 12、cursor 0/16、written run / byte count 0、write cursor freeを検証する。
 - F5nym/F5mm回帰、source policy、normal compile、trunk/CLIを通し、F5mn write step以降は後続phaseとする。
+
+## Phase F5nyo: registered stroke compositor first RLE write-step bridge boundary
+
+- public F5nynをexact-onceで呼び、write-cursor successのみ既存F5mn one-step writerへexact-onceで渡す。
+- 九層nested resultにupstreamとwrite-step error authorityをlosslessに保持する。
+- focused fixtureで`WroteRun`、metadata、run count 1、capacity 12、written 1/12、cursor 16/16、writer freeを検証する。
+- F5nyn/F5mn回帰、source policy、normal compile、trunk/CLIを通し、completion probeとF5mo encoded seal以降は後続phaseとする。

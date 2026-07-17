@@ -168633,4 +168633,5 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - public F5nynを1回呼び、write cursor successだけを既存F5mn one-step writerへ1回渡す九層lossless bridgeを実装した。reachable fixtureはframe 263、run count 1、capacity 12、`WroteRun`、written run / byte count 1/12、cursor 16/16、owner freeのevidence 255をruntimeで通過した。
 - 初回fixtureのsingle-line branch内にmulti-line matchを置いたparser errorは、各error branchを通常blockへ直して根本修正した。
-- source-policy、normal isolation、仕様・詳細設計・phase plan、F5nyn/F5mn回帰、trunk/CLI、subagent review、issue解決は未完了であり、mainへ統合していない。次の再開点はこのbranch checkpointから残り契約を同期することである。全体目標も未完成である。
+- 仕様・詳細設計・phase plan、九層source-policy、normal isolation、upstream F5nyn evidence 127、既存F5mn回帰、issues/diff check、`trunk build`、trunk後focused evidence 255、Playground editor JSON 13/13を通過した。subagent指摘によりsource-policyをouter startからinnermost write-stepまで全Err再包装順序へ強化した。
+- F5nyoはfirst `WroteRun`までで、completion probe、encoded seal、packet、present、native/GUI表示とフォントレンダリングエンジン・GUIライブラリ全体は未完成である。

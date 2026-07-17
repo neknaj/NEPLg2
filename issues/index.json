@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T06:19:50.444Z",
+  "generated_at": "2026-07-17T06:28:44.840Z",
   "counts": {
     "total": 1401,
-    "open": 61,
-    "resolved": 1340,
+    "open": 60,
+    "resolved": 1341,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "GUI_FONT": {
-        "total": 26,
-        "open": 1,
-        "resolved": 25
       },
       "RESOURCE": {
         "total": 5,
@@ -95,6 +90,11 @@
         "total": 22,
         "open": 0,
         "resolved": 22
+      },
+      "GUI_FONT": {
+        "total": 26,
+        "open": 0,
+        "resolved": 26
       },
       "nodesrc": {
         "total": 16,
@@ -523,21 +523,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260717T061510619Z-REGISTERED-RLE-WRITE-CURSOR-LACKS-WR-8D372E6B",
-      "title": "Registered RLE write cursor lacks write step bridge",
-      "area": "GUI_FONT",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-17",
-      "updated": "2026-07-17",
-      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_write_step.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260717T061510619Z-REGISTERED-RLE-WRITE-CURSOR-LACKS-WR-8D372E6B.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -11548,6 +11533,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T055242353Z-REGISTERED-RLE-STORAGE-LACKS-WRITE-C-5F6CFAAD.md"
+    },
+    {
+      "id": "ISS-20260717T061510619Z-REGISTERED-RLE-WRITE-CURSOR-LACKS-WR-8D372E6B",
+      "title": "Registered RLE write cursor lacks write step bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_write_step.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T061510619Z-REGISTERED-RLE-WRITE-CURSOR-LACKS-WR-8D372E6B.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
