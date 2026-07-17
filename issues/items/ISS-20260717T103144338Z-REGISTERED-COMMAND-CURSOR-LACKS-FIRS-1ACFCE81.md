@@ -2,8 +2,8 @@
 id: ISS-20260717T103144338Z-REGISTERED-COMMAND-CURSOR-LACKS-FIRS-1ACFCE81
 title: "Registered command cursor lacks first BeginFrame step bridge"
 area: GUI_FONT
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-17
@@ -41,4 +41,4 @@ Add F5nyy lossless bridge from F5nyx success to exactly one F5mt command-cursor 
 
 ## 検証
 
-Production-derived runtime fixture must prove BeginFrame descriptor metadata and continuation owner cleanup, with source policy, normal compile, trunk, CLI, regression, and subagent review gates.
+Production-derived fixtureはBeginFrame payload/canonical descriptor、metadata 263/16/3/1、surface 7、frame 263、expected run count 1、pixel count 16、RunPending continuation、owner freeをevidence 127でtrunk前後に確認した。upstream F5nyx evidence 63、lower F5mt/F5mr回帰、新規helperのnormal compile隔離、Web source-policy、issues/diff check、release trunk build、Playground editor CLI JSON 13/13、subagent差分・runtime・policy/docs reviewを通過した。valid BeginPending ownerからのstep errorは自然到達不能なのでfixtureで偽造せず、既存F5mt recovery/free回帰へ委譲した。
