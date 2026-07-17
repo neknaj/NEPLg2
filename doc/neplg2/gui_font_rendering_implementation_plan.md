@@ -13775,3 +13775,10 @@ git diff --check
 - upstream十一層とpacket prepareの第十二層をlossless nested resultに保持し、lower descriptor validation、packet owner construction、encoded owner recoveryを再実装しない。
 - production-derived fixtureでmetadata、packet identity、plan/tile range、surface shape、tiling、pixel count、run count 1、encoded bytes 12、owner freeをevidence 255として検証する。自然到達不能なpacket prepare errorは既存F5mp回帰へ委譲する。
 - F5nyq/F5mp回帰、source policy、normal compile、trunk/CLIを通し、SurfaceId、F5mq present-frame、packet record、host transport以降は後続phaseとする。
+
+## Phase F5nys: registered stroke compositor RLE present-frame bridge boundary
+
+- public F5nyr successのpacket ownerとcaller supplied typed SurfaceIdだけを既存F5mq present-frame preparationへexactly once渡す。
+- upstream十二層とpresent-frame prepareの第十三層をlossless nested resultに保持し、SurfaceId/FrameId再構築、frame照合、lower present owner construction、packet recoveryを再実装しない。
+- production-derived fixtureでmetadata、surface 7、frame 263、expected run count 1、pixel count 16、owner freeをevidence 31として検証する。自然到達不能なpresent prepare errorは既存F5mq回帰へ委譲する。
+- F5nyr/F5mq回帰、source policy、normal compile、trunk/CLIを通し、F5mr run cursor、packet record、host execution以降は後続phaseとする。
