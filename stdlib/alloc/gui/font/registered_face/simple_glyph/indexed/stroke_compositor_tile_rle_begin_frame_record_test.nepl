@@ -1,0 +1,218 @@
+//: # registered stroke compositor tile RLE BeginFrame record test adapter
+//: F5nzd BeginFrame recordのtyped projection / continuation / move-only consume契約を検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_record" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture" as count_fixture
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count_completed" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+#import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+#import "alloc/gui/render2d/compositor_tile_rle_storage" as *
+#import "alloc/gui/render2d/compositor_tile_rle_write_cursor" as *
+#import "alloc/gui/render2d/compositor_tile_rle_write_step" as *
+#import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+#import "alloc/gui/render2d/row_tile_plan" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_run_cursor" as *
+#import "std/gui/compositor_tile_present_run_step" as *
+#import "std/gui/window" as *
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_descriptor_evidence %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor i32 \descriptor:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor
+    let surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface descriptor
+    let frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame descriptor
+    let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 263 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
+    let evidence0 %i32 if metadata_ok then 2 else 0
+    let evidence1 %i32 add evidence0 (if eq (surface_id_raw &surface) 7 then 4 else 0)
+    let evidence2 %i32 add evidence1 (if eq (frame_id_raw &frame) 263 then 8 else 0)
+    let evidence3 %i32 add evidence2 (if eq (gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count descriptor) 1 then 16 else 0)
+    add evidence3 (if eq (gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count descriptor) 16 then 32 else 0)
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_record_evidence %fn GuiRgba8888CompositorTileRlePresentHostCommandStepResult i32 \result:
+    match result:
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Completed: 0
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Record record:
+            match record:
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame descriptor:
+                    add 1 gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_descriptor_evidence &descriptor
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord _: 0
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame _: 0
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_step_is_begin %fn &GuiRgba8888CompositorTileRlePresentCommandCursorStep bool \step:
+    let result %GuiRgba8888CompositorTileRlePresentCommandCursorStepResult gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result step
+    match result:
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed: false
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+            match command:
+                GuiRgba8888CompositorTileRlePresentCommand::BeginFrame _: true
+                GuiRgba8888CompositorTileRlePresentCommand::Run _: false
+                GuiRgba8888CompositorTileRlePresentCommand::EndFrame _: false
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_consume %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner i32 \owner:
+    let projection %GuiRgba8888CompositorTileRlePresentHostCommandStepResult gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_result &owner
+    let record_evidence %i32 gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_record_evidence projection
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_take_step owner
+    let begin_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_step_is_begin &step
+    let continuation %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner step
+    let phase %GuiRgba8888CompositorTileRlePresentCommandCursorPhase gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_phase &continuation
+    let phase_ok %bool match phase:
+        GuiRgba8888CompositorTileRlePresentCommandCursorPhase::RunPending: true
+        _: false
+    match gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_free continuation:
+        Result::Err _: sub 0 1
+        Result::Ok _:
+            if and begin_ok phase_ok:
+                then: add record_evidence 64
+                else: record_evidence
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_phase_4 %impure fn Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError i32 \value:
+    match value:
+        Result::Err error:
+            match gui_rgba8888_compositor_tile_rle_present_run_step_error_free error:
+                Result::Ok _: sub 0 32
+                Result::Err _: sub 0 33
+        Result::Ok p:
+            match p:
+                Result::Err error:
+                    match gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_free error:
+                        Result::Ok _: sub 0 34
+                        Result::Err _: sub 0 35
+                Result::Ok q:
+                    match q:
+                        Result::Err error:
+                            match gui_rgba8888_compositor_tile_rle_present_command_cursor_start_error_free error:
+                                Result::Ok _: sub 0 36
+                                Result::Err _: sub 0 37
+                        Result::Ok r:
+                            match r:
+                                Result::Err error:
+                                    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_free error:
+                                        Result::Ok _: sub 0 38
+                                        Result::Err _: sub 0 39
+                                Result::Ok owner:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_consume owner
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_phase_3 %impure fn Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError i32 \value:
+    match value:
+        Result::Err error:
+            match gui_rgba8888_compositor_tile_rle_packet_prepare_error_free error:
+                Result::Ok _: sub 0 24
+                Result::Err _: sub 0 25
+        Result::Ok l:
+            match l:
+                Result::Err error:
+                    match gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_free error:
+                        Result::Ok _: sub 0 26
+                        Result::Err _: sub 0 27
+                Result::Ok m:
+                    match m:
+                        Result::Err error:
+                            match gui_rgba8888_compositor_tile_rle_present_run_cursor_start_error_free error:
+                                Result::Ok _: sub 0 28
+                                Result::Err _: sub 0 29
+                        Result::Ok n:
+                            match n:
+                                Result::Err error:
+                                    match gui_rgba8888_compositor_tile_rle_present_run_step_error_free error:
+                                        Result::Ok _: sub 0 30
+                                        Result::Err _: sub 0 31
+                                Result::Ok o:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_phase_4 o
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_phase_2 %impure fn Result Result Result Result Result Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteCursorStartError GuiRgba8888CompositorTileRleStoragePrepareError i32 \value:
+    match value:
+        Result::Err error:
+            match gui_rgba8888_compositor_tile_rle_storage_prepare_error_free error:
+                Result::Ok _: sub 0 14
+                Result::Err _: sub 0 15
+        Result::Ok g:
+            match g:
+                Result::Err error:
+                    match gui_rgba8888_compositor_tile_rle_write_cursor_start_error_free error:
+                        Result::Ok _: sub 0 16
+                        Result::Err _: sub 0 17
+                Result::Ok h:
+                    match h:
+                        Result::Err error:
+                            match gui_rgba8888_compositor_tile_rle_write_step_error_free error:
+                                Result::Ok _: sub 0 18
+                                Result::Err _: sub 0 19
+                        Result::Ok i:
+                            match i:
+                                Result::Err error:
+                                    match gui_rgba8888_compositor_tile_rle_write_step_error_free error:
+                                        Result::Ok _: sub 0 20
+                                        Result::Err _: sub 0 21
+                                Result::Ok j:
+                                    match j:
+                                        Result::Err error:
+                                            match gui_rgba8888_compositor_tile_rle_encoded_seal_error_free error:
+                                                Result::Ok _: sub 0 22
+                                                Result::Err _: sub 0 23
+                                        Result::Ok k:
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_phase_3 k
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_phase_1 %impure fn Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteCursorStartError GuiRgba8888CompositorTileRleStoragePrepareError GuiRgba8888CompositorTileRleWriterPlanError GuiRgba8888CompositorTileRleEncodeCursorError GuiRgba8888CompositorTileRleEncodeSeedError GuiRgba8888CompositorTileRleCountCompletedError GuiRgba8888CompositorTileRleCountStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeError i32 \value:
+    match value:
+        Result::Err error:
+            let recovery %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_recovery error
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free recovery
+            sub 0 3
+        Result::Ok a:
+            match a:
+                Result::Err error:
+                    match gui_rgba8888_compositor_tile_rle_count_step_error_free error:
+                        Result::Ok _: sub 0 4
+                        Result::Err _: sub 0 5
+                Result::Ok b:
+                    match b:
+                        Result::Err error:
+                            match gui_rgba8888_compositor_tile_rle_count_completed_error_free error:
+                                Result::Ok _: sub 0 6
+                                Result::Err _: sub 0 7
+                        Result::Ok c:
+                            match c:
+                                Result::Err error:
+                                    match gui_rgba8888_compositor_tile_rle_encode_seed_error_free error:
+                                        Result::Ok _: sub 0 8
+                                        Result::Err _: sub 0 9
+                                Result::Ok d:
+                                    match d:
+                                        Result::Err error:
+                                            match gui_rgba8888_compositor_tile_rle_encode_cursor_error_free error:
+                                                Result::Ok _: sub 0 10
+                                                Result::Err _: sub 0 11
+                                        Result::Ok e:
+                                            match e:
+                                                Result::Err error:
+                                                    match gui_rgba8888_compositor_tile_rle_writer_plan_error_free error:
+                                                        Result::Ok _: sub 0 12
+                                                        Result::Err _: sub 0 13
+                                                Result::Ok f:
+                                                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_phase_2 f
+
+//: full registered pipelineから最初のBeginFrame recordを得る
+//:
+//: nested Resultの全failure authorityを各free APIで閉じ、successだけをtyped ownerとして検証します。
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_begin_frame_record_bridge_test_success_contract %impure fn unit i32 \_unit:
+    match surface_id_result 7:
+        Result::Err _: sub 0 2
+        Result::Ok surface:
+            match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed 473:
+                Option::None: sub 0 3
+                Option::Some completed:
+                    let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 263 2
+                    let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_test_phase_1 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_begin_frame_record_budget completed surface frame_config tile_config 0 64

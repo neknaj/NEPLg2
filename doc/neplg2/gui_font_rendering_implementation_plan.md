@@ -13852,3 +13852,10 @@ git diff --check
 - upstream二十二層をlosslessに保持し、terminal stepとCopy projection resultをprivate constructorで新しいmove-only ownerへ同居させて第二十三層authorityとする。
 - productionはprojection result、step result、descriptor、phaseを読まない。fixtureだけがterminal `Completed` projectionを確認し、consuming recoveryでstepをexactly once回収してcanonical descriptor、`Completed` phase、owner cleanupを検証する。
 - F5nzb/F5mu回帰、23層source policy、normal compile、trunk/CLIを通す。F5nzcはhost execution、F5mv virtual drain、schedulerより前で停止し、次のF5nzdがBeginFrame command stepをF5mu actual record projectionへ接続する。
+
+## Phase F5nzd: registered BeginFrame F5mu record owner
+
+- public F5nyy successのBeginFrame stepをborrowしたまま既存F5mu projectionへexactly once渡し、resultを再構築しない。
+- upstream十九層をlosslessに保持し、move-only stepとCopy projectionをprivate constructorで第二十authority ownerへ同居させる。
+- productionはrecord、step result、descriptor、phaseを読まない。fixtureだけがtyped `Record(BeginFrame)`、canonical descriptor、元step、`RunPending` continuation、全cleanupを検証する。
+- F5nyy/F5mu回帰、20 authority source policy、normal compile、trunk/CLIを通す。F5nzdはF5mv virtual drain、host execution、schedulerより前で停止し、次のF5nzeで文書化されたF5mv接続へ進む。

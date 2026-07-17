@@ -8717,3 +8717,7 @@ F5nzbはpublic F5nzaを1回だけ呼び、EndFrame step successからcontinuatio
 ### F5nzc registered terminal F5mu projection owner
 
 F5nzcはpublic F5nzbを1回だけ呼び、第二十二層terminal stepをborrowしたまま既存F5mu host-command projectionへ1回だけ渡す。projection resultは再構築せず、元のmove-only terminal stepとF5muのCopy resultを新しいownerに同居させて第二十三層authorityとする。productionはprojection result、step result、descriptor、phaseを解釈せず、host execution、virtual drain、schedulerへ進まない。production-derived fixtureだけがF5mu resultをterminal `Completed`へ絞り、ownerからstepを1回だけ回収してcanonical descriptorと`Completed` phaseを検証し、command-cursor ownerを閉じる。次のF5nzdはBeginFrame command stepをF5mu record projectionへ接続し、actual typed recordをvirtual drainより前で保持する。
+
+### F5nzd registered BeginFrame F5mu record owner
+
+F5nzdはpublic F5nyyを1回だけ呼び、第十九層BeginFrame stepをborrowしたまま既存F5mu host-command projectionへ1回だけ渡す。十九層Resultをlosslessに保持し、元のmove-only stepとCopy `Record(BeginFrame)` projectionを第二十authority ownerへ同居させる。productionはrecord、step result、descriptor、phaseを解釈または再構築せず、F5mv virtual drain、host execution、schedulerより前で停止する。fixtureだけがactual typed BeginFrame record、canonical descriptor、stepのBeginFrame、continuation `RunPending`、cleanupを検証する。次のF5nzeは文書化された依存順にF5mvへ接続する。

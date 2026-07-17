@@ -1,0 +1,119 @@
+//: # registered stroke compositor tile RLE BeginFrame record projection
+//: F5nyy BeginFrame command stepをF5mu typed host-command resultへ接続します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_command_cursor_step" as command_cursor_step_bridge
+#import "alloc/gui/render2d/compositor_tile_rle_count_completed" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+#import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+#import "alloc/gui/render2d/compositor_tile_rle_storage" as *
+#import "alloc/gui/render2d/compositor_tile_rle_write_cursor" as *
+#import "alloc/gui/render2d/compositor_tile_rle_write_step" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+#import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/result" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_run_cursor" as *
+#import "std/gui/compositor_tile_present_run_step" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/window" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner: BeginFrame stepとtyped projectionを同じauthorityに保持する
+//:
+//: BeginFrame command stepを所有するためCopy / Cloneを実装しません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner:
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    result %GuiRgba8888CompositorTileRlePresentHostCommandStepResult
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner %fn GuiRgba8888CompositorTileRlePresentCommandCursorStep fn GuiRgba8888CompositorTileRlePresentHostCommandStepResult GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner \step\result:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner step result
+
+//: BeginFrame stepをF5mu projection付きmove-only ownerへ移す
+//:
+//: command cursor stepをborrowでF5muへ一度だけ渡してから、stepとCopy projectionを同じauthorityへ保持します。
+//: 呼び出し側はF5nyy first stepだけを渡し、追加step、host execution、virtual drainへは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_from_step %fn GuiRgba8888CompositorTileRlePresentCommandCursorStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner \step:
+    let record_result %GuiRgba8888CompositorTileRlePresentHostCommandStepResult gui_rgba8888_compositor_tile_rle_present_host_command_step_result &step
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner step record_result
+
+//: typed F5mu projection resultをCopy valueとして読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_result %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentHostCommandStepResult \owner:
+    *field::get_ref owner "result"
+
+//: BeginFrame command stepの所有権を回収する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_take_step %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStep \owner:
+    field::get owner "step"
+
+//: BeginFrame stepを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_take_step owner
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free step
+
+//: registered pipelineの最初のcommand stepをtyped F5mu resultへprojectionする
+//:
+//: F5nyyの十九層をlosslessに保持し、success stepをborrowでF5muへ一度だけ渡します。
+//: BeginFrame stepとCopy resultを同じmove-only authorityに保持し、追加step、host execution、virtual drainへは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_begin_frame_record_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn SurfaceId impure fn GuiRgba8888CompositorFrameEntryConfig impure fn GuiRgba8888RowTilePlanConfig impure fn i32 impure fn i32 Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteCursorStartError GuiRgba8888CompositorTileRleStoragePrepareError GuiRgba8888CompositorTileRleWriterPlanError GuiRgba8888CompositorTileRleEncodeCursorError GuiRgba8888CompositorTileRleEncodeSeedError GuiRgba8888CompositorTileRleCountCompletedError GuiRgba8888CompositorTileRleCountStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeError \completed\surface\frame_config\tile_config\tile_index\remaining_steps:
+    match command_cursor_step_bridge::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_command_cursor_step_budget completed surface frame_config tile_config tile_index remaining_steps:
+        Result::Err lower: Result::Err lower
+        Result::Ok a:
+            match a:
+                Result::Err lower: Result::Ok Result::Err lower
+                Result::Ok b:
+                    match b:
+                        Result::Err lower: Result::Ok Result::Ok Result::Err lower
+                        Result::Ok c:
+                            match c:
+                                Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Err lower
+                                Result::Ok d:
+                                    match d:
+                                        Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                        Result::Ok e:
+                                            match e:
+                                                Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                Result::Ok f:
+                                                    match f:
+                                                        Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                        Result::Ok g:
+                                                            match g:
+                                                                Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                Result::Ok h:
+                                                                    match h:
+                                                                        Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                        Result::Ok i:
+                                                                            match i:
+                                                                                Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                Result::Ok j:
+                                                                                    match j:
+                                                                                        Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                        Result::Ok k:
+                                                                                            match k:
+                                                                                                Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                                Result::Ok l:
+                                                                                                    match l:
+                                                                                                        Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                                        Result::Ok m:
+                                                                                                            match m:
+                                                                                                                Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                                                Result::Ok n:
+                                                                                                                    match n:
+                                                                                                                        Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                                                        Result::Ok o:
+                                                                                                                            match o:
+                                                                                                                                Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                                                                Result::Ok p:
+                                                                                                                                    match p:
+                                                                                                                                        Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                                                                        Result::Ok q:
+                                                                                                                                            match q:
+                                                                                                                                                Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                                                                                Result::Ok r:
+                                                                                                                                                    match r:
+                                                                                                                                                        Result::Err lower: Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Err lower
+                                                                                                                                                        Result::Ok begin_frame_step:
+                                                                                                                                                            Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok Result::Ok gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_from_step begin_frame_step

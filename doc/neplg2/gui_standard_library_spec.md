@@ -2388,3 +2388,7 @@ F5ek policy は `scheduler_policy` と `timer_policy` のみを持つ。`LoopExe
 ### Registered stroke compositor F5nzc terminal projection boundary
 
 F5nzcはregistered stroke compositorのF5nzb terminal command-cursor stepをborrowし、既存F5mu metadata-preserving host-command projectionへexactly once渡す。第二十三層はprojection resultだけではなく、元のmove-only stepとCopy resultを同居させるowner authorityである。production adapterはresult、descriptor、phaseを解釈せず、host execution、virtual drain、schedulerへ進まない。terminal `Completed`の検証とstep recovery/cleanupはfixtureに限定し、次のF5nzdでBeginFrameのactual record projectionを接続する。
+
+### Registered stroke compositor F5nzd BeginFrame record boundary
+
+F5nzdはF5nyyの十九層Resultをlosslessに保ち、BeginFrame command stepを既存F5muへexactly once borrowしてactual typed `Record(BeginFrame)` projectionを得る。move-only stepとCopy projectionは第二十authority ownerに同居し、borrowed result accessor、consuming step recovery、freeで管理する。production adapterはrecordを解釈・再構築せず、F5mv virtual drain、host execution、schedulerへ進まない。

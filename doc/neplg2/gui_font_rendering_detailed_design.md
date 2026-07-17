@@ -11148,6 +11148,10 @@ F5nzb adapterはF5nzaの二十一層result graphを再包装し、EndFrame step 
 
 F5nzc adapterはF5nzbの二十二層result graphを再包装し、terminal step successをborrowしてF5mu projectionへexactly once渡す。F5muのCopy resultだけを返してmove-only stepを失わず、両方をprivate constructorで新ownerへ封入する。public surfaceはborrowed result accessor、consuming step recovery、freeを提供し、step/result/descriptor/phaseをproduction adapterで読まない。fixtureはborrowed projection resultがterminal `Completed`であることを確認後、stepをexactly once回収し、canonical descriptorと`Completed` phaseを検証してownerを閉じる。F5nzcはhost execution、F5mv virtual drain、schedulerへ進まず、次のF5nzdがBeginFrame stepのactual F5mu record projectionを保持する。
 
+### F5nzd registered BeginFrame F5mu record owner
+
+F5nzd adapterはF5nyyの十九層result graphを同じ順序で再包装し、BeginFrame step successをborrowしてF5mu projectionへexactly once渡す。private constructorはmove-only stepとCopy resultを一つのownerに封入し、public surfaceはfrom-step、borrowed result accessor、consuming take-step、freeだけを提供する。freeはtake-stepと既存F5mt step-freeを各1回使う。production adapterはprojection variant、command、descriptor、phaseを読まず、F5mv、host、scheduler APIを参照しない。fixtureは全Err authorityを既存free APIで閉じ、successだけでtyped `Record(BeginFrame)`、canonical descriptor、元stepのBeginFrame、finish-owner後の`RunPending`を検証する。
+
 ### F5nyg registered direct compositor RLE count-start bridge
 
 F5nyg lives in the dedicated `stroke_compositor_tile_rle_count_start.nepl` extension so importing F5mf does not pollute the large stroke module's overload and trait namespace. It consumes the registered completed owner with existing entry/tile configs and tile index. It calls public F5nyf exactly once and passes the untouched payload owner to F5mf `gui_rgba8888_compositor_tile_rle_count_start` exactly once. Success returns the existing count owner with frame/row metadata, zero accumulated runs, pixel cursor zero, and Ready status.
