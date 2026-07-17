@@ -18,6 +18,16 @@ fn helper %fn void i32 \void:
 
 この directive は既存の `#if[target=...]` / `#if[profile=...]` と同じく、直後の 1 statement だけに効く。複数の test-only item を置く場合は各 item の前に `#test` を置く。
 
+依存 module の test-only item も必要な場合は、その import の末尾に `with tests` を付ける。
+
+```neplg2
+#import "support" as * with tests
+```
+
+test origin は entry source から始まり、`with tests` を持つ import と `#include` だけを推移的に辿る。通常 import と prelude は依存 module の production item だけを公開し、依存 module の `#test` itemを有効化しない。これにより、明示したtest helper dependencyだけを有効化し、同じmerged moduleにある無関係なtest overloadやtest implを混入させない。
+
+`with tests` は通常 import のload、名前空間、visibility、re-exportを変更しない。test modeにおけるtest originの伝播だけを追加する。通常compileでは依存 module の `#test` itemは従来通り無効である。
+
 `test_mode` が false の compile:
 
 ```text

@@ -144,7 +144,7 @@ pub fn type_arity_hints_from_module(module: &Module) -> Vec<(String, usize)> {
 /// graph edges, but they must not create parser diagnostics or allocate
 /// `FileId`-dependent state. This helper keeps the parser and loader from
 /// drifting on visibility, path, alias, merge, and selective import clauses.
-pub fn parse_import_directive_parts(text: &str) -> (String, ImportClause, Visibility) {
+pub fn parse_import_directive_parts(text: &str) -> (String, ImportClause, Visibility, bool) {
     let rest = text.trim();
     let (vis, mut rest) = match rest.strip_prefix("pub") {
         Some(r) => (Visibility::Pub, r.trim()),
@@ -161,6 +161,15 @@ pub fn parse_import_directive_parts(text: &str) -> (String, ImportClause, Visibi
         path = parts.next().unwrap_or("").to_string();
         rest = parts.next().unwrap_or("");
     }
+    let trimmed_rest = rest.trim();
+    let (rest_without_test_dependency, test_dependency) =
+        match trimmed_rest.strip_suffix("with tests") {
+            Some(prefix) if prefix.chars().next_back().is_none_or(char::is_whitespace) => {
+                (prefix.trim_end(), true)
+            }
+            _ => (rest, false),
+        };
+    rest = rest_without_test_dependency;
     rest = rest.trim();
     let clause = if rest.is_empty() {
         ImportClause::DefaultAlias
@@ -212,7 +221,7 @@ pub fn parse_import_directive_parts(text: &str) -> (String, ImportClause, Visibi
     } else {
         ImportClause::DefaultAlias
     };
-    (path, clause, vis)
+    (path, clause, vis, test_dependency)
 }
 
 /// Scan declaration heads before full parsing to support forward references.
@@ -732,11 +741,12 @@ impl Parser {
     }
 
     fn parse_import_directive(&mut self, text: &str, span: Span) -> Directive {
-        let (path, clause, vis) = parse_import_directive_parts(text);
+        let (path, clause, vis, test_dependency) = parse_import_directive_parts(text);
         Directive::Import {
             path,
             clause,
             vis,
+            test_dependency,
             span,
         }
     }
@@ -4426,7 +4436,7 @@ impl Parser {
                 Directive::Use { span, .. } => *span,
                 Directive::IfTarget { span, .. } => *span,
                 Directive::IfProfile { span, .. } => *span,
-                Directive::Test { span } => *span,
+                Directive::Test { span } | Directive::DependencyTest { span } => *span,
                 Directive::IndentWidth { span, .. } => *span,
                 Directive::Extern { span, .. } => *span,
                 Directive::Include { span, .. } => *span,

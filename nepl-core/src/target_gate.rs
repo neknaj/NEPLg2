@@ -80,6 +80,7 @@ pub fn directive_gate_decision(
         } else {
             GateDecision::Inactive
         }),
+        Directive::DependencyTest { .. } => Some(GateDecision::Inactive),
         _ => None,
     }
 }
@@ -456,6 +457,13 @@ mod tests {
         assert_eq!(
             directive_gate_decision(&directive, CompileTarget::Wasm, BuildProfile::Debug, true),
             Some(GateDecision::Active)
+        );
+        let dependency = Directive::DependencyTest {
+            span: Span::dummy(),
+        };
+        assert_eq!(
+            directive_gate_decision(&dependency, CompileTarget::Wasm, BuildProfile::Debug, true),
+            Some(GateDecision::Inactive)
         );
     }
 }

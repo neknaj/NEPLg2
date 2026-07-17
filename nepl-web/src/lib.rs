@@ -608,7 +608,7 @@ fn directive_name(d: &Directive) -> &'static str {
         Directive::Target { .. } => "Target",
         Directive::Import { .. } => "Import",
         Directive::Use { .. } => "Use",
-        Directive::Test { .. } => "Test",
+        Directive::Test { .. } | Directive::DependencyTest { .. } => "Test",
         Directive::IfTarget { .. } => "IfTarget",
         Directive::IfProfile { .. } => "IfProfile",
         Directive::IndentWidth { .. } => "IndentWidth",

@@ -342,7 +342,7 @@ pub fn typecheck_with_materialized_public_surfaces_and_test_mode(
             Directive::Use { span, .. } => *span,
             Directive::IfTarget { span, .. } => *span,
             Directive::IfProfile { span, .. } => *span,
-            Directive::Test { span } => *span,
+            Directive::Test { span } | Directive::DependencyTest { span } => *span,
             Directive::IndentWidth { span, .. } => *span,
             Directive::Include { span, .. } => *span,
             Directive::Prelude { span, .. } => *span,

@@ -58,6 +58,7 @@ pub struct ImportDecl {
     pub spec: ModuleSpec,
     pub clause: ImportClause,
     pub vis: Visibility,
+    pub test_dependency: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -66,6 +67,7 @@ pub struct DepDecl {
     pub id: ModuleId,
     pub clause: ImportClause,
     pub vis: Visibility,
+    pub test_dependency: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -299,6 +301,7 @@ impl ModuleGraphBuilder {
                 path: p,
                 clause,
                 vis,
+                test_dependency,
                 ..
             } = d
             {
@@ -307,6 +310,7 @@ impl ModuleGraphBuilder {
                     spec,
                     clause: clause.clone(),
                     vis: *vis,
+                    test_dependency: *test_dependency,
                 });
             }
         }
@@ -328,6 +332,7 @@ impl ModuleGraphBuilder {
                 id: cid,
                 clause: import.clause.clone(),
                 vis: import.vis,
+                test_dependency: import.test_dependency,
             });
         }
 

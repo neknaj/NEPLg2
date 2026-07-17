@@ -26,7 +26,7 @@ extern crate std;
 
 pub use crate::source_map::{SourceCapabilities, SourceMap, SourcePath};
 
-const LOADER_SESSION_CACHE_VERSION: &str = "neplg2-loader-session-cache-v1";
+const LOADER_SESSION_CACHE_VERSION: &str = "neplg2-loader-session-cache-v2";
 const CACHED_MODULE_FILE_ID: FileId = FileId(u32::MAX - 1);
 
 macro_rules! loader_log {
@@ -527,6 +527,7 @@ struct SourceImportEdge {
     target_path: PathBuf,
     visibility: Visibility,
     import_clause: Option<ImportClause>,
+    test_dependency: bool,
     source_order: usize,
 }
 
@@ -555,6 +556,7 @@ impl SourceImportEdge {
             },
             import_clause: self.import_clause.as_ref().map(nepl_meta_import_clause),
             public_reexport: self.public_reexport_eligible(),
+            test_dependency: self.test_dependency,
             source_order: usize_to_u32_saturating(self.source_order),
         }
     }
@@ -666,6 +668,57 @@ impl Loader {
         &self.source_map
     }
 
+    fn localize_merged_test_directives(
+        &self,
+        module: &mut Module,
+        source_map: &SourceMap,
+        root_surface: &NeplMetaModuleSurface,
+    ) {
+        let mut eligible = BTreeSet::new();
+        eligible.insert(root_surface.canonical_module_path.clone());
+        let mut pending = eligible.iter().cloned().collect::<Vec<_>>();
+        while let Some(path) = pending.pop() {
+            let Some((file_id, source_path)) = source_map
+                .iter_paths()
+                .find(|(_, candidate)| candidate.to_string_lossy() == path)
+            else {
+                continue;
+            };
+            let Some(source) = source_map.get(file_id) else {
+                continue;
+            };
+            let base = PathBuf::from(source_path.to_string_lossy());
+            let surface = self.compute_source_arity_surface(&base, file_id, source);
+            for edge in surface.edges {
+                if edge.kind != SourceImportEdgeKind::Include
+                    && !(edge.kind == SourceImportEdgeKind::Import && edge.test_dependency)
+                {
+                    continue;
+                }
+                let include = canonical_path_string(&edge.target_path);
+                if eligible.insert(include.clone()) {
+                    pending.push(include);
+                }
+            }
+        }
+        for item in &mut module.root.items {
+            let (span, active) = match item {
+                Stmt::Directive(Directive::Test { span }) => (*span, true),
+                Stmt::Directive(Directive::DependencyTest { span }) => (*span, false),
+                _ => continue,
+            };
+            let allowed = source_map
+                .path(span.file_id)
+                .map(|path| eligible.contains(path.to_string_lossy()))
+                .unwrap_or(false);
+            if allowed && !active {
+                *item = Stmt::Directive(Directive::Test { span });
+            } else if !allowed && active {
+                *item = Stmt::Directive(Directive::DependencyTest { span });
+            }
+        }
+    }
+
     /// Load an already-provided source string as a pseudo file (for stdin use).
     pub fn load_inline(&mut self, path: PathBuf, src: String) -> Result<LoadResult, LoaderError> {
         let module_surface = self.nepl_meta_module_surface_for_source(&path, &src, None);
@@ -674,7 +727,7 @@ impl Loader {
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
         let mut shallow_type_arity_cache = BTreeMap::new();
-        let module = match self.load_from_contents(
+        let mut module = match self.load_from_contents(
             path,
             src,
             &mut sm,
@@ -690,6 +743,7 @@ impl Loader {
                 return Err(e);
             }
         };
+        self.localize_merged_test_directives(&mut module, &sm, &module_surface);
         self.source_map = sm.clone();
         Ok(LoadResult {
             module,
@@ -713,7 +767,7 @@ impl Loader {
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
         let mut shallow_type_arity_cache = BTreeMap::new();
-        let module = match self.load_from_contents_with(
+        let mut module = match self.load_from_contents_with(
             path,
             src,
             &mut sm,
@@ -735,6 +789,7 @@ impl Loader {
                 return Err(e);
             }
         };
+        self.localize_merged_test_directives(&mut module, &sm, &module_surface);
         loader_log!(
             "[Loader] load_inline_with_provider: success. cache_size={}",
             cache.len()
@@ -790,7 +845,7 @@ impl Loader {
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
         let mut shallow_type_arity_cache = BTreeMap::new();
-        let module = match self.load_from_contents_with(
+        let mut module = match self.load_from_contents_with(
             path,
             src,
             &mut sm,
@@ -815,6 +870,7 @@ impl Loader {
                 return Err(e);
             }
         };
+        self.localize_merged_test_directives(&mut module, &sm, &module_surface);
         loader_log!(
             "[Loader] load_dependency_inline_with_provider_and_cache: success. cache_size={}",
             cache.len()
@@ -933,6 +989,8 @@ impl Loader {
                 return Err(e);
             }
         };
+        let mut module = module;
+        self.localize_merged_test_directives(&mut module, &sm, &module_surface);
         loader_log!(
             "[Loader] load_inline_with_provider_and_cache: success. cache_size={}",
             cache.len()
@@ -1183,7 +1241,7 @@ impl Loader {
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
         let mut shallow_type_arity_cache = BTreeMap::new();
-        let module = match self.load_from_contents(
+        let mut module = match self.load_from_contents(
             canonical_entry,
             entry_source,
             &mut sm,
@@ -1199,6 +1257,9 @@ impl Loader {
                 return Err(e);
             }
         };
+        if let Some(surface) = module_surface.as_ref() {
+            self.localize_merged_test_directives(&mut module, &sm, surface);
+        }
         self.source_map = sm.clone();
         Ok(LoadResult {
             module,
@@ -2057,18 +2118,21 @@ impl Loader {
                         target_path: self.resolve_path(base, path),
                         visibility: Visibility::Private,
                         import_clause: None,
+                        test_dependency: false,
                         source_order: edges.len(),
                     });
                 }
                 TokenKind::DirNoPrelude => no_prelude = true,
                 TokenKind::DirImport(text) => {
-                    let (path, clause, visibility) = parser::parse_import_directive_parts(text);
+                    let (path, clause, visibility, test_dependency) =
+                        parser::parse_import_directive_parts(text);
                     if !path.is_empty() {
                         edges.push(SourceImportEdge {
                             kind: SourceImportEdgeKind::Import,
                             target_path: self.resolve_path(base, &path),
                             visibility,
                             import_clause: Some(clause),
+                            test_dependency,
                             source_order: edges.len(),
                         });
                     }
@@ -2079,6 +2143,7 @@ impl Loader {
                         target_path: self.resolve_path(base, path),
                         visibility: Visibility::Pub,
                         import_clause: None,
+                        test_dependency: false,
                         source_order: edges.len(),
                     });
                 }
@@ -2304,7 +2369,12 @@ impl Loader {
         }
         for stmt in module_items {
             match stmt {
-                Stmt::Directive(Directive::Import { path, clause, .. }) => {
+                Stmt::Directive(Directive::Import {
+                    path,
+                    clause,
+                    test_dependency,
+                    ..
+                }) => {
                     let target = self.resolve_path(&base, &path);
                     if import_not_seen(imported_once, &target) {
                         let mut staged_nepl_meta_edge_probes = Vec::new();
@@ -2320,20 +2390,37 @@ impl Loader {
                             } else {
                                 None
                             };
-                        let imp_mod = self.load_file_with(
-                            &target,
-                            sm,
-                            cache,
-                            processing,
-                            imported_once,
-                            shallow_type_arity_cache,
-                            false,
-                            provider,
-                            session_cache.as_deref_mut(),
-                            staged_nepl_meta_edge_probes_out,
-                            edge_materializer.as_deref_mut(),
-                            staged_materialized_public_surfaces_out,
-                        )?;
+                        let imp_mod = if test_dependency {
+                            self.load_file_with(
+                                &target,
+                                sm,
+                                cache,
+                                processing,
+                                imported_once,
+                                shallow_type_arity_cache,
+                                false,
+                                provider,
+                                session_cache.as_deref_mut(),
+                                staged_nepl_meta_edge_probes_out,
+                                None,
+                                None,
+                            )?
+                        } else {
+                            self.load_file_with(
+                                &target,
+                                sm,
+                                cache,
+                                processing,
+                                imported_once,
+                                shallow_type_arity_cache,
+                                false,
+                                provider,
+                                session_cache.as_deref_mut(),
+                                staged_nepl_meta_edge_probes_out,
+                                edge_materializer.as_deref_mut(),
+                                staged_materialized_public_surfaces_out,
+                            )?
+                        };
                         let probe = self.push_nepl_meta_dependency_edge_probe_with(
                             &target,
                             Some(&clause),
@@ -2349,11 +2436,13 @@ impl Loader {
                         } else {
                             None
                         };
-                        if try_materialize_nepl_meta_dependency_edge(
-                            probe.as_ref(),
-                            &mut edge_materializer,
-                            &mut materialized_surface_out,
-                        ) {
+                        if !test_dependency
+                            && try_materialize_nepl_meta_dependency_edge(
+                                probe.as_ref(),
+                                &mut edge_materializer,
+                                &mut materialized_surface_out,
+                            )
+                        {
                             if let Some(probe) = probe {
                                 push_loader_artifact(&mut nepl_meta_edge_probes, probe);
                             }
@@ -2375,6 +2464,47 @@ impl Loader {
                             push_loader_artifact(&mut nepl_meta_edge_probes, probe);
                         }
                         append_loaded_module_contents(&mut directives, &mut items, imp_mod);
+                    } else if test_dependency {
+                        let target_label = canonical_path_string(&target);
+                        let was_materialized =
+                            materialized_public_surfaces
+                                .as_deref()
+                                .is_some_and(|surfaces| {
+                                    surfaces
+                                        .iter()
+                                        .any(|surface| surface.module_path == target_label)
+                                });
+                        if was_materialized {
+                            let mut promoted_cache = BTreeMap::new();
+                            let mut promoted_processing = BTreeSet::new();
+                            let mut promoted_imported_once = BTreeSet::new();
+                            let mut promoted_type_arity_cache =
+                                ShallowTypeArityHintCache::default();
+                            let imp_mod = self.load_file_with(
+                                &target,
+                                sm,
+                                &mut promoted_cache,
+                                &mut promoted_processing,
+                                &mut promoted_imported_once,
+                                &mut promoted_type_arity_cache,
+                                false,
+                                provider,
+                                session_cache.as_deref_mut(),
+                                None,
+                                None,
+                                None,
+                            )?;
+                            let promoted_labels = promoted_cache
+                                .keys()
+                                .map(canonical_path_string)
+                                .collect::<BTreeSet<_>>();
+                            if let Some(surfaces) = materialized_public_surfaces.as_deref_mut() {
+                                surfaces.retain(|surface| {
+                                    !promoted_labels.contains(&surface.module_path)
+                                });
+                            }
+                            append_loaded_module_contents(&mut directives, &mut items, imp_mod);
+                        }
                     }
                 }
                 Stmt::Directive(Directive::Include { path, .. }) => {
@@ -2952,7 +3082,7 @@ fn hash_public_directive_surface(
             hash_str(hash, "directive.if_profile");
             hash_str(hash, profile);
         }
-        Directive::Test { .. } => {
+        Directive::Test { .. } | Directive::DependencyTest { .. } => {
             hash_str(hash, "directive.test");
         }
         Directive::NoPrelude { .. } => hash_str(hash, "directive.no_prelude"),
@@ -3211,6 +3341,7 @@ fn hash_source_import_edge(hash: &mut u64, edge: &SourceImportEdge) {
         }
         None => hash_u8(hash, 0),
     }
+    hash_bool(hash, edge.test_dependency);
     hash_usize(hash, edge.source_order);
 }
 
@@ -3600,6 +3731,140 @@ mod tests {
     }
 
     #[test]
+    fn test_mode_origin_follows_opt_in_imports_and_include_closure_only() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let a_path = canonicalize_path(&stdlib_path(&stdlib_root, &["a.nepl"]));
+        let c_path = canonicalize_path(&stdlib_path(&stdlib_root, &["c.nepl"]));
+        let d_path = canonicalize_path(&stdlib_path(&stdlib_root, &["d.nepl"]));
+        let e_path = canonicalize_path(&stdlib_path(&stdlib_root, &["e.nepl"]));
+        let f_path = canonicalize_path(&stdlib_path(&stdlib_root, &["f.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#test\nfn root_test %fn void i32 \\void:\n    0\n#import \"a\" as * with tests\n#import \"c\" as *\nfn main %fn void i32 \\void:\n    0\n",
+        );
+        let mut sources = BTreeMap::new();
+        sources.insert(a_path, String::from("#import \"c\" as *\n#import \"d\" as * with tests\n#include \"e\"\n#test\npub fn a_test %fn void i32 \\void:\n    1\n"));
+        sources.insert(
+            c_path,
+            String::from("#test\npub fn c_test %fn void i32 \\void:\n    2\n"),
+        );
+        sources.insert(d_path, String::from("#import \"a\" as * with tests\n#include \"f\"\n#test\npub fn d_test %fn void i32 \\void:\n    3\n"));
+        sources.insert(
+            e_path,
+            String::from("#test\npub fn e_test %fn void i32 \\void:\n    4\n"),
+        );
+        sources.insert(
+            f_path,
+            String::from("#test\npub fn f_test %fn void i32 \\void:\n    5\n"),
+        );
+        let mut loader = Loader::new(stdlib_root);
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let loaded = loader
+            .load_inline_with_provider(entry_path, entry_source, &mut provider)
+            .expect("test origin graph should load");
+        let active = loaded
+            .module
+            .root
+            .items
+            .iter()
+            .filter(|item| matches!(item, Stmt::Directive(Directive::Test { .. })))
+            .count();
+        let dependency = loaded
+            .module
+            .root
+            .items
+            .iter()
+            .filter(|item| matches!(item, Stmt::Directive(Directive::DependencyTest { .. })))
+            .count();
+        assert_eq!(
+            active, 5,
+            "root, opted-in a/d, and their include closure stay eligible"
+        );
+        assert_eq!(
+            dependency, 1,
+            "ordinary direct and transitive import c stays inactive"
+        );
+        let active_names = crate::target_precheck::active_stmt_indices_with_test_mode(
+            &loaded.module.root,
+            crate::CompileTarget::Wasm,
+            crate::BuildProfile::Debug,
+            true,
+        )
+        .into_iter()
+        .filter_map(|index| match &loaded.module.root.items[index] {
+            Stmt::FnDef(def) => Some(def.name.name.as_str()),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+        assert!(active_names.contains("root_test"));
+        assert!(active_names.contains("a_test"));
+        assert!(active_names.contains("d_test"));
+        assert!(active_names.contains("e_test"));
+        assert!(active_names.contains("f_test"));
+        assert!(!active_names.contains("c_test"));
+        assert!(active_names.contains("main"));
+    }
+
+    #[test]
+    fn dependency_load_localizes_test_origin_in_cold_and_warm_sessions() {
+        let dependency_path = canonicalize_path(&PathBuf::from("C:/nepl-test/stdlib/a.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let b_path = canonicalize_path(&stdlib_path(&stdlib_root, &["b.nepl"]));
+        let c_path = canonicalize_path(&stdlib_path(&stdlib_root, &["c.nepl"]));
+        let dependency_source = String::from(
+            "#import \"b\" as *\n#import \"c\" as * with tests\n#test\npub fn a_test %fn void i32 \\void:\n    1\n",
+        );
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            b_path,
+            String::from("#test\npub fn b_test %fn void i32 \\void:\n    2\n"),
+        );
+        sources.insert(
+            c_path,
+            String::from("#test\npub fn c_test %fn void i32 \\void:\n    3\n"),
+        );
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+        let mut loader = Loader::new(stdlib_root);
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+
+        for _ in 0..2 {
+            let loaded = loader
+                .load_dependency_inline_with_provider_and_cache(
+                    dependency_path.clone(),
+                    dependency_source.clone(),
+                    &mut provider,
+                    Some(&mut session_cache),
+                )
+                .expect("dependency test origin should localize");
+            let active_names = crate::target_precheck::active_stmt_indices_with_test_mode(
+                &loaded.module.root,
+                crate::CompileTarget::Wasm,
+                crate::BuildProfile::Debug,
+                true,
+            )
+            .into_iter()
+            .filter_map(|index| match &loaded.module.root.items[index] {
+                Stmt::FnDef(def) => Some(def.name.name.as_str()),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+            assert!(active_names.contains("a_test"));
+            assert!(active_names.contains("c_test"));
+            assert!(!active_names.contains("b_test"));
+        }
+    }
+
+    #[test]
     fn provider_session_cache_reuses_stdlib_parsed_modules_with_fresh_file_ids() {
         let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
@@ -3687,7 +3952,7 @@ mod tests {
         let loaded = loader
             .load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
                 entry_path,
-                entry_source,
+                entry_source.clone(),
                 &mut provider,
                 &mut session_cache,
             )
@@ -3766,7 +4031,7 @@ mod tests {
         let loaded = loader
             .load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes(
                 entry_path,
-                entry_source,
+                entry_source.clone(),
                 &mut provider,
                 &mut session_cache,
                 &mut edge_materializer,
@@ -3797,6 +4062,129 @@ mod tests {
                 .iter()
                 .any(|stmt| { matches!(stmt, Stmt::FnDef(def) if def.name.name == "foo") }),
             "materialized dependency body must not be merged into the root AST"
+        );
+    }
+
+    #[test]
+    fn neplmeta_edge_materializer_keeps_opted_in_test_body_in_source() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let bar_path = canonicalize_path(&stdlib_path(&stdlib_root, &["bar.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"bar\" as *\n#import \"foo\" as *\n#import \"foo\" as * with tests\nfn main %fn void i32 \\void:\n    1\n",
+        );
+        let foo_source = String::from(
+            "#import \"bar\" as *\npub fn foo %fn void i32 \\void:\n    bar\n#test\npub fn foo_test %fn void i32 \\void:\n    bar\n",
+        );
+        let mut sources = BTreeMap::new();
+        sources.insert(foo_path, foo_source);
+        sources.insert(
+            bar_path,
+            String::from("pub fn bar %fn void i32 \\void:\n    2\n"),
+        );
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+        let mut loader = Loader::new(stdlib_root);
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let mut projected_edges = 0usize;
+        let mut edge_materializer = |_probe: &NeplMetaDependencyEdgePreTypecheckProbe| {
+            projected_edges += 1;
+            Some(crate::typecheck::TypedPublicSurfaceTable::default())
+        };
+
+        let loaded = loader
+            .load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes(
+                entry_path,
+                entry_source.clone(),
+                &mut provider,
+                &mut session_cache,
+                &mut edge_materializer,
+            )
+            .expect("opted-in test dependency should load from source");
+
+        assert_eq!(loaded.materialized_public_surfaces.len(), 0);
+        assert!(loaded
+            .module
+            .root
+            .items
+            .iter()
+            .any(|stmt| { matches!(stmt, Stmt::FnDef(def) if def.name.name == "foo_test") }));
+        assert!(loaded
+            .module
+            .root
+            .items
+            .iter()
+            .any(|stmt| { matches!(stmt, Stmt::FnDef(def) if def.name.name == "bar") }));
+        assert!(loaded
+            .module
+            .root
+            .items
+            .iter()
+            .any(|stmt| { matches!(stmt, Stmt::Directive(Directive::Test { .. })) }));
+        let checked = crate::typecheck::typecheck_with_materialized_public_surfaces_and_test_mode(
+            &loaded.module,
+            crate::compiler::CompileTarget::Wasm,
+            crate::compiler::BuildProfile::Debug,
+            true,
+            Some(&loaded.source_map),
+            &loaded.materialized_public_surfaces,
+        );
+        assert!(
+            checked.diagnostics.is_empty(),
+            "cold promoted dependency diagnostics: {:?}",
+            checked.diagnostics
+        );
+
+        let loaded_warm = loader
+            .load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes(
+                canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl")),
+                entry_source,
+                &mut provider,
+                &mut session_cache,
+                &mut edge_materializer,
+            )
+            .expect("warm opted-in test dependency should still load from source");
+        assert_eq!(
+            projected_edges, 4,
+            "ordinary edges may materialize, while later with-tests edges must restore cached source bodies in cold and warm loads"
+        );
+        assert_eq!(loaded_warm.materialized_public_surfaces.len(), 0);
+        assert!(loaded_warm
+            .module
+            .root
+            .items
+            .iter()
+            .any(|stmt| { matches!(stmt, Stmt::FnDef(def) if def.name.name == "foo_test") }));
+        assert!(loaded_warm
+            .module
+            .root
+            .items
+            .iter()
+            .any(|stmt| { matches!(stmt, Stmt::FnDef(def) if def.name.name == "bar") }));
+        assert!(loaded_warm
+            .module
+            .root
+            .items
+            .iter()
+            .any(|stmt| { matches!(stmt, Stmt::Directive(Directive::Test { .. })) }));
+        let checked_warm =
+            crate::typecheck::typecheck_with_materialized_public_surfaces_and_test_mode(
+                &loaded_warm.module,
+                crate::compiler::CompileTarget::Wasm,
+                crate::compiler::BuildProfile::Debug,
+                true,
+                Some(&loaded_warm.source_map),
+                &loaded_warm.materialized_public_surfaces,
+            );
+        assert!(
+            checked_warm.diagnostics.is_empty(),
+            "warm promoted dependency diagnostics: {:?}",
+            checked_warm.diagnostics
         );
     }
 
@@ -4142,7 +4530,7 @@ mod tests {
         let path = canonicalize_path(&stdlib_path(&stdlib_root, &["facade.nepl"]));
         let source = [
             "#prelude std/prelude_base",
-            "#import pub \"types\" as { Box as PublicBox, Result::* }",
+            "#import pub \"types\" as { Box as PublicBox, Result::* } with tests",
             "#include \"included\"",
             "",
         ]
@@ -4173,6 +4561,7 @@ mod tests {
             .find(|edge| edge.kind == SourceImportEdgeKind::Import)
             .expect("test source should contain one import edge");
         assert_eq!(import_edge.visibility, Visibility::Pub);
+        assert!(import_edge.test_dependency);
         assert_eq!(import_edge.source_order, 1);
         assert!(
             matches!(import_edge.import_clause, Some(ImportClause::Selective(_))),
@@ -4196,6 +4585,7 @@ mod tests {
             .expect("module surface should retain the import edge");
         assert_eq!(meta_import.visibility, NeplMetaVisibility::Pub);
         assert!(meta_import.public_reexport);
+        assert!(meta_import.test_dependency);
         assert!(
             matches!(
                 meta_import.import_clause,
@@ -4203,6 +4593,30 @@ mod tests {
             ),
             ".neplmeta module surface must retain selective import projection authority",
         );
+    }
+
+    #[test]
+    fn source_import_surface_does_not_treat_quoted_path_text_as_test_authority() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let path = canonicalize_path(&stdlib_path(&stdlib_root, &["facade.nepl"]));
+        let surface = loader.compute_source_arity_surface(
+            &path,
+            FileId(0),
+            "#import \"support with tests\" as *\n#import \"enabled\" as * with tests\n#import \"attached\" as aliaswith tests\n",
+        );
+        let imports = surface
+            .edges
+            .iter()
+            .filter(|edge| edge.kind == SourceImportEdgeKind::Import)
+            .collect::<Vec<_>>();
+        assert_eq!(imports.len(), 3);
+        assert!(imports[0].target_path.ends_with("support with tests.nepl"));
+        assert!(!imports[0].test_dependency);
+        assert!(imports[1].target_path.ends_with("enabled.nepl"));
+        assert!(imports[1].test_dependency);
+        assert!(imports[2].target_path.ends_with("attached.nepl"));
+        assert!(!imports[2].test_dependency);
     }
 
     #[test]

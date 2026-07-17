@@ -557,6 +557,7 @@ fn build_public_reexport_visibility(
             clause,
             span,
             vis,
+            ..
         } = directive
         else {
             continue;

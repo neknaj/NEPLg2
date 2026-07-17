@@ -14,12 +14,12 @@ use alloc::vec::Vec;
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
-const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 12;
-const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v12";
+const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 13;
+const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v13";
 const NEPL_META_COMPILER_IDENTITY_INPUT: &str = concat!(
     "neplg2-compiler:",
     env!("CARGO_PKG_VERSION"),
-    ":neplmeta-v12"
+    ":neplmeta-v13"
 );
 const NEPL_OBJ_DIRECT_CALL_SCHEMA_VERSION: u32 = 1;
 const NEPL_OBJ_DIRECT_CALL_HASH_VERSION: &str = "neplg2-neplobj-direct-call-v1";
@@ -74,6 +74,7 @@ pub struct NeplMetaModuleDependencyEdge {
     pub visibility: NeplMetaVisibility,
     pub import_clause: Option<NeplMetaImportClause>,
     pub public_reexport: bool,
+    pub test_dependency: bool,
     pub source_order: u32,
 }
 
@@ -2292,7 +2293,7 @@ fn nepl_meta_module_surface_hash(
     dependency_edges: &[NeplMetaModuleDependencyEdge],
 ) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "module-surface-v1");
+    hash_str(&mut hash, "module-surface-v2");
     hash_str(&mut hash, canonical_module_path);
     hash_str(&mut hash, default_prelude_path);
     hash_bool(&mut hash, no_prelude);
@@ -2414,6 +2415,7 @@ fn hash_module_dependency_edge(hash: &mut u64, edge: &NeplMetaModuleDependencyEd
         None => hash_u8(hash, 0),
     }
     hash_bool(hash, edge.public_reexport);
+    hash_bool(hash, edge.test_dependency);
     hash_u32(hash, edge.source_order);
 }
 
@@ -2919,6 +2921,7 @@ mod tests {
                 visibility: NeplMetaVisibility::Pub,
                 import_clause: Some(NeplMetaImportClause::Open),
                 public_reexport: true,
+                test_dependency: false,
                 source_order: 0,
             }]),
         )
@@ -2926,6 +2929,17 @@ mod tests {
 
     fn module_surface_without_edges(path: &str) -> NeplMetaModuleSurface {
         module_surface_with_edges(path, Vec::new())
+    }
+
+    #[test]
+    fn module_surface_hash_tracks_test_dependency_edge_authority() {
+        let normal = module_surface("/stdlib/core/math.nepl");
+        let mut test_edge = normal.dependency_edges[0].clone();
+        test_edge.test_dependency = true;
+        let with_tests =
+            module_surface_with_edges("/stdlib/core/math.nepl", Vec::from([test_edge]));
+
+        assert_ne!(normal.stable_hash, with_tests.stable_hash);
     }
 
     fn module_surface_with_edges(
@@ -4079,6 +4093,7 @@ mod tests {
                     visibility: NeplMetaVisibility::Pub,
                     import_clause: None,
                     public_reexport: true,
+                    test_dependency: false,
                     source_order: 0,
                 }]),
             ),
@@ -4512,6 +4527,7 @@ mod tests {
                     visibility: NeplMetaVisibility::Pub,
                     import_clause: Some(NeplMetaImportClause::Alias("ResultAlias".into())),
                     public_reexport: true,
+                    test_dependency: false,
                     source_order: 0,
                 }]),
             ),
@@ -4532,6 +4548,7 @@ mod tests {
                         },
                     ]))),
                     public_reexport: true,
+                    test_dependency: false,
                     source_order: 0,
                 }]),
             ),

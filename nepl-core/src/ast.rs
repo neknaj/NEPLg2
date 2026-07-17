@@ -256,6 +256,7 @@ pub enum Directive {
         path: String,
         clause: ImportClause,
         vis: Visibility,
+        test_dependency: bool,
         span: Span,
     },
     Use {
@@ -271,6 +272,9 @@ pub enum Directive {
         span: Span,
     },
     Test {
+        span: Span,
+    },
+    DependencyTest {
         span: Span,
     },
     IndentWidth {
@@ -623,6 +627,7 @@ fn remap_directive_file_id(directive: &mut Directive, from: FileId, to: FileId) 
         | Directive::IfTarget { span, .. }
         | Directive::IfProfile { span, .. }
         | Directive::Test { span }
+        | Directive::DependencyTest { span }
         | Directive::IndentWidth { span, .. }
         | Directive::Include { span, .. }
         | Directive::Prelude { span, .. }
