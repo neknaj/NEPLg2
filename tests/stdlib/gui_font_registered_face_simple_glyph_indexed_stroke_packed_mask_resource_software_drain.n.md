@@ -1,23 +1,92 @@
 # GUI font registered simple glyph indexed stroke packed mask software drain start
 
-## Registered completion starts compositor tile RLE count
+## Registered completion advances one bounded compositor tile RLE count step
+
+neplg2:test[stdio, normalize_newlines]
 
 ```neplg2
 ---
-stdout: "test_report name=\"gui_font_registered_stroke_compositor_rle_count_start\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"count starts ready and roundtrips exact payload\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_rle_count_step_continuation\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"zero budget preserves pending count and later budget completes\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ---
 #entry main
 #indent 4
 #target std
-#import "std/test" as *
-#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
+#import "std/test" as * with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test" as * with tests
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_continuation_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_rle_count_step_continuation"
+    let report1 %TestReport test_report_push report (assert "zero budget preserves pending count and later budget completes" result)
+    test_report_exit_code test_report_print_stdout report1
+```
+
+## Invalid RLE count budget preserves exact payload authority
+
+neplg2:test[stdio, normalize_newlines]
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_rle_count_step_budget_recovery\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"invalid budget remains typed and payload-owner bearing\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as * with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test" as * with tests
+fn main %impure fn void i32 \void:
+    let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_budget_recovery_contract unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_rle_count_step_budget_recovery"
+    let report1 %TestReport test_report_push report (assert "invalid budget remains typed and payload-owner bearing" result)
+    test_report_exit_code test_report_print_stdout report1
+```
+
+## Invalid frame config preserves dirty owner before bounded RLE count
+
+neplg2:test[stdio, normalize_newlines]
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_rle_count_step_entry_recovery\" count=1 failed=0\nassertion index=0 status=ok kind=i32 label=\"upstream frame failure remains dirty-owner bearing\" expected=\"15\" actual=\"15\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as * with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test" as * with tests
+fn main %impure fn void i32 \void:
+    let result %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_recovery_evidence unit
+    let report %TestReport test_report_new "gui_font_registered_stroke_compositor_rle_count_step_entry_recovery"
+    let report1 %TestReport test_report_push report (assert_eq_i32 "upstream frame failure remains dirty-owner bearing" 15 result)
+    test_report_exit_code test_report_print_stdout report1
+```
+
+## Registered completion starts compositor tile RLE count
+
+neplg2:test[stdio, normalize_newlines]
+
+```neplg2
+---
+stdout: "test_report name=\"gui_font_registered_stroke_compositor_rle_count_start\" count=5 failed=0\nassertion index=0 status=ok kind=bool label=\"combined contract\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"metadata\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"progress\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"status\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"byte count\" expected=\"true\" actual=\"true\" message=\"\"\n"
+---
+#entry main
+#indent 4
+#target std
+#import "std/test" as * with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test" as * with tests
 fn main %impure fn void i32 \void:
     let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_normal_contract unit
     let report %TestReport test_report_new "gui_font_registered_stroke_compositor_rle_count_start"
-    test_report_finish test_report_bool report "count starts ready and roundtrips exact payload" true result
+    let report1 %TestReport test_report_push report (assert "combined contract" result)
+    let report2 %TestReport test_report_push report1 (assert "metadata" gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_metadata_contract unit)
+    let report3 %TestReport test_report_push report2 (assert "progress" gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_progress_contract unit)
+    let report4 %TestReport test_report_push report3 (assert "status" gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_status_contract unit)
+    let report5 %TestReport test_report_push report4 (assert "byte count" gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_byte_count_contract unit)
+    test_report_exit_code test_report_print_stdout report5
 ```
 
 ## Invalid frame config preserves dirty owner before RLE count
+
+neplg2:test[stdio, normalize_newlines]
 
 ```neplg2
 ---
@@ -26,15 +95,18 @@ stdout: "test_report name=\"gui_font_registered_stroke_compositor_rle_count_entr
 #entry main
 #indent 4
 #target std
-#import "std/test" as *
-#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
+#import "std/test" as * with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test" as * with tests
 fn main %impure fn void i32 \void:
     let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_entry_recovery_contract unit
     let report %TestReport test_report_new "gui_font_registered_stroke_compositor_rle_count_entry_recovery"
-    test_report_finish test_report_bool report "frame failure remains dirty-owner bearing" true result
+    let report1 %TestReport test_report_push report (assert "frame failure remains dirty-owner bearing" result)
+    test_report_exit_code test_report_print_stdout report1
 ```
 
 ## Invalid tile index preserves plan before RLE count
+
+neplg2:test[stdio, normalize_newlines]
 
 ```neplg2
 ---
@@ -43,12 +115,13 @@ stdout: "test_report name=\"gui_font_registered_stroke_compositor_rle_count_plan
 #entry main
 #indent 4
 #target std
-#import "std/test" as *
-#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
+#import "std/test" as * with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test" as * with tests
 fn main %impure fn void i32 \void:
     let result %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_index_recovery_contract unit
     let report %TestReport test_report_new "gui_font_registered_stroke_compositor_rle_count_plan_recovery"
-    test_report_finish test_report_bool report "descriptor failure remains plan-owner bearing" true result
+    let report1 %TestReport test_report_push report (assert "descriptor failure remains plan-owner bearing" result)
+    test_report_exit_code test_report_print_stdout report1
 ```
 
 ## Registered completion enters checked compositor tile payload

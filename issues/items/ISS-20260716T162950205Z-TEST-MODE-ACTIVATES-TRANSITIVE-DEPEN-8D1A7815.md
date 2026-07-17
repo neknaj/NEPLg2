@@ -2,8 +2,8 @@
 id: ISS-20260716T162950205Z-TEST-MODE-ACTIVATES-TRANSITIVE-DEPEN-8D1A7815
 title: "test mode activates transitive dependency test declarations"
 area: compiler
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-16
@@ -41,3 +41,5 @@ F5nyh and future cross-subsystem runtime fixtures cannot compile honestly even t
 ## 検証
 
 Parser/metadata/hash regressions、loader の opt-in/transitive/include/cycle/ordinary-inactive 回帰、active statement hoist exclusion、target gate tests、wasm と LLVM test-mode compilation、F5nyh focused runtime fixtures、normal-mode regression。
+
+`4e5e4ff36`でexplicit `with tests` authority、artifact v13、cold/warm loader回帰を実装した。`cargo test -p nepl-core --lib` 883件、`cargo check --manifest-path nepl-web/Cargo.toml`、F5nyh/F5nyg focused runtime、normal compile isolation、trunk buildを通過した。

@@ -8629,3 +8629,7 @@ tile-plan bridge failureとtile-payload prepare failureはlower owner-bearing er
 F5nygは専用extension `stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start.nepl` に置き、巨大なstroke moduleへF5mf namespaceを流入させない。registered completed owner、既存entry/tile config、tile indexを受け、public F5nyf tile-payload bridge、既存F5mf `gui_rgba8888_compositor_tile_rle_count_start`を各1回、この順で呼ぶ。successは既存RLE count ownerをそのまま返し、frame/row metadata、initial run count 0、next pixel index 0、Ready cursor authorityを保持する。
 
 tile-payload bridge failureとRLE count-start failureはlower owner-bearing error全体を段階別variantに保持する。consuming recoveryはcompleted/dirty/entry/range/storage/planまたはpayload authorityを返す。有効payloadから自然到達不能なF5mf failureを偽造せず、lower cursor/count startを再実装しない。F5nygはF5mg count step、completed count、encode、present、transport、host/platform/backend、fallbackへ進まない。
+
+### F5nyh registered stroke direct compositor bounded RLE count-step bridge
+
+F5nyhは専用extension `stroke_compositor_tile_rle_count_step.nepl` に置き、public F5nyg count-startを1回、そのsuccess ownerだけを既存F5mg bounded count-stepへ1回渡す。outer `Result`のErrはF5nyg start error、outer Ok内のinner `Result`はF5mg step errorまたは既存stepを加工せず保持する。start failure時はF5mgを呼ばず、step failureはfake count ownerを作らず既存F5mg errorのpayload authorityを保持する。completed count、encode、presentへは進まず、F5mh completed evidenceは後続phaseに残す。

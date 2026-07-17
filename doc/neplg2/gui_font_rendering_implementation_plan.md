@@ -13697,9 +13697,15 @@ git diff --check
 
 ## Phase F5nyg: registered stroke direct compositor RLE count-start bridge boundary
 
-- `stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start.nepl` を専用extensionとして追加し、F5mf importとF5nyg型・bridge・fixtureをstroke本体から隔離する。
+- `stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start.nepl` を専用extensionとして追加し、F5mf importとF5nyg型・bridgeをstroke本体から隔離する。runtime testはproduction graph外の`stroke_compositor_tile_rle_count_step_test.nepl` adapterからproduction-only fixtureを使用する。
 
 - F5nxy completed owner、既存entry/tile config、tile indexを受け、public F5nyfを1回呼び、success payloadを既存F5mf `gui_rgba8888_compositor_tile_rle_count_start`へ1回渡す。F5nyf以前とF5mf lower startを再実装しない。
 - errorは`TilePayloadBridgeFailed`または`RleCountStartFailed`としてlower owner-bearing error全体を保持し、borrowed diagnostic後のconsuming recoveryだけがCompleted/DirtyOwner/Entry/Range/Storage/Plan/Payloadへ変換する。
-- success fixtureはframe 261、width 16、row start 3/count 1、accumulated run count 0、next pixel index 0、Ready statusを検証し、payload roundtripでbyte count 64とRGBA `(11,22,33,21)`を再確認する。invalid entry configはInvalidGeometry/DirtyOwner、tile index 1はnested `DescriptorInvalid`/`TileIndexOutOfBounds`/`InvalidCommand`とPlan recoveryを検証する。自然到達不能なF5mf failureは偽造しない。
+- success fixtureはframe 261、width 16、row start 3/count 1、accumulated run count 0、next pixel index 0、Ready status、payload roundtripのbyte count 64を検証する。exact RGBAは直前F5nyf fixtureの責務として再利用し、production-only raster fixtureに同じcoverage値を重複固定しない。invalid entry configはFrameIdInvalid/InvalidCommand/DirtyOwner、tile index 1はnested `DescriptorInvalid`/`TileIndexOutOfBounds`/`InvalidCommand`とPlan recoveryを検証する。自然到達不能なF5mf failureは偽造しない。
 - focused runtime、Web source policy、normal compile isolation、F5nyf/F5mf regression、trunk/CLI、issues/diff check、subagent reviewを通す。F5nygはF5mg count step、completed count、encode、present、transport、host/platform/backend、fallbackへ進まない。
+
+## Phase F5nyh: registered stroke direct compositor bounded RLE count-step bridge boundary
+
+- 専用`stroke_compositor_tile_rle_count_step.nepl`でpublic F5nygを1回呼び、success count ownerとcaller budgetを既存F5mgへ1回だけ渡す。
+- outer `Result`のErrにF5nyg error chain、outer Ok内のinner `Result`にF5mg error全体またはstep authorityを保持する。start failureではF5mgを呼ばず、lower consuming recoveryを変換せず、fake count continuationを作らない。
+- focused fixtureでouter Err、outer Ok(inner Err)、outer Ok(inner Ok)の三terminal、PendingからCompletedへの継続、invalid budgetのkind/category/progress/entry owner recovery、upstream FrameIdInvalid/DirtyOwnerを固定し、source policy、normal compile、F5nyg/F5mg回帰を通す。F5mh completed count、encode、presentへ進まない。

@@ -11060,6 +11060,10 @@ F5nyf consumes the registered completed owner with existing entry and tile-plan 
 
 The affine wrapper retains either the complete F5nye error or complete F5me prepare error. Borrowed diagnostics precede consuming recovery; recovery returns completed, dirty-owner, entry, range, storage, or plan authority. F5nyf does not duplicate earlier bridges, call lower row-tile APIs, expose raw storage, or enter F5mf RLE counting, encoding, presentation, transport, host/platform/backend work, or fallback.
 
+### F5nyh registered direct compositor bounded RLE count-step bridge
+
+F5nyh lives in `stroke_compositor_tile_rle_count_step.nepl`. It invokes public F5nyg exactly once and, only after that start succeeds, delegates its count owner and caller budget to F5mg exactly once. The outer `Result` retains the complete F5nyg start error. Its success exhaustively rewraps both F5mg branches without inspecting or replacing either owner-bearing payload, so the inner error retains the complete step error and the inner success retains the existing step authority. The focused continuation consumes Pending into a later Completed step, while the invalid-budget branch recovers the same compositor entry owner from the actual error. No recovery wrapper forges a count continuation or weakens recovery. The boundary stops before F5mh completed evidence, encoding, and presentation.
+
 ### F5nyg registered direct compositor RLE count-start bridge
 
 F5nyg lives in the dedicated `stroke_compositor_tile_rle_count_start.nepl` extension so importing F5mf does not pollute the large stroke module's overload and trait namespace. It consumes the registered completed owner with existing entry/tile configs and tile index. It calls public F5nyf exactly once and passes the untouched payload owner to F5mf `gui_rgba8888_compositor_tile_rle_count_start` exactly once. Success returns the existing count owner with frame/row metadata, zero accumulated runs, pixel cursor zero, and Ready status.

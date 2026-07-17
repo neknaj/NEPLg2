@@ -1,0 +1,349 @@
+//: # registered stroke compositor tile RLE count step test adapter
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step" as step_bridge
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture" as count_fixture
+#import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count" as *
+#import "alloc/gui/render2d/compositor_tile_payload" as *
+#import "alloc/gui/render2d/compositor_tile_plan" as *
+#import "alloc/gui/render2d/dirty_surface" as *
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_batch_range" as *
+#import "alloc/gui/render2d/row_batch_cursor" as *
+#import "alloc/gui/render2d/row_tile_plan" as *
+#import "alloc/gui/render2d/row_tile_rle_count" as *
+#import "alloc/gui/render2d/row_tile_rle_drain" as *
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/math" as *
+#import "core/result" as *
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_invalid_budget_kind %fn GuiRgba8888CompositorTileRleCountStepErrorKind bool \kind:
+    match kind:
+        GuiRgba8888CompositorTileRleCountStepErrorKind::CountStepFailed lower:
+            match lower:
+                GuiRgba8888RowTileRleCountErrorKind::DrainFailed drain:
+                    match drain:
+                        GuiRgba8888RowTileRleDrainErrorKind::InvalidBudget: true
+                        _: false
+                _: false
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_invalid_command %fn Option GuiError bool \category:
+    match category:
+        Option::Some error:
+            match error:
+                GuiError::InvalidCommand: true
+                _: false
+        Option::None: false
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_complete_entry_free %impure fn GuiRgba8888CompositorFrameEntryOwner bool \entry:
+    match gui_rgba8888_compositor_batch_range_prepare entry:
+        Result::Ok range:
+            match gui_rgba8888_compositor_frame_entry_owner_free gui_rgba8888_compositor_batch_range_owner_finish_entry range:
+                Result::Ok _: false
+                Result::Err _: false
+        Result::Err complete:
+            let kind_ok %bool match gui_rgba8888_compositor_batch_range_error_kind &complete:
+                GuiRgba8888CompositorBatchRangeErrorKind::CursorNextBatchFailed lower:
+                    match lower:
+                        GuiRgba8888RowBatchCursorErrorKind::CursorIndexPastEnd: true
+                        _: false
+                _: false
+            let category_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_invalid_command gui_rgba8888_compositor_batch_range_error_category_value &complete
+            let recovered %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_batch_range_error_finish_entry complete
+            match gui_rgba8888_compositor_frame_entry_owner_free recovered:
+                Result::Ok _: and kind_ok category_ok
+                Result::Err _: and kind_ok category_ok
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_error_contract %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeError i32 \error:
+    let stage gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_stage &error
+    let kind gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_kind &error
+    let category gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_category_value &error
+    let recovery gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_recovery error
+    let stage_ok %bool match stage:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeErrorStage::TilePayloadBridge: true
+        _: false
+    let kind_ok %bool match kind:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeErrorKind::TilePayloadBridgeFailed payload_kind:
+            match payload_kind:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorKind::TilePlanBridgeFailed plan_kind:
+                    match plan_kind:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeErrorKind::ByteStorageBridgeFailed storage_kind:
+                            match storage_kind:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorByteStorageBridgeErrorKind::BatchRangeBridgeFailed range_kind:
+                                    match range_kind:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorBatchRangeBridgeErrorKind::FrameEntryBridgeFailed entry_kind:
+                                            match entry_kind:
+                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorFrameEntryBridgeErrorKind::FrameEntryPrepareFailed prepare_kind:
+                                                    match prepare_kind:
+                                                        GuiRgba8888CompositorFrameEntryPrepareErrorKind::BitmapFramePrepareFailed bitmap_kind:
+                                                            match bitmap_kind:
+                                                                GuiRgba8888BitmapFramePrepareErrorKind::FrameIdInvalid: true
+                                                                _: false
+                                                        _: false
+                                                _: false
+                                        _: false
+                                _: false
+                        _: false
+                _: false
+        _: false
+    let category_ok %bool match category:
+        Option::Some value:
+            match value:
+                GuiError::InvalidCommand: true
+                _: false
+        _: false
+    let recovery_ok %bool match recovery:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::DirtyOwner owner:
+            match gui_rgba8888_software_surface_dirty_owner_free owner:
+                Result::Ok _: true
+                Result::Err _: true
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Completed completed:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Completed completed
+            false
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Entry entry:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Entry entry
+            false
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Range range:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Range range
+            false
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Storage storage:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Storage storage
+            false
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Plan plan:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Plan plan
+            false
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Payload payload:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Payload payload
+            false
+    let stage_evidence %i32 if stage_ok:
+        then 1
+        else 0
+    let kind_evidence %i32 if kind_ok:
+        then 2
+        else 0
+    let category_evidence %i32 if category_ok:
+        then 4
+        else 0
+    let recovery_evidence %i32 if recovery_ok:
+        then 8
+        else 0
+    add add add stage_evidence kind_evidence category_evidence recovery_evidence
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_completed %impure fn GuiRgba8888CompositorTileRleCountOwner bool \owner:
+    match gui_rgba8888_compositor_tile_rle_count_step_budget owner 64:
+        Result::Err error:
+            match gui_rgba8888_compositor_tile_rle_count_step_error_finish_entry error:
+                Result::Ok entry:
+                    match gui_rgba8888_compositor_frame_entry_owner_free entry:
+                        Result::Ok _: false
+                        Result::Err _: false
+                Result::Err finish_error:
+                    match gui_rgba8888_compositor_tile_payload_finish_error_free finish_error:
+                        Result::Ok _: false
+                        Result::Err _: false
+        Result::Ok step:
+            let status_ok %bool match gui_rgba8888_compositor_tile_rle_count_step_status &step:
+                GuiRgba8888RowTileRleCountStepStatus::Completed: true
+                _: false
+            let completed %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_step_finish_owner step
+            let progress_ok %bool and lt 0 gui_rgba8888_compositor_tile_rle_count_owner_accumulated_run_count &completed lt 0 gui_rgba8888_compositor_tile_rle_count_owner_cursor_next_pixel_index &completed
+            let cursor_ok %bool match gui_rgba8888_compositor_tile_rle_count_owner_cursor_status &completed:
+                Result::Ok status:
+                    match status:
+                        GuiRgba8888RowTileRleCursorStatus::Complete: true
+                        _: false
+                Result::Err _: false
+            match gui_rgba8888_compositor_tile_rle_count_owner_free completed:
+                Result::Ok _: and and status_ok progress_ok cursor_ok
+                Result::Err _: false
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_consume %impure fn Result Result GuiRgba8888CompositorTileRleCountStep GuiRgba8888CompositorTileRleCountStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeError impure fn i32 bool \terminal\mode:
+    match terminal:
+        Result::Err error:
+            and:
+                eq mode 2
+                eq gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_error_contract error 15
+        Result::Ok step_result:
+            match step_result:
+                Result::Err error:
+                    let kind_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_invalid_budget_kind gui_rgba8888_compositor_tile_rle_count_step_error_kind &error
+                    let category_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_invalid_command gui_rgba8888_compositor_tile_rle_count_step_error_category_value &error
+                    let count_ok %bool eq gui_rgba8888_compositor_tile_rle_count_step_error_accumulated_run_count &error 0
+                    let index_ok %bool eq gui_rgba8888_compositor_tile_rle_count_step_error_cursor_next_pixel_index &error 0
+                    match gui_rgba8888_compositor_tile_rle_count_step_error_finish_entry error:
+                        Result::Ok entry:
+                            let recovery_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_complete_entry_free entry
+                            and and and and and eq mode 1 kind_ok category_ok count_ok index_ok recovery_ok
+                        Result::Err finish_error:
+                            match gui_rgba8888_compositor_tile_payload_finish_error_free finish_error:
+                                Result::Ok _: false
+                                Result::Err _: false
+                Result::Ok step:
+                    let status_ok %bool match gui_rgba8888_compositor_tile_rle_count_step_status &step:
+                        GuiRgba8888RowTileRleCountStepStatus::Pending: true
+                        _: false
+                    let owner %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_step_finish_owner step
+                    let progress_ok %bool and eq gui_rgba8888_compositor_tile_rle_count_owner_accumulated_run_count &owner 0 eq gui_rgba8888_compositor_tile_rle_count_owner_cursor_next_pixel_index &owner 0
+                    if and and eq mode 0 status_ok progress_ok:
+                        then gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_completed owner
+                        else:
+                            match gui_rgba8888_compositor_tile_rle_count_owner_free owner:
+                                Result::Ok _: false
+                                Result::Err _: false
+
+#test
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_contract %impure fn i32 impure fn i32 impure fn i32 bool \raw_id\mode\remaining_steps:
+    match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed raw_id:
+        Option::None: false
+        Option::Some completed:
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 261 2
+            let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+            let result step_bridge::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_count_step_budget completed frame_config tile_config 0 remaining_steps
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_consume result mode
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_contract %impure fn i32 i32 \raw_id:
+    match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed raw_id:
+        Option::None: sub 0 1
+        Option::Some completed:
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 0 2
+            let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+            let result step_bridge::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_count_step_budget completed frame_config tile_config 0 0
+            match result:
+                Result::Err error: gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_error_contract error
+                Result::Ok step_result:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_consume Result::Ok step_result 2
+                    sub 0 2
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_contract %impure fn i32 impure fn i32 bool \raw_id\mode:
+    match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed raw_id:
+        Option::None: false
+        Option::Some completed:
+            let frame_id %i32 if eq mode 1:
+                then 0
+                else 261
+            let tile_index %i32 if eq mode 2:
+                then 1
+                else 0
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config frame_id 2
+            let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_count_start completed frame_config tile_config tile_index:
+                Result::Ok count:
+                    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_count_owner_metadata &count
+                    let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 261 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
+                    let progress_ok %bool and eq gui_rgba8888_compositor_tile_rle_count_owner_accumulated_run_count &count 0 eq gui_rgba8888_compositor_tile_rle_count_owner_cursor_next_pixel_index &count 0
+                    let status_ok %bool match gui_rgba8888_compositor_tile_rle_count_owner_cursor_status &count:
+                        Result::Ok status:
+                            match status:
+                                GuiRgba8888RowTileRleCursorStatus::Ready: true
+                                _: false
+                        Result::Err _: false
+                    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_count_owner_finish_payload count
+                    let count_ok %bool match gui_rgba8888_compositor_tile_payload_owner_byte_count_checked &payload:
+                        Result::Ok byte_count: eq byte_count 64
+                        Result::Err _: false
+                    let valid %bool if eq mode 3:
+                        then metadata_ok
+                        else if eq mode 4:
+                            then progress_ok
+                            else if eq mode 5:
+                                then status_ok
+                                else if eq mode 6:
+                                    then count_ok
+                                    else and and and and eq mode 0 metadata_ok progress_ok status_ok count_ok
+                    match gui_rgba8888_compositor_tile_payload_owner_free payload:
+                        Result::Ok _: valid
+                        Result::Err _: false
+                Result::Err error:
+                    if eq mode 1:
+                        then eq gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_error_contract error 15
+                        else:
+                            let category_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_invalid_command gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_category_value &error
+                            let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_kind &error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeErrorKind::TilePayloadBridgeFailed payload_kind:
+                                    match payload_kind:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeErrorKind::TilePayloadPrepareFailed lower_kind:
+                                            match lower_kind:
+                                                GuiRgba8888CompositorTilePayloadPrepareErrorKind::RowTilePayloadPrepareFailed row_kind:
+                                                    match row_kind:
+                                                        GuiRgba8888RowTilePayloadPrepareErrorKind::DescriptorInvalid descriptor_kind:
+                                                            match descriptor_kind:
+                                                                GuiRgba8888RowTilePlanDescriptorErrorKind::TileIndexOutOfBounds: true
+                                                                _: false
+                                                        _: false
+                                                _: false
+                                        _: false
+                                _: false
+                            let recovery gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_recovery error
+                            let recovery_ok %bool match recovery:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Plan plan:
+                                    match gui_rgba8888_compositor_tile_plan_owner_free plan:
+                                        Result::Ok _: true
+                                        Result::Err _: false
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Completed completed:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Completed completed
+                                    false
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::DirtyOwner owner:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::DirtyOwner owner
+                                    false
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Entry entry:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Entry entry
+                                    false
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Range range:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Range range
+                                    false
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Storage storage:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Storage storage
+                                    false
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Payload payload:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery::Payload payload
+                                    false
+                            and and and eq mode 2 kind_ok category_ok recovery_ok
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_normal_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_contract 361 0
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_metadata_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_contract 362 3
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_progress_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_contract 363 4
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_status_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_contract 364 5
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_byte_count_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_contract 365 6
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_entry_recovery_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_contract 371 1
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_index_recovery_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_contract 381 2
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_continuation_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_contract 391 0 0
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_budget_recovery_contract %impure fn unit bool \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_contract 401 1 (sub 0 1)
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_recovery_contract %impure fn unit bool \_unit:
+    eq gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_contract 411 15
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_recovery_evidence %impure fn unit i32 \_unit:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_contract 411

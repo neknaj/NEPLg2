@@ -168533,3 +168533,60 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - public F5nyfを1回、既存F5mfを1回だけ呼ぶdirect bridgeを専用`stroke_compositor_tile_rle_count_start` extensionへ追加した。巨大なstroke moduleへF5mf overload集合を流入させない配置とし、lower cursor/count startは再実装していない。`plan.md`は参照のみで変更していない。
 - lower error全体とCompleted/DirtyOwner/Entry/Range/Storage/Plan/Payload recovery authorityを保持した。successはframe 261、width 16、row start 3/count 1、accumulated runs 0、next pixel 0、Ready、64-byte payload roundtripとoffset 28..31のRGBA `(11,22,33,21)`を固定した。invalid frameはFrameIdInvalidまでのnested kindとDirtyOwner、tile index 1はDescriptorInvalid/TileIndexOutOfBoundsとPlan recoveryを固定した。
 - 新規doctest 3件、既存F5nyf 3件とF5mf回帰、Web source-policy、normal compile isolation、trunk build、playground editor JSON 13/13、issues/diff check、subagent差分/全体整合reviewを通過した。F5nygはRLE count startまでで全体は未完成であり、次はF5nyhで既存F5mg bounded count-stepへ接続する。
+
+## 2026-07-16 F5nyh registered direct compositor bounded RLE count-step implementation
+
+- public F5nygを1回、既存F5mgを1回だけ呼ぶ専用extensionを追加した。successは既存step authorityを返し、start/step lower error全体とCompleted/DirtyOwner/Entry/Range/Storage/Plan/Payload recoveryを保持する。
+- source policyと仕様・詳細設計・phase plan・todoをF5nyh契約へ更新した。F5nyhはcompleted count、encode、presentへ進まず、全体は未完成である。
+- 強化runtime fixtureはPendingからCompletedへの継続、metadataとprogress、invalid budgetのnested kind/category/progressとPayload recovery、upstream FrameIdInvalidとDirtyOwner recoveryを検査する形まで実装した。
+- public F5nyh bridgeをruntime fixtureから到達可能にするとcompilerが`resource_typecheck`で診断なしのcompile failureとなる。fixtureのrecovery catch-all除去、全variant direct consume、callback/helper分割、production start/step helper分割、lower errorのCopy診断+Recovery正規化まで切り分けたが解消せず、正規化案ではF5mg公開error accessorの型解決cascadeも発生したため未検証の探索差分は戻した。
+- 安全な再開点はoriginal owner-bearing F5nyh error契約、強化fixture、F5nyg normal-mode qualified free修正を保持した未commit branchである。次はF5nyh bridge到達時のresource summary graphをcompiler側の具体診断または最小producer fixtureで特定する。全gate未完了のためissue解決、checkpoint commit、main統合は行わない。
+
+## 2026-07-17 F5nyh nested Result切り分け
+
+- 一時producer fixtureにより、F5nyg errorをouter Err、F5mg resultをouter Okへ保持するnested `Result` 合成はresource typecheckとruntimeの両方で成功した。専用wrapper enumではなくlower authorityを加工しないnested `Result` をproduction契約として採用した。
+- public bridgeを既存registered fixtureから到達させると、wildcard import除去と三terminal owner消費だけの最小fixtureへ縮小した後もcompiler processが診断と終了statusを残さず終了する。namespace衝突とfixture accessor graphだけでは説明できず、focused compile/runtime gateは未成立である。
+- 現在の最小fixtureはouter Err、outer Ok(inner Err)、outer Ok(inner Ok)のresource shape切り分け用であり、doctest labelが要求するstatus/progress、error kind/category、recovery variantまでは検証していない。Web source-policyにも旧wrapper APIの期待が残るため、正式acceptanceへ戻す前にcompiler異常終了の原因特定が必要である。
+- subagent再レビューでもproduction nested Result設計自体に新たなblockingはない一方、compiler異常終了、acceptance fixture不足、source-policy不整合によりcommit・issue解決・統合不可と確認した。安全な再開条件はpublic nested Result exportを含む最小producerで異常終了を再現してcompiler診断を得るか、正常compile可能な同等のpublic型境界を確立することである。
+- subagent reviewのaffine policyとprogress policy指摘は反映したが、focused budget fixtureは`resource_typecheck`後にcompile resultを返さず失敗している。推移import依存、lower enum namespace、nested kind検証を個別に除去・修正しても再現するため、未検証のcheckpointとしてcommitしていない。再開時はfixture helperをsuccess/budget/upstreamの3関数へ分割し、各関数のowner消費を最小化して失敗関数を特定する。
+- fixtureをcontinuation/budget/upstreamの3 helperへ分割し、unexpected success/errorも明示消費したがbudget単独compileは同じ`resource_typecheck`失敗を再現した。qualified/wildcard import、negative budgetの束縛、lower kind検証の有無では解消しない。次はbudget helperをcategoryだけ、recoveryだけの二段階に縮退して、borrowed diagnosticとconsuming recoveryのどちらでcheckerが失敗するかを二分する。
+- 3 helperをbridge呼出とfreeだけへ最小化してもfocused #1/#2は同じcompile failureを再現したため、diagnostic/recovery分岐は原因ではない。cross-extension test seamまたは同一module内のtest callback resource summaryが残る候補である。最小化によりsource-policy fixture evidenceは意図どおりfailしており、完全なfixtureへ戻して全gateが通るまでcommitしない。
+- OS `timeout --kill-after`で孤児processを防いでfocused #1を完走すると、約52秒で`resource_typecheck` 34.4秒後に`compile result missing`を返すことを確認した。従来の短いtool waitはprocess終了ではなく、同期WASM compilerが継続していたため、以後は外側timeoutを必須とする。
+- scalar nested `Result`はprivate/public、同一/cross-moduleの全比較でcompile/runtime成功した。一方、owner-bearing nested Resultと単一`Result<Vec<i32>, Vec<i32>>`はいずれも`compile result missing`となり、visibility、cross-module、nested構文固有ではなくowner-bearing sumのresource typecheck領域へ原因を限定した。
+- productionと同じ三owner型のconsumerをprivate helperへ分離してもresource typecheck時間と結果は不変だった。terminal enumも同じowner-bearing variant処理へ入るため、authority契約を崩す回避APIへ変更する根拠はない。次の再開条件はcompiler側にowner-bearing sumの最小回帰を追加し、空診断の`module: None`経路を具体診断へ変えた上で、正しいvariant owner transferを実装することである。
+
+## 2026-07-17 F5nyh doctest選択とtest-mode原因訂正
+
+- 上記のowner-bearing sum defect仮説は棄却した。native `resource_ir`へouter Err、outer Ok(inner Err)、outer Ok(inner Ok)の全枝でownerをexactly once消費する回帰を追加し、全枝が通過した。terminal enumへ変える根拠になったarity診断も、後述するtest-mode宣言衝突のcascadeだったため、production契約はlower authorityを加工しないnested `Result`へ戻した。
+- F5nyh/F5nygのmarkdown code fenceには`neplg2:test[...]` markerがなく、従来の`run_doctest -n 1`はF5nyhではなく後方の旧F5nxw testを実行していた。marker追加後、parser上はF5nyh #1-3、F5nyg #4-6、旧drain #7-10となり、初めて実fixture compileが実行された。
+- 実fixtureの最初のdiagnosticはF5nyh owner境界ではなく、test-modeがtransitive dependency全体の`#test`を有効化して同一merged moduleへ流し込むことで生じる`stroke_source_contour`、render2d、stdlib間のoverload/trait衝突である。qualified importだけではdependency側のtest-only宣言混入を止められない。
+- Web source-policyとnested owner native回帰は通る。F5nyh issueのacceptanceには、module-local test-modeで直接test対象のhelperを可視にしつつtransitive test宣言を除外するcompiler契約、またはproductionへtest seamを漏らさない専用fixture分離が必要である。runtime fixtureがstatus/progress、nested error、exact recovery authorityまで通る前にissue解決・main統合は行わない。
+## 2026-07-17 F5nyh test-mode dependency 境界の再確認
+
+- `dist` の compiler artifact が loader 変更前のままだったため、`nepl-web` の `DependencyTest` 網羅を補い、trunk build で artifact を更新して focused doctest #1 を再実行した。
+- 更新後も compile は失敗した。最初の実エラーは `stroke_source_contour.nepl` の有効な `#test` 宣言が、transitive dependency 側で無効化された test helper を参照していることだった。
+- root/direct module の `#test` だけを有効にする現 classifier は test-helper dependency closure を欠く。一方、従来の全 dependency 有効化は unrelated test overload を同じ merged AST に混入させる。
+- したがって F5nyh の統合条件は、明示された test target とその test-helper dependency だけを伝播する loader/compiler 契約、real VFS end-to-end 回帰、focused runtime fixture の通過である。現時点の classifier と F5nyh fixture は checkpoint commit/統合可能ではない。
+
+## 2026-07-17 F5nyh test dependency authority と effect 型の根本修正
+
+- `#import ... with tests`を明示した依存だけがtest宣言を有効化するparser/AST/module graph/artifact v13契約を追加した。通常import後の昇格では対象だけでなくsource再ロードclosure全体のmaterialized surfaceを調停し、cold/warm双方で`bar`先行materialize後もsource authorityが重複・欠落しないことをtypecheck回帰で固定した。compiler checkpoint `4e5e4ff36` はsubagent最終reviewでblockingなしである。
+- F5nyh bridgeはouter F5nyg errorとinner F5mg error/stepをexhaustiveにlossless rewrapする。fixtureは同一outer errorのFrameIdInvalid/DirtyOwner、negative budgetのnested kind/category/progressとentry recovery、Pending 0/0からCompleted/Completeまでを検証する。test専用exact consumerは`#test`配下に置き、adapterだけが`with tests`で取得する。
+- `stroke_source_contour`の既存3 bridge、F5nyg、F5nyhで全parameter arrowを`impure fn`へ揃える変更は現compiler型契約上必要である。effectが混在すると`combine_neplg21_function_type`が後半をnested pure function returnとして扱い、実parameter列とarity不一致になる。全pure化はbody内のimpure bridge呼出しに違反する。現callerはimpure contextからのdirect callのみでexact callback型利用はなく、この修正が最小範囲である。
+
+## 2026-07-17 F5nyh focused runtime recovery completion
+
+- owner-bearing dirty-owner bridge error kind は単一variantの定数返却で回避せず、enumにClone/Copy契約を与えて保存fieldを共有参照から読むようにした。FrameIdInvalidのcategoryはlower bitmap frame契約どおりInvalidCommandへ統一した。
+- isolated fixtureはsource test seamへ依存せずproduction APIだけでowner graphを構築する。負の描画原点によりRectInvalidOriginとなっていたため独立fixtureの描画原点を正にし、software drainはstatusを確認しながら256 step上限でCompletedまで進める。
+- F5nyh focused runtime 3件は、zero budget PendingからCompleted/Complete、negative budgetのtyped kind/category/progressとexact CursorNextBatchFailed(CursorIndexPastEnd) entry recovery、FrameIdInvalid/InvalidCommand/DirtyOwner evidence 15/15を実authorityで通過した。Web source-policyも通過した。normal compile以降の全gateと統合はまだ完了していないため、F5nyhを全体完成扱いしない。
+
+## 2026-07-17 F5nyg test adapter isolation
+
+- explicit test dependency導入後、F5nygが巨大な`stroke_source_contour` test surfaceを直接有効化すると、そのmodule自身のtest-only依存を再帰的に要求して106件のcompile cascadeを生じることを実測した。production F5nygからtest helperを除去し、F5nyg/F5nyh runtime entryをproduction graph外の`stroke_compositor_tile_rle_count_step_test` adapterへ集約した。
+- adapterは`#test`を持たないproduction-only isolated fixtureからauthorityを作る。F5nyg回帰はmetadata、initial progress、Ready、payload byte count、FrameIdInvalid/DirtyOwner、TileIndexOutOfBounds/Plan recoveryを検証し、exact pixel値は直前F5nyf回帰の責務として重複固定しない。F5nyh/F5nyg doctestとWeb source-policyは通過したが、normal compile、trunk/CLI、issue解決、統合は未完了である。
+
+## 2026-07-17 F5nyh registered bounded count-step checkpoint
+
+- F5nyh 3件、移設後F5nyg 3件、既存F5mg 2件、Web source-policy、normal compile isolation、`cargo test -p nepl-core --lib` 883件、`cargo check --manifest-path nepl-web/Cargo.toml`、issues/diff checkを通過した。
+- 一時`npm.cmd` shim経由の`trunk build`と、trunk後Playground editor CLI JSON 13/13（`failedCount=0`）を通過した。subagent差分・compiler・全体整合・履歴粒度reviewの指摘を反映し、2 content commitsをff-only統合する粒度が適切と確認した。
+- F5nyhはbounded count-stepまでであり、completed count evidence、encode、native/GUI表示、フォントレンダリングエンジンとGUIライブラリ全体は未完成である。次は既存F5mh completed count evidenceへのdirect phaseである。

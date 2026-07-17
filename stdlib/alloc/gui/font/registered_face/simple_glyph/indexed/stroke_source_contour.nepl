@@ -27,6 +27,7 @@
 #import "alloc/gui/render2d/compositor_tile_payload" as *
 #import "alloc/gui/render2d/compositor_batch_drain" as *
 #import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/composite" as *
 #import "alloc/gui/render2d/dirty_surface" as *
 #import "alloc/gui/render2d/software_surface" as *
 #import "alloc/collections/vec" as vec
@@ -2840,7 +2841,7 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableO
 fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_owner %fn Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceRecord GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner \records: GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner records
 
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_new %fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner StdErrorKind \capacity:
-    match vec::with_capacity capacity:
+    match vec::with_capacity<GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceRecord> capacity:
         Result::Err error: Result::Err error
         Result::Ok records: Result::Ok gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_owner records
 
@@ -2948,8 +2949,8 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_tab
     let alpha_max %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_max packed
     let len %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cells_len packed
     let capacity %i32 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_owner_alpha_cells_cap packed
-    let expected_coverage %i64 mul cast scale cast scale
-    let expected_count %i64 mul cast width cast height
+    let expected_coverage %i64 mul %i64 cast scale %i64 cast scale
+    let expected_count %i64 mul %i64 cast width %i64 cast height
     if le alpha_mask_id_raw &mask_id 0:
         then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableRegisterErrorKind::InvalidMaskId
         else if le width 0:
@@ -2958,9 +2959,9 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_tab
                 then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableRegisterErrorKind::ShapeInvalidHeight
                 else if le scale 0:
                     then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableRegisterErrorKind::ShapeInvalidSampleScale
-                    else if or gt expected_coverage 2147483647 ne cast coverage_max expected_coverage:
+                    else if or gt expected_coverage %i64 cast 2147483647 ne %i64 cast coverage_max expected_coverage:
                         then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableRegisterErrorKind::ShapeCoverageMaxMismatch
-                        else if or gt expected_count 2147483647 ne cast shape_count expected_count:
+                        else if or gt expected_count %i64 cast 2147483647 ne %i64 cast shape_count expected_count:
                             then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableRegisterErrorKind::ShapeCellCountMismatch
                             else if ne count shape_count:
                                 then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableRegisterErrorKind::CellCountMismatch
@@ -3198,6 +3199,14 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwa
 //: completed ownerからgeneric dirty ownerへのbridge失敗分類
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridgeErrorKind:
     DirtyRegionSetPushFailed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridgeErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridgeErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridgeErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridgeErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridgeErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridgeErrorKind \kind:
+        kind
 
 //: dirty aggregation失敗時に下位errorと元completed ownerを保持する
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainDirtyOwnerBridgeError:
@@ -3746,18 +3755,18 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_sof
                                 then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind::RectInvalidSize
                                 else if or le surface_width 0 le surface_height 0:
                                     then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind::SurfaceInvalidGeometry
-                                    else if ne %i64 cast surface_stride mul %i64 cast surface_width 4:
+                                    else if ne %i64 cast surface_stride (mul %i64 cast surface_width %i64 cast 4):
                                         then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind::SurfaceStrideMismatch
                                         else if ne %i64 cast surface_byte_len mul %i64 cast surface_height %i64 cast surface_stride:
                                             then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind::SurfaceByteLenMismatch
                                             else if ne region_size storage surface_byte_len:
                                                 then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind::SurfaceStorageSizeMismatch
                                                 else:
-                                                    let right %i64 add cast x cast width
-                                                    let bottom %i64 add cast y cast height
-                                                    if or gt right 2147483647 gt bottom 2147483647:
+                                                    let right %i64 add %i64 cast x %i64 cast width
+                                                    let bottom %i64 add %i64 cast y %i64 cast height
+                                                    if or gt right %i64 cast 2147483647 gt bottom %i64 cast 2147483647:
                                                         then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind::RectExtentOverflow
-                                                        else if or gt right cast surface_width gt bottom cast surface_height:
+                                                        else if or gt right %i64 cast surface_width gt bottom %i64 cast surface_height:
                                                             then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStartErrorKind::SurfaceBoundsMismatch
                                                             else Result::Ok unit
 
@@ -3776,7 +3785,7 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_sof
 
 fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_position_component %fn i32 fn i32 Result i32 unit \origin\delta:
     let value %i64 add %i64 cast origin %i64 cast delta
-    if or lt value 0 gt value 2147483647:
+    if or lt value %i64 cast 0 gt value %i64 cast 2147483647:
         then Result::Err unit
         else Result::Ok %i32 cast value
 
@@ -3951,7 +3960,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
 //: registered completionを既存byte storage bridge経由でcompositor tile planへ移す
 //:
 //: F5nydとF5mdを各1回だけ呼び、tile payloadやRLEより先へは進みません。
-pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_plan %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig fn GuiRgba8888RowTilePlanConfig Result GuiRgba8888CompositorTilePlanOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError \completed\frame_config\tile_config:
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_plan %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig impure fn GuiRgba8888RowTilePlanConfig Result GuiRgba8888CompositorTilePlanOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError \completed\frame_config\tile_config:
     match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_byte_storage completed frame_config:
         Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePlanBridgeError::ByteStorageBridgeFailed lower
         Result::Ok storage:
@@ -3962,7 +3971,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
 //: registered completionを既存tile plan bridge経由でchecked tile payloadへ移す
 //:
 //: F5nyeとF5meを各1回だけ呼び、RLE境界へは進みません。
-pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_payload %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig fn GuiRgba8888RowTilePlanConfig fn i32 Result GuiRgba8888CompositorTilePayloadOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError \completed\frame_config\tile_config\tile_index:
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_payload %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig impure fn GuiRgba8888RowTilePlanConfig impure fn i32 Result GuiRgba8888CompositorTilePayloadOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError \completed\frame_config\tile_config\tile_index:
     match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_plan completed frame_config tile_config:
         Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTilePayloadBridgeError::TilePlanBridgeFailed lower
         Result::Ok plan:
@@ -3973,7 +3982,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
 //: registered completionを既存frame entry bridge経由でbounded compositor batch drainへ移す
 //:
 //: F5nyaとF5maを各1回だけ呼び、terminalまたは失敗段階に対応するowner authorityを返します。
-pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_compositor_batch_drain_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig fn i32 Result GuiRgba8888CompositorBatchDrainTerminal GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorBatchDrainError \completed\config\remaining_batches:
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_compositor_batch_drain_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig impure fn i32 Result GuiRgba8888CompositorBatchDrainTerminal GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorBatchDrainError \completed\config\remaining_batches:
     match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_frame_entry completed config:
         Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorBatchDrainError::FrameEntryBridgeFailed lower
         Result::Ok entry:
@@ -5915,6 +5924,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_q
     let right1 %i32 gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_quadratic_source_index GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right 4 1
     and and eq left0 0 eq left1 1 and eq right0 4 eq right1 3
 
+#test
 fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_push_recovery_contract %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellWriterOwner bool \writer:
     let invalid_config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_config 0
     match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start writer invalid_config:
@@ -6036,6 +6046,7 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_run %
                             gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_owner_free completed
                             and and count_ok first_ok second_ok
 
+#test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_work_bound_contract %impure fn unit bool \_unit:
     let direction_ok %bool gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_quadratic_direction_contract unit
     let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 1 1 512 1
@@ -6059,6 +6070,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_w
                             gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_free error
                             and direction_ok ok
 
+#test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_coordinate_contract %impure fn unit bool \_unit:
     match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
         Option::None: false
@@ -6102,6 +6114,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_c
 //: fixed factory と production F5nxq/F5nxr normal 経路を内部で閉じた focused runtime contract
 //:
 //: arbitrary owner injection を受けず、失敗を含む全 terminal で所有 payload を解放します。
+#test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_test_normal_contract %impure fn unit bool \_unit:
     match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
         Option::None: false

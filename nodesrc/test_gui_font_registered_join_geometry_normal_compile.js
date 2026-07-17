@@ -35,12 +35,15 @@ const testOnlyNames = [
     "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_normal_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_entry_recovery_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_test_index_recovery_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_continuation_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_budget_recovery_contract",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_step_bridge_test_entry_recovery_contract",
 ];
 
 const probe = (testOnlyName) => `#entry main
 #indent 4
 #target std
-#import "${testOnlyName.includes("tile_rle_count_start_bridge_test") ? "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" : testOnlyName.includes("with_prepared_test_contract") ? "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" : "alloc/gui/font"}" as *
+#import "${testOnlyName.includes("tile_rle_count_step_bridge_test") || testOnlyName.includes("tile_rle_count_start_bridge_test") ? "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test" : testOnlyName.includes("with_prepared_test_contract") ? "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" : "alloc/gui/font"}" as *
 
 fn main %fn void i32 \\void:
     ${testOnlyName}

@@ -1,0 +1,20 @@
+//: # registered stroke compositor tile RLE count step bridge
+//: F5nyg count authorityをF5mg bounded count stepへ接続します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+#import "core/result" as *
+
+//: registered completionからbounded RLE count stepを1 sliceだけ進める
+//:
+//: outer ResultはF5nyg、inner ResultはF5mgのauthorityとerrorをそのまま保持します。
+//: F5nygとF5mgを各1回だけ呼び、completed countやencodeへは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_count_step_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn GuiRgba8888CompositorFrameEntryConfig impure fn GuiRgba8888RowTilePlanConfig impure fn i32 impure fn i32 Result Result GuiRgba8888CompositorTileRleCountStep GuiRgba8888CompositorTileRleCountStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeError \completed\frame_config\tile_config\tile_index\remaining_steps:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_count_start completed frame_config tile_config tile_index:
+        Result::Err lower: Result::Err lower
+        Result::Ok count:
+            match gui_rgba8888_compositor_tile_rle_count_step_budget count remaining_steps:
+                Result::Err lower: Result::Ok Result::Err lower
+                Result::Ok step: Result::Ok Result::Ok step

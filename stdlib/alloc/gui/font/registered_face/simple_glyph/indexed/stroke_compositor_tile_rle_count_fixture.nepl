@@ -1,0 +1,264 @@
+//: # registered stroke compositor tile RLE count fixture
+//: F5nyh focused contract用authorityをproduction APIだけで構築します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+#import "alloc/gui/font/sfnt" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "alloc/collections/vec" as vec
+#import "core/cast" as *
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i64 fn i64 fn i64 fn GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \metric_index\edge_index\start_x2\start_y2\end_x2\end_y2\dx\dy\length_squared\side:
+    let line %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection metric_index start_x2 start_y2 end_x2 end_y2 4 dx dy length_squared
+    let actual %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Line line
+    let provenance %GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance metric_index edge_index edge_index 0 edge_index 0 1 2
+    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection unwrap_ok gui_sfnt_simple_glyph_render_stroke_offset_projection_geometry &provenance &actual 4
+    gui_sfnt_simple_glyph_render_stroke_side_edge_projection &geometry side
+
+fn gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \side:
+    let ten %i64 cast 10
+    let zero %i64 cast 0
+    let hundred %i64 cast 100
+    gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge 0 0 0 0 10 0 ten zero hundred side
+
+fn gui_sfnt_simple_glyph_render_stroke_closure_test_style_projection %fn unit GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection \_unit:
+    let red %u8 cast 11
+    let green %u8 cast 22
+    let blue %u8 cast 33
+    let alpha %u8 cast 44
+    let color %Rgba8888 rgba8888_new red green blue alpha
+    let stroke %GuiStroke unwrap_ok gui_stroke_new color 4 GuiStrokeCap::Butt GuiStrokeJoin::Bevel 4.0 GuiStrokeDash::Solid
+    let paint %GuiGlyphPaint unwrap_ok gui_glyph_paint_result none (some stroke) gui_shadow_ref_none GuiBlendMode::SourceOver
+    match gui_sfnt_simple_glyph_render_stroke_closure_style_projection_from_paint &paint:
+        Option::Some style: style
+        Option::None:
+            #intrinsic "unreachable" <> ()
+
+//: gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner: focused F5nxq fixture用のactual F5nxp completed ownerを作る
+//:
+//: [契約/けいやく]:
+//: - production projection経路から一つのlineに対するLeft/Right edge、self closure、Bevel geometryを各二件作ります。
+//: - exact-capacity Vecへのpush失敗ではreturned Vecを含む取得済みstorageを解放します。
+//: - 構築したauthorityは後続のproduction writer startがsource invariantを検査します。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner %impure fn unit Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner \_unit:
+    let left %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left
+    let right %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_test_neutral_line_side_edge GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right
+    let style %GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection gui_sfnt_simple_glyph_render_stroke_closure_test_style_projection unit
+    match gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges 0 &left 0 &left &style:
+        Result::Err _: none
+        Result::Ok left_join:
+            match gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges 1 &right 1 &right &style:
+                Result::Err _: none
+                Result::Ok right_join:
+                    match gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 0 &left_join &left &left:
+                        Result::Err _: none
+                        Result::Ok left_geometry:
+                            match gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 1 &right_join &right &right:
+                                Result::Err _: none
+                                Result::Ok right_geometry:
+                                    match vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection> 2:
+                                        Result::Err _: none
+                                        Result::Ok edges0:
+                                            match vec::push edges0 left:
+                                                Result::Err error:
+                                                    vec::free vec::vec_push_error_vec error
+                                                    none
+                                                Result::Ok edges1:
+                                                    match vec::push edges1 right:
+                                                        Result::Err error:
+                                                            vec::free vec::vec_push_error_vec error
+                                                            none
+                                                        Result::Ok edges:
+                                                            match vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord> 2:
+                                                                Result::Err _:
+                                                                    vec::free edges
+                                                                    none
+                                                                Result::Ok joins0:
+                                                                    match vec::push joins0 left_join:
+                                                                        Result::Err error:
+                                                                            vec::free vec::vec_push_error_vec error
+                                                                            vec::free edges
+                                                                            none
+                                                                        Result::Ok joins1:
+                                                                            match vec::push joins1 right_join:
+                                                                                Result::Err error:
+                                                                                    vec::free vec::vec_push_error_vec error
+                                                                                    vec::free edges
+                                                                                    none
+                                                                                Result::Ok joins:
+                                                                                    match vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord> 2:
+                                                                                        Result::Err _:
+                                                                                            vec::free joins
+                                                                                            vec::free edges
+                                                                                            none
+                                                                                        Result::Ok geometries0:
+                                                                                            match vec::push geometries0 left_geometry:
+                                                                                                Result::Err error:
+                                                                                                    vec::free vec::vec_push_error_vec error
+                                                                                                    vec::free joins
+                                                                                                    vec::free edges
+                                                                                                    none
+                                                                                                Result::Ok geometries1:
+                                                                                                    match vec::push geometries1 right_geometry:
+                                                                                                        Result::Err error:
+                                                                                                            vec::free vec::vec_push_error_vec error
+                                                                                                            vec::free joins
+                                                                                                            vec::free edges
+                                                                                                            none
+                                                                                                        Result::Ok geometries:
+                                                                                                            let closure_source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner edges 1 2 2 0 1 1
+                                                                                                            let source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometrySourceOwner closure_source joins 2 1 1 style GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution::ClosedContourNoCap
+                                                                                                            let completed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeJoinGeometryCompletedOwner source geometries 2 2 0 0
+                                                                                                            some completed
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_completed_owner %impure fn unit Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskOwner \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_join_geometry_test_completed_owner unit:
+        Option::None: none
+        Option::Some completed:
+            let coverage_config %GuiSfntSimpleGlyphRasterCoverageConfig gui_sfnt_simple_glyph_raster_coverage_config 0 0 2 1 2 2
+            match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_writer_start completed coverage_config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_coverage_cell_start_error_free error
+                    none
+                Result::Ok writer:
+                    let scan_config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanConfig gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_config 4
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start writer scan_config:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_start_error_free error
+                            none
+                        Result::Ok scan:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_scan_to_completion scan 256:
+                                Option::None: none
+                                Option::Some coverage:
+                                    let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_config 255
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start coverage config:
+                                        Result::Err error:
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_start_error_free error
+                                            none
+                                        Result::Ok owner0:
+                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner0 1:
+                                                Result::Err error:
+                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                                    none
+                                                Result::Ok terminal0:
+                                                    match terminal0:
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed owner: some owner
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted owner1:
+                                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner1 1:
+                                                                Result::Err error:
+                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                                                    none
+                                                                Result::Ok terminal1:
+                                                                    match terminal1:
+                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed owner: some owner
+                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted owner2:
+                                                                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_poll owner2 0:
+                                                                                Result::Err error:
+                                                                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_error_free error
+                                                                                    none
+                                                                                Result::Ok terminal2:
+                                                                                    match terminal2:
+                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::Completed owner: some owner
+                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskTerminal::StepBudgetExhausted unfinished:
+                                                                                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_pack_owner_free unfinished
+                                                                                            none
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_reservation %impure fn i32 Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationOwner \raw_id:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_test_completed_owner unit:
+        Option::None: none
+        Option::Some packed:
+            let red %u8 cast 11
+            let green %u8 cast 22
+            let blue %u8 cast 33
+            let alpha %u8 cast 44
+            let color %Rgba8888 rgba8888_new red green blue alpha
+            let config %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceReservationConfig gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_config (alpha_mask_id_new raw_id) (gui_point_new 7 3) (gui_paint_solid color) GuiBlendMode::SourceOver
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start packed config:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_reservation_start_error_free error
+                    none
+                Result::Ok reservation: some reservation
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_test_owner %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner \prepared:
+    match gui_rgba8888_software_surface_create 16 16:
+        Result::Err _:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepared_command_owner_free prepared
+            none
+        Result::Ok surface:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start prepared surface:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_start_error_free error
+                    none
+                Result::Ok owner: some owner
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_complete_owner %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainOwner impure fn i32 Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner \owner\fuel:
+    if le fuel 0:
+        then:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free owner
+            none
+        else:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll owner 1:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_error_owner error
+                    none
+                Result::Ok terminal:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll_result_status &terminal:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStatus::StepBudgetExhausted:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_complete_owner (gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_poll_result_owner terminal) (sub fuel 1)
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainStatus::Completed:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete terminal:
+                                Result::Err error:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_complete_error_owner error
+                                    none
+                                Result::Ok completed: some completed
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge_test_completed %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner \prepared:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_step_test_owner prepared:
+        Option::None: none
+        Option::Some owner:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_complete_owner owner 256
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed_registered %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceTableOwner impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskRegisteredResourceOwner Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner \table\resource:
+    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command resource:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_prepare_command_error_free error
+            none
+        Result::Ok prepared:
+            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_dirty_owner_bridge_test_completed prepared
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed %impure fn i32 Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner \raw_id:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_new 1:
+        Result::Err _: none
+        Result::Ok table:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_reservation raw_id:
+                Option::None:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_free table
+                    none
+                Option::Some reservation:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register table reservation:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_register_error_free error
+                            none
+                        Result::Ok registration:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_table_registration_owner_with registration gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed_registered
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_scan_to_completion %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanOwner impure fn i32 Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageCellOwner \owner\fuel:
+    if le fuel 0:
+        then:
+            gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_owner_free owner
+            none
+        else match gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_poll owner 1:
+            Result::Err error:
+                gui_font_registered_face_simple_glyph_indexed_stroke_coverage_scan_error_free error
+                none
+            Result::Ok terminal:
+                match terminal:
+                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::Completed completed: some completed
+                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCoverageScanTerminal::StepBudgetExhausted next:
+                        gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_test_scan_to_completion next (sub fuel 1)

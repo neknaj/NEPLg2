@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-16T12:20:50.242Z",
+  "generated_at": "2026-07-17T03:16:24.182Z",
   "counts": {
-    "total": 1392,
+    "total": 1394,
     "open": 60,
-    "resolved": 1332,
+    "resolved": 1334,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -47,9 +47,9 @@
         "resolved": 2
       },
       "compiler": {
-        "total": 17,
+        "total": 18,
         "open": 0,
-        "resolved": 17
+        "resolved": 18
       },
       "CORE": {
         "total": 5,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 18,
+        "total": 19,
         "open": 0,
-        "resolved": 18
+        "resolved": 19
       },
       "nodesrc": {
         "total": 16,
@@ -2398,6 +2398,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T224620549Z-OWNER-SUMMARY-MUST-SEED-OWNER-TOKEN--89E3E5BE.md"
+    },
+    {
+      "id": "ISS-20260716T162950205Z-TEST-MODE-ACTIVATES-TRANSITIVE-DEPEN-8D1A7815",
+      "title": "test mode activates transitive dependency test declarations",
+      "area": "compiler",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-17",
+      "target": "nepl-core/src/loader.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T162950205Z-TEST-MODE-ACTIVATES-TRANSITIVE-DEPEN-8D1A7815.md"
     },
     {
       "id": "ISS-20260517T072954044Z-OWNER-TOKEN-LEAF-SUMMARY-DUPLICATES--91D1A194",
@@ -11398,6 +11413,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260716T120000000Z-REGISTERED-STROKE-JOIN-GEOMETRY-F5NXP.md"
+    },
+    {
+      "id": "ISS-20260716T124701480Z-REGISTERED-RLE-COUNT-OWNER-LACKS-BOU-4F6632E9",
+      "title": "Registered RLE count owner lacks bounded count-step bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-16",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260716T124701480Z-REGISTERED-RLE-COUNT-OWNER-LACKS-BOU-4F6632E9.md"
     },
     {
       "id": "ISS-20260716T150000000Z-REGISTERED-STROKE-COVERAGE-WRITER-F5NXQ",
