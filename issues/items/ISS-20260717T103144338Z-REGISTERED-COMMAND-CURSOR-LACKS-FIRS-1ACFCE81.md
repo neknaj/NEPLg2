@@ -27,8 +27,6 @@ The registered compositor graph stops at the F5nyx BeginPending owner and cannot
 - `BeginPending`から`BeginFrame`と`RunPending` continuationを作るauthorityは既存F5mt stepにあるため、registered側でphaseやdescriptorを再構築してはならない。
 - このissueは最初の`BeginFrame`と継続ownerまでを対象とし、次のRun、EndFrame、terminal Completed、F5mu record、host実行を完成条件に含めない。
 
-- 未記入
-
 ## 問題
 
 The registered compositor graph stops at the F5nyx BeginPending owner and cannot expose the first typed BeginFrame command.
