@@ -168604,3 +168604,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - production-only isolated fixture由来のreachable successでframe metadata 261/16/3/1、exact run count 3、payload byte count 64とpayload owner回収/freeを検証する。自然到達不能なseed errorは偽造せず既存F5mi回帰へ委譲する。
 - plan.mdとの差異はない。encode cursor、writer、storage、packet、native/GUI表示とフォントレンダリングエンジン・GUIライブラリ全体は未完成である。
 - Focused F5nyj success、既存F5nyi staged recovery 4経路、F5mi回帰、Web source-policy、新規helper normal compile isolation、issues/diff check、`trunk build`、trunk後Playground editor CLI JSON 13/13を通過した。subagent差分reviewはblockingなしである。
+
+## 2026-07-17 F5nyk registered RLE encode-cursor work in progress
+
+- 新branchでpublic F5nyj successを既存F5mjへ1回渡す五層nested bridgeとproduction-only fixture由来のreachable cursor testを追加した。metadata 261/16/3/1、run count 3、cursor 0/16、payload 64のfocused doctestは通過した。
+- source policy、normal isolation router、仕様・phase plan・todo、F5nyj/F5mj回帰、trunk/CLI、subagent reviewは未完了であり、issueはopenのままmainへ統合しない。全体目標も未完成である。
