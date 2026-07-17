@@ -168628,3 +168628,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - public F5nymを1回呼び、storage successだけを既存F5mm write cursor startへ1回渡す八層lossless bridgeを追加した。fixtureはmetadata 262/16/3/1、run count 1、capacity 12、cursor 0/16、written run / byte count 0、write cursor freeのevidence 127を通過した。
 - 初回focused compile failureはproduction owner graphではなく、新stanzaのmetadata fence、`with tests`位置、target/effect、report終端がcanonical doctest契約から逸脱したことが原因だった。既存F5nym stanzaと同じ形式へ修正し、trunk前後のfocused F5nyn、upstream F5nym evidence 31、既存F5mm回帰、Web source-policy、targeted normal isolation、issues/diff check、`git diff --check`、`trunk build`、trunk後Playground editor JSON 13/13を通過した。
 - subagent差分・compiler・全体整合reviewの指摘によりissue根拠とdoctest rootを修正した。F5mn write step、encoded seal、packet、present、native/GUI表示とフォントレンダリングエンジン・GUIライブラリ全体は未完成である。
+
+## 2026-07-17 F5nyo registered first RLE write-step checkpoint
+
+- public F5nynを1回呼び、write cursor successだけを既存F5mn one-step writerへ1回渡す九層lossless bridgeを実装した。reachable fixtureはframe 263、run count 1、capacity 12、`WroteRun`、written run / byte count 1/12、cursor 16/16、owner freeのevidence 255をruntimeで通過した。
+- 初回fixtureのsingle-line branch内にmulti-line matchを置いたparser errorは、各error branchを通常blockへ直して根本修正した。
+- source-policy、normal isolation、仕様・詳細設計・phase plan、F5nyn/F5mn回帰、trunk/CLI、subagent review、issue解決は未完了であり、mainへ統合していない。次の再開点はこのbranch checkpointから残り契約を同期することである。全体目標も未完成である。
