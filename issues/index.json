@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T11:05:32.705Z",
+  "generated_at": "2026-07-17T11:17:03.431Z",
   "counts": {
     "total": 1413,
-    "open": 61,
-    "resolved": 1352,
+    "open": 60,
+    "resolved": 1353,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "GUI_FONT": {
-        "total": 38,
-        "open": 1,
-        "resolved": 37
       },
       "RESOURCE": {
         "total": 5,
@@ -95,6 +90,11 @@
         "total": 22,
         "open": 0,
         "resolved": 22
+      },
+      "GUI_FONT": {
+        "total": 38,
+        "open": 0,
+        "resolved": 38
       },
       "nodesrc": {
         "total": 16,
@@ -523,21 +523,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260717T110514879Z-REGISTERED-FIRST-RUN-STEP-LACKS-ENDF-3261BF7C",
-      "title": "Registered first Run step lacks EndFrame command bridge",
-      "area": "GUI_FONT",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-17",
-      "updated": "2026-07-17",
-      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_command_cursor_end.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260717T110514879Z-REGISTERED-FIRST-RUN-STEP-LACKS-ENDF-3261BF7C.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -11728,6 +11713,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T104946194Z-REGISTERED-BEGINFRAME-STEP-LACKS-FIR-56B88B5F.md"
+    },
+    {
+      "id": "ISS-20260717T110514879Z-REGISTERED-FIRST-RUN-STEP-LACKS-ENDF-3261BF7C",
+      "title": "Registered first Run step lacks EndFrame command bridge",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_command_cursor_end_frame.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T110514879Z-REGISTERED-FIRST-RUN-STEP-LACKS-ENDF-3261BF7C.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
