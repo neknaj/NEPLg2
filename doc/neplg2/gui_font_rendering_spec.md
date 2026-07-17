@@ -8697,3 +8697,7 @@ F5nywはpublic F5nyvを1回だけ呼び、completed-step successだけを既存F
 ### F5nyx registered stroke compositor RLE command-cursor start bridge
 
 F5nyxはpublic F5nywを1回だけ呼び、recovered present-frame successだけを既存F5mt `gui_rgba8888_compositor_tile_rle_present_command_cursor_start`へ1回だけ渡す。既存十七層とcommand-cursor startの第十八層をlossless nested `Result`として保持し、F5mtが所有するdescriptor-before-start、F5mr restart、start-error recoveryを再実装しない。successは`BeginPending` command-cursor ownerまでであり、production graphはfixture-freeでF5mt step、`BeginFrame`、Run、EndFrame、packet record、host executionより前で停止する。次のF5nyyが既存F5mt stepを1回だけ呼び、最初の`BeginFrame` commandを保持する。
+
+### F5nyy registered stroke compositor RLE BeginFrame step bridge
+
+F5nyyはpublic F5nyxを1回だけ呼び、`BeginPending` command-cursor successだけを既存F5mt `gui_rgba8888_compositor_tile_rle_present_command_cursor_step`へ1回だけ渡す。既存十八層とcommand-cursor first-stepの第十九層をlossless nested `Result`として保持し、F5mtが所有するphase遷移、descriptor projection、command constructionを再実装しない。production-derived fixtureは最初のresultがcanonical descriptorと同じmetadata 263/16/3/1、surface 7、frame 263、expected run count 1、pixel count 16を持つ`BeginFrame`であり、next ownerが`RunPending`であることとowner freeをevidence 127で検証する。production graphはfixture-freeで、次のF5nyzによる`Run` step、EndFrame、F5mu record、host executionより前で停止する。

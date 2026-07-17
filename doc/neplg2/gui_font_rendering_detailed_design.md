@@ -11128,6 +11128,10 @@ F5nyw adapterはF5nyvの十六層result graphを再包装し、completed-step su
 
 F5nyx adapterはF5nywの十七層result graphを再包装し、recovered present-frame successだけをF5mt command-cursor startへexactly once移送する。command-cursor ownerまたはpresent-frame ownerを回収できるstart errorを第十八層へ置き、descriptor projection、phase construction、F5mr restart、start-error wrappingを再実装しない。productionで許可するF5mt APIはstartだけであり、fixture codeを含めない。fixtureはowner phaseが`BeginPending`であること、descriptor metadata 263/16/3/1、surface 7、frame 263、run count 1、pixel count 16を検査してownerを閉じる。F5nyxはF5nyyのF5mt stepと最初の`BeginFrame` commandより前で停止する。
 
+### F5nyy registered direct compositor RLE BeginFrame step bridge
+
+F5nyy adapterはF5nyxの十八層result graphを再包装し、command-cursor successだけをF5mt stepへexactly once移送する。first-step successまたはcommand-cursor ownerを回収できるstep errorを第十九層へ置き、productionで許可するF5mt APIをstepだけに限定する。F5nyyはresult、descriptor、phaseをproductionで読まず、F5mtの`BeginPending` branchだけが`BeginFrame`を構築してcontinuationを`RunPending`へ進める。fixtureはborrowed step resultとcanonical descriptorを読み、`BeginFrame` payload descriptorのmetadata、surface/frame、run/pixel countがcanonical descriptorと一致することを具体値で検査する。その後stepから唯一のcontinuation ownerを回収し、`RunPending`を確認してownerを閉じる。F5nyyはF5nyzの`Run` step、EndFrame、F5mu record projectionより前で停止する。
+
 ### F5nyg registered direct compositor RLE count-start bridge
 
 F5nyg lives in the dedicated `stroke_compositor_tile_rle_count_start.nepl` extension so importing F5mf does not pollute the large stroke module's overload and trait namespace. It consumes the registered completed owner with existing entry/tile configs and tile index. It calls public F5nyf exactly once and passes the untouched payload owner to F5mf `gui_rgba8888_compositor_tile_rle_count_start` exactly once. Success returns the existing count owner with frame/row metadata, zero accumulated runs, pixel cursor zero, and Ready status.

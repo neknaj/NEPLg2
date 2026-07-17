@@ -13817,3 +13817,10 @@ git diff --check
 - upstream十七層とcommand-cursor startの第十八層をlossless nested resultに保持し、F5mt/F5mrのdescriptor projection、run-cursor restart、start-error recoveryを再実装しない。
 - production-derived fixtureで`BeginPending`、descriptor metadata 263/16/3/1、surface/frame、expected run/pixel count、owner freeを検証し、start error cleanupを保持する。
 - F5nyw/F5mt/F5mr回帰、18層source policy、normal compile、trunk/CLIを通す。F5nyxはF5mt step前で停止し、次のF5nyyが既存F5mt stepをexactly once呼んで最初の`BeginFrame`を保持する。Run/EndFrame、packet record、host executionはさらに後続phaseとする。
+
+## Phase F5nyy: registered stroke compositor RLE BeginFrame step boundary
+
+- public F5nyx successの`BeginPending` command-cursor ownerだけを既存F5mt stepへexactly once渡す。
+- upstream十八層とfirst command stepの第十九層をlossless nested resultに保持し、F5mtのphase遷移、descriptor projection、command constructionを再実装しない。productionで許可するF5mt APIはstepだけとする。
+- production-derived fixtureで`BeginFrame` payloadとcanonical step descriptorのmetadata 263/16/3/1、surface/frame、expected run/pixel count、next `RunPending` phase、owner freeをevidence 127として検証し、start/step error cleanupを保持する。
+- F5nyx/F5mt回帰、19層source policy、normal compile、trunk/CLIを通す。F5nyyは最初のcommandだけで停止し、次のF5nyzがcontinuation ownerをF5mt stepへexactly once渡して`Run` commandを保持する。EndFrame、terminal Completed、F5mu record、host executionはさらに後続phaseとする。
