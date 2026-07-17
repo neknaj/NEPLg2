@@ -13755,3 +13755,9 @@ git diff --check
 - 九層nested resultにupstreamとwrite-step error authorityをlosslessに保持する。
 - focused fixtureで`WroteRun`、metadata、run count 1、capacity 12、written 1/12、cursor 16/16、writer freeを検証する。
 - F5nyn/F5mn回帰、source policy、normal compile、trunk/CLIを通し、completion probeとF5mo encoded seal以降は後続phaseとする。
+
+## Phase F5nyp: registered stroke compositor RLE write completion bridge boundary
+
+- public F5nyo successからnext write cursor authorityだけを回収し、既存F5mn one-step writerをexactly once再利用する。
+- startからsecond write-stepまでの十層error graphをlosslessに保ち、1-run fixtureで`Completed`とmetadata/progress evidence 255を検証する。
+- F5nyo/F5mn回帰、source policy、normal compile、trunk/CLIを通し、F5mo encoded seal以降は後続phaseとする。

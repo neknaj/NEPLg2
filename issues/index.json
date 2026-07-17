@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T06:28:44.840Z",
+  "generated_at": "2026-07-17T06:53:40.075Z",
   "counts": {
-    "total": 1401,
+    "total": 1402,
     "open": 60,
-    "resolved": 1341,
+    "resolved": 1342,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -92,9 +92,9 @@
         "resolved": 22
       },
       "GUI_FONT": {
-        "total": 26,
+        "total": 27,
         "open": 0,
-        "resolved": 26
+        "resolved": 27
       },
       "nodesrc": {
         "total": 16,
@@ -11548,6 +11548,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T061510619Z-REGISTERED-RLE-WRITE-CURSOR-LACKS-WR-8D372E6B.md"
+    },
+    {
+      "id": "ISS-20260717T063919545Z-REGISTERED-STROKE-RLE-PATH-LACKS-COM-14D00AE4",
+      "title": "Registered stroke RLE path lacks completion probe",
+      "area": "GUI_FONT",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_write_completed.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T063919545Z-REGISTERED-STROKE-RLE-PATH-LACKS-COM-14D00AE4.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

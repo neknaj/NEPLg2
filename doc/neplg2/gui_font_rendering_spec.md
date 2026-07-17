@@ -8661,3 +8661,7 @@ F5nynはpublic F5nymを1回だけ呼び、storage successだけを既存F5mm `gu
 ### F5nyo registered stroke compositor first RLE write-step bridge
 
 F5nyoはpublic F5nynを1回だけ呼び、write-cursor successだけを既存F5mn `gui_rgba8888_compositor_tile_rle_write_step_one`へ1回渡す。startからwrite-stepまでの九層owner-bearing errorをnested `Result`で保持する。production-derived 1-run fixtureのfirst stepは`WroteRun`となり、written run / byte count 1/12、cursor 16/16、metadataを保持する。F5mn error/recoveryは既存回帰へ委譲する。completion probe、encoded seal、packet、native/GUI presentには進まない。
+
+### F5nyp registered stroke compositor RLE write completion bridge
+
+F5nypはpublic F5nyoを1回だけ呼び、first write-step successからnext writer authorityを回収して既存F5mn `gui_rgba8888_compositor_tile_rle_write_step_one`へ1回だけ再度渡す。既存九層とsecond write-stepの十層目をlossless nested `Result`として保持する。production-derived 1-run fixtureではsecond stepが`Completed`となり、metadata、total run count 1、encoded byte count 12、written run/byte 1/12、cursor 16/16を保持する。F5mo encoded seal、packet、native/GUI presentには進まない。
