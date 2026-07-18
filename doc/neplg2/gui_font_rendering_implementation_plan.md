@@ -13906,3 +13906,10 @@ git diff --check
 - reachable `Action`はcontinuationとF5nh session pendingを同居させるmove-only ownerへ包み、pending単独のconsuming accessorを公開しない。start直後の`Completed`はcontinuationを保持するowner-bearing `UnexpectedCompleted`へ写す。
 - actual fixtureはF5nzj test ownerからOffscreen BeginFrame、metadata 263/16/3/1、surface 7、frame 263、run/pixel 1/16、continuation cleanupをevidence 255で検証する。
 - source policy、dedicated normal isolation、F5nh回帰、release trunk、CLI JSON、subagent reviewを通し、outcome生成、completion、actual host execution、platform presentation前で停止する。
+
+### F5nzl registered BeginFrame F5nh outcome completion
+
+- F5nzk ownerのcommand continuationとF5nh session pendingを同一transitionで各1回moveし、caller-supplied support/outcomeだけを既存F5nh completeへexactly once渡す。
+- success ownerはcontinuationとF5nh completion、error ownerはcontinuationとcategory/lower errorを同居させ、両方に明示abort/freeを提供する。lower recoveryの再開は後続sliceへ残す。
+- actual fixtureはOffscreen+OkのYield successとWindow+OkのUnsupported rejectionを独立actual F5nzk ownerで検証し、両branchのregistered continuation cleanupを確認する。
+- source policy、normal isolation、F5nh回帰、release trunk、CLI JSON、subagent reviewを通し、actual platform execution、次command step前で停止する。

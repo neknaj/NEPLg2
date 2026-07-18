@@ -2420,3 +2420,7 @@ registered F5nzj ownerはF5nziのcommand continuationとpendingを同時にmove�
 ### Registered stroke compositor F5nzk BeginFrame host action executor session boundary
 
 registered F5nzk boundaryはF5nzjのcommand continuationとF5ne driver pendingを同時にmoveし、driverを既存F5nh start/requestへ各一度接続する。`Action` ownerはcontinuationとF5nh session pendingを同居させ、pending単独のconsuming accessorを公開しない。start直後の`Completed`はcontinuationを保持するtyped unexpected resultへ写し、synthetic driver/outcomeを作らない。F5nh complete、F5ng/F5nf、actual executor、platform presenterは責務外である。
+
+### Registered stroke compositor F5nzl BeginFrame host action completion boundary
+
+registered F5nzl boundaryはF5nzkのcontinuationとsession pendingを同時にmoveし、caller-supplied support/outcomeを既存F5nh completeへ一度渡す。success/errorのどちらもregistered continuationとlower authorityを同居させ、error categoryはF5nh accessorから読む。outcome生成、F5ng/F5nf/F5ne direct call、actual executor、次command stepは責務外である。

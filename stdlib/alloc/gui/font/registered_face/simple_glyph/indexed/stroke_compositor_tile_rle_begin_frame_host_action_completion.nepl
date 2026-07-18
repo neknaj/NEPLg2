@@ -1,0 +1,57 @@
+//: # registered stroke compositor tile RLE BeginFrame host action completion
+//: caller-supplied outcomeをF5nhへ渡し、registered continuationと完了authorityを再結合します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_executor_session" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner: registered continuationとF5nh completionを保持する
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner:
+    dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner
+    completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError: registered continuationとF5nh failureを保持する
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError:
+    dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner
+    category %Option GuiError
+    lower %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError
+
+//: caller-supplied outcomeをF5nhへ一度だけ渡し、success/error authorityをregistered continuationへ再結合する
+//:
+//: outcomeを生成せず、actual executor、platform presentation、次command dispatchへ進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_complete %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionExecutorSessionOwner fn Result unit GuiError Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError \support\owner\outcome:
+    let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get owner "dispatch_owner"
+    let session_pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending field::get owner "session_pending"
+    match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete support session_pending outcome:
+        Result::Ok completion:
+            let completed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner dispatch_owner completion
+            Result::Ok completed
+        Result::Err lower:
+            let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_category_value &lower
+            let failure %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError dispatch_owner category lower
+            Result::Err failure
+
+//: success ownerのF5nh completionを借用する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_completion %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner &GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion \owner:
+    field::get_ref owner "completion"
+
+//: completion successを閉じ、registered continuation authorityを解放する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get owner "dispatch_owner"
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner
+
+//: completion failureのtyped categoryを借用する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_category_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: completion failureを閉じ、registered continuation authorityを解放する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get error "dispatch_owner"
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner

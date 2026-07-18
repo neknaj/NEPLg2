@@ -1,0 +1,56 @@
+//: # registered stroke compositor tile RLE BeginFrame host action completion test adapter
+//: actual F5nzk authorityでF5nh success/error completionを検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_completion" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test" as fixture with tests
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+
+//: caller-supplied success outcomeがregistered continuation付きcompletionになることを検証する
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_success_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_complete GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen owner Result::Ok unit:
+                Result::Err error:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_free error:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                Result::Ok completed:
+                    let completion %&GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_completion &completed
+                    let completion_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion completion:
+                        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Yield _state: 1
+                        _: 0
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_free completed:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: add completion_evidence 2
+
+//: unsupported support preflight failureがregistered continuation付きtyped errorとなり、明示abortで閉じられることを検証する
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_unsupported_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_complete GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Window owner Result::Ok unit:
+                Result::Ok completed:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_free completed:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                Result::Err error:
+                    let category_evidence %i32 match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_category_value &error:
+                        Option::Some category:
+                            match category:
+                                GuiError::Unsupported: 4
+                                _: 0
+                        _: 0
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_free error:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: add category_evidence 8

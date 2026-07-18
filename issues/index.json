@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-18T09:54:30.327Z",
+  "generated_at": "2026-07-18T11:05:12.350Z",
   "counts": {
-    "total": 1423,
+    "total": 1424,
     "open": 60,
-    "resolved": 1363,
+    "resolved": 1364,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 9,
+        "total": 10,
         "open": 0,
-        "resolved": 9
+        "resolved": 10
       },
       "nodesrc": {
         "total": 16,
@@ -11883,6 +11883,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260718T092619670Z-F5NZK-REGISTERED-BEGINFRAME-F5NH-EXE-1CDE62B9.md"
+    },
+    {
+      "id": "ISS-20260718T100152913Z-F5NZL-REGISTERED-BEGINFRAME-F5NH-OUT-5757E3A6",
+      "title": "F5nzl registered BeginFrame F5nh outcome completion",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-18",
+      "updated": "2026-07-18",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_completion.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260718T100152913Z-F5NZL-REGISTERED-BEGINFRAME-F5NH-OUT-5757E3A6.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

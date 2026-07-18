@@ -8749,3 +8749,7 @@ F5nzjはF5nzi ownerが持つF5nzh command continuationとF5nc pendingを同一tr
 ### F5nzk registered BeginFrame F5nh executor session request owner
 
 F5nzkはF5nzj ownerのcommand continuationとF5ne driver pendingを同一transitionで各1回moveし、driver pendingを既存F5nh session start/requestへ各一度渡す。`Action`ではcontinuationとexecutor-session pendingを同居させ、expected actionはF5nh borrowed accessorだけで観測する。start直後に型上現れる`Completed`はsynthetic driverやoutcomeを作らず、continuationを保持するowner-bearing `UnexpectedCompleted`へ写す。session pending単独で分離せず、outcome生成、F5nh complete、F5ng/F5nf、actual host execution、platform presentationへ進まない。
+
+### F5nzl registered BeginFrame F5nh outcome completion owner
+
+F5nzlはF5nzk ownerのcommand continuationとF5nh session pendingを同一transitionで各1回moveし、caller-supplied support/outcomeだけを既存F5nh completeへ一度渡す。successはcontinuationとF5nh completion、failureはcontinuationとtyped category/lower errorを同居させる。productionはoutcomeを生成・変換せず、F5ng/F5nf/F5neを直接呼ばず、actual platform executionや次commandへの自動stepへ進まない。

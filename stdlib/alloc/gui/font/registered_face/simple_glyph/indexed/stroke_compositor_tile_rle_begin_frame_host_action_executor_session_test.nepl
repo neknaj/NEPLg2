@@ -25,6 +25,20 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begi
     let evidence3 %i32 add evidence2 (if eq (gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count descriptor) 1 then 16 else 0)
     add evidence3 (if eq (gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count descriptor) 16 then 32 else 0)
 
+//: actual F5nzk Action ownerを後続registered fixtureへ渡す
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionExecutorSessionOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok driver_owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_owner_into_host_action_executor_session_request driver_owner:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionExecutorSessionRequestResult::UnexpectedCompleted unexpected:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_unexpected_completed_free unexpected:
+                        Result::Err _: Result::Err sub 0 1
+                        Result::Ok _: Result::Err 0
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionExecutorSessionRequestResult::Action owner:
+                    Result::Ok owner
+
 //: actual F5nzj ownerをF5nh executor request pendingへ一度だけ接続する
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test_success_contract %impure fn unit i32 \_unit:
