@@ -72,6 +72,21 @@ fn resumed_end_frame_schedule_failure_evidence %impure fn unit i32 \_unit:
                                 Result::Err _: sub 0 1
                                 Result::Ok _: add category 256
 
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameScheduleOwner i32 \_unit:
+    match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:
+        Result::Err _: Result::Err sub 0 1
+        Result::Ok policy:
+            match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_test_owner _unit:
+                Result::Err evidence: Result::Err evidence
+                Result::Ok end_owner:
+                    let record_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecordOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_owner_into_record end_owner
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_record_owner_into_schedule &policy record_owner:
+                        Result::Err error:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_error_free error:
+                                Result::Err _: Result::Err sub 0 1
+                                Result::Ok _: Result::Err 0
+                        Result::Ok owner: Result::Ok owner
+
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_test_contract %impure fn unit i32 \_unit:
     match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:

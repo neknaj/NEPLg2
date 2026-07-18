@@ -168719,3 +168719,11 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - successはcursorとslice 2/16、drain seen 1/16、Ended、schedule Completedのupdated stateを同居させる。failureはcursor、rollback state、lower kind/categoryを保持する。
 - non-Copy outer enumをshared borrowから返さないよう、borrow APIをScheduleFailed predicateへ変更し、typed kindはconsuming partsだけに残した。separate lower-kind Optionはborrow検証できる。actual fixtureはproduction-derived F5nzq/F5nzr chainのsuccessに加え、command budget failureを強制し、rollback 1/16、InFrame、ScheduleFailed + lower CommandBudgetExceeded、ResourceExhausted、cursor cleanupを検証する。terminal command、host request/platform executionは未接続で全体目標は未完了である。
 - 最終修正後のactual doctest 22/22（evidence 638、failed 0）、専用normal compile、Web source-policy、issues 1431件、release trunk build、Playground editor CLI JSON 13/13、diff check、subagent差分・全体整合reviewを通過した。
+2026-07-18 GUI font F5nzt resumed terminal command
+
+- F5nzs Completed schedule authorityをconsume前にgateし、Completedだけが既存F5mt step-finish-ownerとstepを各exactly once呼ぶmove-only boundaryを追加した。
+- successはslice 2/16、drain Endedのupdated loop stateとopaque terminal stepを同居させ、F5mt failureはstateとlower owner-bearing errorをlossless保持する。非Completed phaseは元stepとstateをPhaseExpectedへ回収する。
+- errorはbool predicate、委譲Copy diagnostics、両variantのownerを返すpublic consuming recovery enumを備える。natural F5nzs fixtureではerrorへ到達不能なのでruntime errorを捏造せずsource-policyで検証する。
+- actual fixtureはF5nzs factory由来のstate、schedule Completed、terminal result Completed、canonical descriptor、cursor Completed、cleanupをevidence 1023で検証する。
+- terminal F5mu Completed result projection、host request、platform execution、native font provider、layout、rasterization、native/GUI presentationは未完了であり、F5nzt checkpointを全体完成とは扱わない。
+- canonical修正後のactual doctest 22/22（evidence 1023、failed 0）、contract実呼出の専用normal compile、Web source-policy、issues 1432件、release trunk build、Playground editor CLI JSON 13/13、diff check、subagent差分・全体整合reviewを通過した。

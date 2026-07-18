@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-18T13:42:05.987Z",
+  "generated_at": "2026-07-18T14:29:22.104Z",
   "counts": {
-    "total": 1431,
+    "total": 1432,
     "open": 60,
-    "resolved": 1371,
+    "resolved": 1372,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 17,
+        "total": 18,
         "open": 0,
-        "resolved": 17
+        "resolved": 18
       },
       "nodesrc": {
         "total": 16,
@@ -12003,6 +12003,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260718T180000000Z-F5NZS-REGISTERED-END-FRAME-SCHEDULE.md"
+    },
+    {
+      "id": "ISS-20260718T190000000Z-F5NZT-REGISTERED-TERMINAL-COMMAND",
+      "title": "F5nzt registered resumed terminal command authority",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-18",
+      "updated": "2026-07-18",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_command.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260718T190000000Z-F5NZT-REGISTERED-TERMINAL-COMMAND.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

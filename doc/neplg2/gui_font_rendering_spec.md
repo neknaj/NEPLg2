@@ -8781,3 +8781,7 @@ F5nzrはF5nzqをformal partsで一度だけ消費し、EndFrame stepを既存F5m
 ### F5nzs registered resumed EndFrame schedule-only owner
 
 F5nzsはF5nzrをformal partsで一度だけ消費し、EndFrame recordだけを既存F5nc dispatch-loop schedule-only入口へ一度だけ渡す。successはcursor stepとupdated loop state、Completed schedule phaseを同居させる。failureはouter kindとseparate lower-kind Option、step、rollback state、categoryを保持する。borrow APIはouter enumを返さずpredicateだけを公開し、typed kindはconsuming partsに限定する。actual fixtureはcommand budget failureでrollback counters、InFrame、ResourceExhausted、cursor cleanupを検証する。terminal command、host request、platform executionへ進まない。
+
+### F5nzt registered resumed terminal command owner
+
+F5nztはF5nzs schedule phaseをconsume前に検査し、Completedだけがformal partsを一度移送して既存F5mt finish-ownerとstepを各一度呼ぶ。successはupdated loop stateとopaque terminal stepを同居させる。非Completedは元stepとstateをPhaseExpectedへ回収し、F5mt failureはstateとlower owner-bearing errorを保持する。borrow診断はbool predicateと委譲したCopy lower diagnosticsだけを返し、public consuming recovery enumが両variantのowner authorityを返す。natural F5nzs fixtureからerrorへ到達できないためruntime errorを捏造せずsource-policyで回収graphを検査する。productionはterminal result、descriptor、cursor phase、F5mu、host request、platform executionを読まない。

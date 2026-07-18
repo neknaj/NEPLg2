@@ -13956,3 +13956,10 @@ git diff --check
 - F5nzr successをformal partsへ一度だけ移し、CompletedはRecordExpected、BeginFrame/RunはEndFrameExpectedとして拒否する。
 - EndFrame recordだけを既存F5nc dispatch-loop schedule-only入口へexactly once渡し、cursorとupdated/rollback authorityを同居させる。failure diagnosticsはouter kindとseparate lower-kind Optionへ分け、borrowed outer-kind APIはpredicateだけを返す。typed kindはconsuming partsに限定する。
 - actual fixtureはsuccessのslice 2/16、drain seen 1/16、Ended、Completedに加え、command budget failureのrollback 1/16、InFrame、lower kind/category、cursor cleanupを検証する。terminal command、request、platform executionは後続へ残す。
+
+### F5nzt registered resumed terminal command transition
+
+- F5nzs schedule phaseをowner consume前に検査し、Completedだけがformal partsを一度取得する。非Completedは元stepとupdated stateをPhaseExpected recoveryへ返す。
+- Completedは既存F5mt step-finish-ownerとstepを各exactly once呼び、successはupdated stateとopaque terminal step、failureはstateとlower owner-bearing errorを保持する。
+- errorはborrow predicateとlower Copy diagnosticsに加え、PhaseExpectedのstep/stateまたはStepFailedのstate/lowerを返すpublic consuming recovery enumを公開する。
+- actual fixtureはstate 2/16、drain Ended、schedule Completed、terminal result/phase Completed、canonical descriptor、cleanupを1023で検証する。natural F5nzs factoryは常にCompletedでlower terminal stepも失敗しないため、error runtime fixtureを捏造せずsource-policyでrecovery graphを検査する。F5mu record、request、host/platform executionは後続へ残す。

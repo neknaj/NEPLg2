@@ -1,0 +1,69 @@
+//: # registered resumed terminal command test adapter
+//: actual F5nzs ownerからterminal Completed stepまでのauthority移送を検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_test" as fixture with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_command" as *
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/compositor_tile_present_virtual_drain" as *
+#import "std/gui/window" as *
+
+fn resumed_terminal_command_state_evidence %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState i32 \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+    let drain %GuiRgba8888CompositorTileRlePresentVirtualDrain gui_rgba8888_compositor_tile_rle_present_schedule_state_drain &schedule
+    let a %i32 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 2 then 1 else 0
+    let b %i32 add a if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 16 then 2 else 0
+    let c %i32 add b if eq gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_run_count &drain 1 then 4 else 0
+    let d %i32 add c if eq gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_pixel_count &drain 16 then 8 else 0
+    add d match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase &drain:
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::Ended: 16
+        _: 0
+
+fn resumed_terminal_command_descriptor_is_canonical %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor bool \descriptor:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor
+    let surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface descriptor
+    let frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame descriptor
+    and and and and and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 263 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1 eq surface_id_raw &surface 7 eq frame_id_raw &frame 263 eq gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count descriptor 1 eq gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count descriptor 16
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_command_test_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok scheduled:
+            let schedule_phase %GuiRgba8888CompositorTileRlePresentSchedulePhase gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_phase &scheduled
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_into_terminal_command scheduled:
+                Result::Err error:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_command_error_free error:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                Result::Ok terminal:
+                    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_command_owner_state &terminal
+                    let evidence0 %i32 resumed_terminal_command_state_evidence &state
+                    let evidence1 %i32 add evidence0 match schedule_phase:
+                        GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed: 32
+                        _: 0
+                    let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_command_owner_into_parts terminal
+                    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+                    let descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_command_cursor_step_descriptor &step
+                    let evidence2 %i32 add evidence1 match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result &step:
+                        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed: 64
+                        _: 0
+                    let evidence3 %i32 add evidence2 if resumed_terminal_command_descriptor_is_canonical &descriptor then 128 else 0
+                    let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner step
+                    let evidence4 %i32 add evidence3 match gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_phase &cursor:
+                        GuiRgba8888CompositorTileRlePresentCommandCursorPhase::Completed: 256
+                        _: 0
+                    match gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_free cursor:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: add evidence4 512
