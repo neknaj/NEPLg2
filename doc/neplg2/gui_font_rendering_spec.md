@@ -8773,3 +8773,7 @@ F5nzpはF5nc schedule-only adapterを通じ、reset済loop state内の既存F5mw
 ### F5nzq registered resumed EndFrame command owner
 
 F5nzqはF5nzpのupdated InFrame stateとRun cursor stepを分解し、schedule phaseがContinueの場合だけ既存F5mt finish-ownerとstepを各一度呼ぶ。successはtyped EndFrame descriptor、continuation step、updated stateを同居させる。Yield/Completed、F5mt failure、unexpected resultはcursor/lower authorityをtyped recoveryへ保持する。F5mu EndFrame record、schedule、host request、host/platform executionへ進まない。
+
+### F5nzr registered resumed EndFrame record owner
+
+F5nzrはF5nzqをformal partsで一度だけ消費し、EndFrame stepを既存F5muへ一度だけborrow projectionする。updated state、step、Copy EndFrame recordを同居させ、schedule、host request、platform executionへ進まない。

@@ -168707,3 +168707,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nzpのupdated InFrame loop stateとRun stepを一度だけpartsへ移し、schedule phaseがContinueの場合だけF5mt finish-ownerとstepを各一度呼ぶbounded continuationを追加した。
 - Yield/Completedはcursorを進めずactual phase、state、元stepをtyped recoveryへ保持する。F5mt failureとunexpected resultもlower/step authorityを失わない。
 - actual fixtureはslice counters 1/16、drain seen 1/16を維持したEndFrame commandとcleanupを検証する。EndFrame F5mu record、EndFrame schedule、host request/platform execution、terminal Completedは未接続で、全体目標は未完了である。
+
+2026-07-18 GUI font F5nzr resumed EndFrame record
+
+- F5nzq successをformal partsで一度だけ消費し、既存F5muへEndFrame stepを一度だけborrow projectionしてupdated state、step、Copy EndFrame recordを同居させた。
+- actual fixtureはtyped EndFrame recordとcleanupを検証する。EndFrame schedule、host request/platform、terminal Completedは未接続で全体目標は未完了である。

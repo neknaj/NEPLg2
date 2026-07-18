@@ -11211,3 +11211,7 @@ F5nzp consumes F5nzo through formal parts and passes its RunRecord to an F5nc sc
 ### F5nzq registered resumed EndFrame command transition
 
 F5nzq inspects the F5nzp schedule phase before cursor recovery. Continue alone recovers the retained Run continuation and invokes F5mt once for the next command. Success co-locates updated state, the EndFrame step, and its typed descriptor. Non-Continue phases, lower failure, and unexpected results retain step or lower recovery authority. F5mu record, EndFrame schedule, host request, and host/platform execution remain later boundaries.
+
+### F5nzr registered resumed EndFrame record projection
+
+F5nzr consumes F5nzq through one formal parts handoff and borrows the retained EndFrame step once for the existing total F5mu projection. It retains updated loop state, step, and Copy record result and stops before scheduling and host/platform work.

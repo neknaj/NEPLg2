@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-18T12:58:04.352Z",
+  "generated_at": "2026-07-18T13:16:47.654Z",
   "counts": {
-    "total": 1429,
+    "total": 1430,
     "open": 60,
-    "resolved": 1369,
+    "resolved": 1370,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 15,
+        "total": 16,
         "open": 0,
-        "resolved": 15
+        "resolved": 16
       },
       "nodesrc": {
         "total": 16,
@@ -11973,6 +11973,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260718T160000000Z-F5NZQ-REGISTERED-RESUMED-END-FRAME.md"
+    },
+    {
+      "id": "ISS-20260718T170000000Z-F5NZR-REGISTERED-END-FRAME-RECORD",
+      "title": "F5nzr registered resumed EndFrame record authority",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-18",
+      "updated": "2026-07-18",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_record.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260718T170000000Z-F5NZR-REGISTERED-END-FRAME-RECORD.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

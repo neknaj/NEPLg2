@@ -31,6 +31,18 @@ fn resumed_end_frame_command_evidence %fn GuiRgba8888CompositorTileRlePresentCom
                 _: 0
 
 #test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_schedule_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok scheduled_owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_schedule_owner_step_end_frame scheduled_owner:
+                Result::Err error:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_error_free error:
+                        Result::Err _: Result::Err sub 0 1
+                        Result::Ok _: Result::Err 0
+                Result::Ok owner: Result::Ok owner
+
+#test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_test_contract %impure fn unit i32 \_unit:
     match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_schedule_test_owner _unit:
         Result::Err evidence: evidence

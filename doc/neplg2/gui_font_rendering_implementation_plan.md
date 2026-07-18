@@ -13944,3 +13944,9 @@ git diff --check
 - F5nzp successをpartsへ一度だけ移し、phaseをcursor回収前に検査する。ContinueだけがF5mt finish-ownerとstepを各exactly once呼ぶ。
 - successはupdated state、EndFrame step、typed descriptorを同居させる。Yield/Completed、lower error、unexpected resultはstateとstep/lower recovery authorityを保持する。
 - actual fixtureはslice counters 1/16、drain seen 1/16、EndFrame、cleanupを検証する。F5mu EndFrame record、schedule、host request、platform executionは後続へ残す。
+
+### F5nzr registered resumed EndFrame F5mu record
+
+- F5nzq successをformal partsへ一度だけ移し、既存F5mu projectionをEndFrame stepからexactly once読む。
+- updated state、EndFrame step、Copy EndFrame recordをmove-only ownerへ同居させる。
+- actual fixtureはstate 1/16、drain seen 1/16、canonical EndFrame descriptor、cleanupを検証する。schedule、request、platform、terminal stepは後続へ残す。

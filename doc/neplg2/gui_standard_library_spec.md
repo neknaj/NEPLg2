@@ -2444,3 +2444,7 @@ F5nc schedule-only adapterは既存loop state内のF5mw/F5mv authorityへrecord�
 ### Registered stroke compositor F5nzq resumed EndFrame command boundary
 
 F5nzqはF5nzpのContinue authorityだけから既存F5mt command cursorを一度進め、updated InFrame loop stateとtyped EndFrame continuationを保持する。非Continue phaseと失敗はcursor/lower recoveryを保持し、F5mu record、host request、host/platform executionを行わない。
+
+### Registered stroke compositor F5nzr resumed EndFrame record boundary
+
+F5nzrはF5nzq successをformal partsで消費し、既存F5muへEndFrame stepを一度だけborrow projectionする。updated state、step、Copy EndFrame recordを同居させ、schedule、request、terminal step、platform executionを行わない。
