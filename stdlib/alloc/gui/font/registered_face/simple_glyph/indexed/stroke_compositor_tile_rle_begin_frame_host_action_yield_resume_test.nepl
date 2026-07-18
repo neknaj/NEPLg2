@@ -16,6 +16,23 @@ fn schedule_from_loop_state %fn &GuiRgba8888CompositorTileRlePresentDispatchLoop
     gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
 
 #test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionResumedOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok completion_owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_into_phase completion_owner:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionPhaseOwner::Continue owner:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_continue_owner_free owner:
+                        Result::Err _: Result::Err sub 0 1
+                        Result::Ok _: Result::Err 0
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionPhaseOwner::Completed owner:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completed_owner_free owner:
+                        Result::Err _: Result::Err sub 0 1
+                        Result::Ok _: Result::Err 0
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionPhaseOwner::Yield owner:
+                    Result::Ok gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_slice owner
+
+#test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_test_contract %impure fn unit i32 \_unit:
     match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_owner _unit:
         Result::Err evidence: evidence

@@ -8757,3 +8757,7 @@ F5nzlはF5nzk ownerのcommand continuationとF5nh session pendingを同一transi
 ### F5nzm registered BeginFrame Yield scheduler resume owner
 
 F5nzmはF5nzl success completionをContinue/Yield/Completedのtyped ownerへ全域分類し、各phaseでregistered continuationとF5nc stateを同居させる。Yield ownerだけがscheduler-visible unresumed authorityとなり、別entryで既存F5nc `state_resume_slice`へ一度渡される。resume後ownerもcontinuationとreset済みstateを保持し、F5mw direct resume、次command step、actual scheduler/platform executionへ進まない。
+
+### F5nzn registered resumed next command owner
+
+F5nznはF5nzm resumed ownerを単一parts authorityへ移し、dispatch、host request、schedule、virtual drain、recordのformal take APIとF5mt finish-ownerだけでRunPending cursorを回収する。F5mt command cursor stepは一度だけ実行し、successはreset済F5nc stateとRun step、failureは同じstateとowner-bearing lower errorを同居させる。Run record、再schedule/dispatch、次々command、actual scheduler/platform executionへ進まない。

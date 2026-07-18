@@ -13920,3 +13920,9 @@ git diff --check
 - Yield ownerをscheduler-visible unresumed authorityとして停止させ、Yield-only resume entryだけが既存F5nc `state_resume_slice`をexactly once呼ぶ。F5mw/F5my direct resumeは禁止する。
 - actual fixtureはYield、resume前slice counters 1/0、resume後0/0、continuation cleanupをevidence 63で検証する。
 - F5nzl error recovery、next command step、actual scheduler/platform executorは後続sliceへ残す。
+
+### F5nzn registered resumed next command step
+
+- F5nzm resumed ownerをparts authorityへ一度だけ移し、registered formal take chainでBeginFrame stepのRunPending cursorを回収する。
+- 既存F5mt command cursor stepをexactly once呼び、success/error双方でreset済F5nc stateとcursor authorityを同居させる。
+- actual fixtureは次commandがRun、state counters 0/0、cleanupを検証する。Run record、再schedule/dispatch、次々command、actual scheduler/platform executorは後続sliceへ残す。

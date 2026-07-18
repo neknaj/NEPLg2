@@ -2428,3 +2428,7 @@ registered F5nzl boundaryはF5nzkのcontinuationとsession pendingを同時にmo
 ### Registered stroke compositor F5nzm BeginFrame Yield resume boundary
 
 registered F5nzm boundaryはF5nzl success completionをContinue/Yield/Completedのtyped ownerへ全域分類し、continuationとF5nc stateを分断しない。Yieldはschedulerへ返すunresumed authorityであり、Yield-only entryがF5nc resume helperを一度呼んでreset済みstate ownerへ進める。F5mw/F5my direct resume、next command、actual scheduler/platform executionは責務外である。
+
+### Registered stroke compositor F5nzn resumed next command boundary
+
+registered F5nzn boundaryはF5nzm resumed ownerをformal parts handoffで消費し、既存registered take chainからF5mt RunPending cursorを回収して一commandだけ進める。success/errorはreset済F5nc stateとstepまたはlower recoveryを同居させる。Run record、再schedule/dispatch、次々command、actual scheduler/platform executionは責務外である。

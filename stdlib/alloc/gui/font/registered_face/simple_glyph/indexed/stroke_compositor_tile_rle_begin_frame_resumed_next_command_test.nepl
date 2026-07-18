@@ -1,0 +1,41 @@
+//: # registered BeginFrame resumed next command test adapter
+//: actual resumed authorityからRun commandを一つだけ取り出します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_test" as fixture with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_next_command" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+
+fn reset_slice_counts %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState bool \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+    and eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 0 eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 0
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_test_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok resumed:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_owner_step_next_command resumed:
+                Result::Err error:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_error_free error:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                Result::Ok owner:
+                    let evidence1 %i32 if reset_slice_counts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_state &owner then 1 else 0
+                    let evidence2 %i32 add evidence1 match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_result &owner:
+                        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed: 0
+                        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+                            match command:
+                                GuiRgba8888CompositorTileRlePresentCommand::BeginFrame _: 0
+                                GuiRgba8888CompositorTileRlePresentCommand::Run _: 2
+                                GuiRgba8888CompositorTileRlePresentCommand::EndFrame _: 0
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: add evidence2 4
