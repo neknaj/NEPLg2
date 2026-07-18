@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-18T14:29:22.104Z",
+  "generated_at": "2026-07-18T15:53:53.617Z",
   "counts": {
-    "total": 1432,
-    "open": 60,
+    "total": 1433,
+    "open": 61,
     "resolved": 1372,
     "by_area": {
       "stdlib": {
@@ -15,6 +15,11 @@
         "total": 665,
         "open": 28,
         "resolved": 637
+      },
+      "gui-font": {
+        "total": 19,
+        "open": 1,
+        "resolved": 18
       },
       "RESOURCE": {
         "total": 5,
@@ -95,11 +100,6 @@
         "total": 39,
         "open": 0,
         "resolved": 39
-      },
-      "gui-font": {
-        "total": 18,
-        "open": 0,
-        "resolved": 18
       },
       "nodesrc": {
         "total": 16,
@@ -528,6 +528,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
+    },
+    {
+      "id": "ISS-20260718T200000000Z-F5NZU-REGISTERED-TERMINAL-RECORD",
+      "title": "F5nzu registered resumed terminal F5mu projection",
+      "area": "gui-font",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-18",
+      "updated": "2026-07-18",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_record.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260718T200000000Z-F5NZU-REGISTERED-TERMINAL-RECORD.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",

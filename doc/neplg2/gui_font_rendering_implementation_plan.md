@@ -13963,3 +13963,9 @@ git diff --check
 - Completedは既存F5mt step-finish-ownerとstepを各exactly once呼び、successはupdated stateとopaque terminal step、failureはstateとlower owner-bearing errorを保持する。
 - errorはborrow predicateとlower Copy diagnosticsに加え、PhaseExpectedのstep/stateまたはStepFailedのstate/lowerを返すpublic consuming recovery enumを公開する。
 - actual fixtureはstate 2/16、drain Ended、schedule Completed、terminal result/phase Completed、canonical descriptor、cleanupを1023で検証する。natural F5nzs factoryは常にCompletedでlower terminal stepも失敗しないため、error runtime fixtureを捏造せずsource-policyでrecovery graphを検査する。F5mu record、request、host/platform executionは後続へ残す。
+
+### F5nzu registered resumed terminal F5mu projection
+
+- 呼び出し側がF5nzt successをformal partsへ一度だけ移し、回収した同じopaque stepをF5nzuから既存F5muへ一度だけborrow projectionする。
+- 新しいownerやcleanupを追加せず、updated stateとstep authorityは既存F5nzt/F5mt lifecycleで保持する。productionはF5mt result、descriptor、cursor phaseを検査せず、F5mtを再advanceしない。
+- actual fixtureは既存F5nzt chain内でstate 2/16、drain Ended、schedule/F5mu Completed、canonical descriptor、cursor Completed、cleanupを検証する。deep state+stepの再包装はresource summaryを300秒超へ非線形拡大させるため行わない。F5mv、schedule、host request、host/platform executionは後続へ残す。

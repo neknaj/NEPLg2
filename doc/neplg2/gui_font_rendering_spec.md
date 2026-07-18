@@ -8785,3 +8785,7 @@ F5nzsはF5nzrをformal partsで一度だけ消費し、EndFrame recordだけを�
 ### F5nzt registered resumed terminal command owner
 
 F5nztはF5nzs schedule phaseをconsume前に検査し、Completedだけがformal partsを一度移送して既存F5mt finish-ownerとstepを各一度呼ぶ。successはupdated loop stateとopaque terminal stepを同居させる。非Completedは元stepとstateをPhaseExpectedへ回収し、F5mt failureはstateとlower owner-bearing errorを保持する。borrow診断はbool predicateと委譲したCopy lower diagnosticsだけを返し、public consuming recovery enumが両variantのowner authorityを返す。natural F5nzs fixtureからerrorへ到達できないためruntime errorを捏造せずsource-policyで回収graphを検査する。productionはterminal result、descriptor、cursor phase、F5mu、host request、platform executionを読まない。
+
+### F5nzu registered resumed terminal F5mu borrowed projection boundary
+
+F5nzuは呼び出し側がF5nzt successをformal partsで一度だけ消費した後、その同じopaque terminal stepを既存F5muへborrow projectionする。新しいownerやcleanupを作らず、step authorityは呼び出し側が既存F5mt cleanupまで保持する。F5nztがterminal invariantを確立済みなのでproductionでphase/resultを再gateせず、error authorityも人工生成しない。`Completed`はhost-command recordではなく、F5mv drain、schedule、host request、platform executionへ進まない。

@@ -2456,3 +2456,7 @@ F5nzsはF5nzr EndFrame recordを既存F5nc dispatch-loop schedule-only入口へe
 ### Registered stroke compositor F5nzt resumed terminal command boundary
 
 F5nztはF5nzsのCompleted schedule authorityだけを受理し、既存F5mt command cursorを一度だけterminal stepへ進める。successはslice 2/16、drain Endedのupdated stateとopaque terminal stepを同居させ、phase mismatchとlower failureはいずれもpublic consuming recovery enumからowner authorityを回収できる。borrow APIはbool predicateとCopy lower diagnosticsに限定する。natural fixtureで到達不能なerrorを人工生成せずsource-policyでrecovery graphを検査する。terminal record projection、host request、platform executionは責務外である。
+
+### Registered stroke compositor F5nzu resumed terminal projection boundary
+
+F5nzuは呼び出し側がF5nzt ownerをformal partsで一度だけ消費した後、同じterminal stepを既存F5muへborrow projectionする。新ownerを作らずstep authorityは既存cleanupまで維持する。productionでterminal invariantを再検査せず、F5mt再advance、F5mv drain、schedule、host request、platform executionを行わない。

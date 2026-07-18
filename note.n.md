@@ -168724,6 +168724,12 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nzs Completed schedule authorityをconsume前にgateし、Completedだけが既存F5mt step-finish-ownerとstepを各exactly once呼ぶmove-only boundaryを追加した。
 - successはslice 2/16、drain Endedのupdated loop stateとopaque terminal stepを同居させ、F5mt failureはstateとlower owner-bearing errorをlossless保持する。非Completed phaseは元stepとstateをPhaseExpectedへ回収する。
 - errorはbool predicate、委譲Copy diagnostics、両variantのownerを返すpublic consuming recovery enumを備える。natural F5nzs fixtureではerrorへ到達不能なのでruntime errorを捏造せずsource-policyで検証する。
-- actual fixtureはF5nzs factory由来のstate、schedule Completed、terminal result Completed、canonical descriptor、cursor Completed、cleanupをevidence 1023で検証する。
+- F5nzt actual fixtureはstate、schedule Completed、terminal result Completed、canonical descriptor、cursor Completed、cleanupをevidence 1023で維持する。F5nzu composite evidence 2047はresource解析timeoutのため未達である。
 - terminal F5mu Completed result projection、host request、platform execution、native font provider、layout、rasterization、native/GUI presentationは未完了であり、F5nzt checkpointを全体完成とは扱わない。
-- canonical修正後のactual doctest 22/22（evidence 1023、failed 0）、contract実呼出の専用normal compile、Web source-policy、issues 1432件、release trunk build、Playground editor CLI JSON 13/13、diff check、subagent差分・全体整合reviewを通過した。
+
+2026-07-18 GUI font F5nzu resumed terminal F5mu projection
+
+- 呼び出し側がF5nzt successをformal partsで一度だけ消費した後、同じopaque terminal stepを既存F5muへborrow projectionする。新ownerやcleanupを追加せず、updated loop stateとstep authorityは既存lifecycleで保持する。
+- F5nztがterminal invariantを確立済みなのでproductionはresult、descriptor、cursor phaseを再検査せず、F5mtを再advanceしない。terminal `Completed`はhost-command recordではなく、F5mv、schedule、host request、platform executionへ進まない。
+- 最初のdeep state+step再包装案はactual compileが300秒超、約1.8GB RSSへ非線形拡大したため撤回した。既存F5nzt fixture内でformal parts回収後にF5nzu projectionを一度呼び、canonical descriptor、cursor Completed、cleanupを継続する。source-policy、normal compile、全gate、subagent差分・整合reviewは進行中である。F5nzu checkpointもフォントレンダリングエンジン/GUIライブラリ全体の完成とは扱わない。
+- F5nzu helperのsource-policy、normal compile、release trunk build、Playground editor CLI JSON 13/13は通過した。一方actual composite fixtureは60/120/300秒の全上限でcompile timeoutとなり、約1.8GB RSSへ拡大したため撤回した。issuesは1433件（F5nzu open）で、F5nzu統合条件はcompiler summary境界修正後にactual 2047 evidenceを通常gateで通すことである。

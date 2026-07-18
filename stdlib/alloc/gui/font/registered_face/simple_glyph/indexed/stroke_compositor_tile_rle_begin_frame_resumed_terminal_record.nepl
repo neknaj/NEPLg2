@@ -1,0 +1,14 @@
+//: # registered resumed terminal record
+//: F5nzt formal partsから回収したterminal stepを既存F5mu typed resultへ投影します。
+
+#indent 4
+
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+
+//: formal partsから回収したterminal stepを消費せずF5muへ投影する
+//:
+//: 呼び出し側はF5nzt ownerをformal partsで一度だけ消費し、同じstepをcleanupまで保持します。
+//: host-command record、drain、schedule、request、host/platform executionへは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_record_result %fn &GuiRgba8888CompositorTileRlePresentCommandCursorStep GuiRgba8888CompositorTileRlePresentHostCommandStepResult \step:
+    gui_rgba8888_compositor_tile_rle_present_host_command_step_result step
