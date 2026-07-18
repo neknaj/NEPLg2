@@ -13859,3 +13859,10 @@ git diff --check
 - upstream十九層をlosslessに保持し、move-only stepとCopy projectionをprivate constructorで第二十authority ownerへ同居させる。
 - productionはrecord、step result、descriptor、phaseを読まない。fixtureだけがtyped `Record(BeginFrame)`、canonical descriptor、元step、`RunPending` continuation、全cleanupを検証する。
 - F5nyy/F5mu回帰、20 authority source policy、normal compile、trunk/CLIを通す。F5nzdはF5mv virtual drain、host execution、schedulerより前で停止し、次のF5nzeで文書化されたF5mv接続へ進む。
+
+## Phase F5nze: registered BeginFrame F5mv virtual drain owner
+
+- production bridgeは単一のF5nzd ownerを受け、actual typed `Record(BeginFrame)`をempty F5mv target-free virtual drainへexactly once渡す。
+- runtime fixtureはpublic F5nzd pipelineのupstream十九層をlosslessに閉じ、最深success ownerをproduction bridgeへexactly once渡す。現行resource checkerが証明できない第二十層nested move-only Resultはpublic surfaceにしない。success ownerはF5nzd record ownerとnext drain state、error ownerはprojection/F5mv error authorityとF5nzd record ownerを保持する。
+- success/error双方にconsuming record-owner recoveryとfreeを用意し、Copy/Cloneを禁止する。fixtureだけがtyped BeginFrame drain state、metadata、元command step、continuation、全cleanupを検証する。
+- F5nzd/F5mv回帰、連続owner契約source policy、virtual-drain専用normal compile isolation、trunk/CLIを通す。F5nzeはF5mw deterministic slice schedule、host execution、platform presentationより前で停止し、次のphaseでF5mwへ接続する。

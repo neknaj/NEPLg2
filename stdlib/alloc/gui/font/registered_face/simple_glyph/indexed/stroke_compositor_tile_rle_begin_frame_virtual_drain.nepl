@@ -1,0 +1,118 @@
+//: # registered stroke compositor tile RLE BeginFrame virtual drain
+//: F5nzd actual BeginFrame record authorityをF5mv target-free virtual drainへ接続します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_record" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count_completed" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+#import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+#import "alloc/gui/render2d/compositor_tile_rle_storage" as *
+#import "alloc/gui/render2d/compositor_tile_rle_write_cursor" as *
+#import "alloc/gui/render2d/compositor_tile_rle_write_step" as *
+#import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_run_cursor" as *
+#import "std/gui/compositor_tile_present_run_step" as *
+#import "std/gui/compositor_tile_present_virtual_drain" as *
+#import "std/gui/window" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind: bridge failureの原因
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind:
+    ProjectionCompleted
+    ProjectionRunRecord
+    ProjectionEndFrame
+    VirtualDrainFailed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner: record ownerとF5mv next stateを保持する
+//:
+//: retained command stepを所有するためCopy / Cloneを実装しません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner:
+    record_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner
+    drain %GuiRgba8888CompositorTileRlePresentVirtualDrain
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError: failureと元record authorityを保持する
+//:
+//: callerがfailure後にもcommand stepを回収できるようCopy / Cloneを実装しません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError:
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind
+    record_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner
+    drain_error %Option GuiRgba8888CompositorTileRlePresentVirtualDrainError
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner fn GuiRgba8888CompositorTileRlePresentVirtualDrain GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner \record_owner\drain:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner record_owner drain
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner fn Option GuiRgba8888CompositorTileRlePresentVirtualDrainError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError \kind\record_owner\drain_error:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError kind record_owner drain_error
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_result_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError \kind\record_owner:
+    Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_error kind record_owner none
+
+//: F5nzd ownerのactual BeginFrame recordをempty F5mv drainへ一度だけ渡す
+//:
+//: projection variantをtypedに検査し、success / failureの両方で元command step authorityを保持します。
+//: schedule、dispatch、host execution、platform presenterへは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_into_virtual_drain %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError \record_owner:
+    let projection %GuiRgba8888CompositorTileRlePresentHostCommandStepResult gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_result &record_owner
+    match projection:
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Completed:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_result_error GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind::ProjectionCompleted record_owner
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Record record:
+            match record:
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord _:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_result_error GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind::ProjectionRunRecord record_owner
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame _:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_result_error GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind::ProjectionEndFrame record_owner
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame _:
+                    let empty_drain %GuiRgba8888CompositorTileRlePresentVirtualDrain gui_rgba8888_compositor_tile_rle_present_virtual_drain_empty
+                    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_step empty_drain record:
+                        Result::Ok drain:
+                            Result::Ok gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner record_owner drain
+                        Result::Err lower:
+                            Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_error GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind::VirtualDrainFailed record_owner some lower
+
+//: F5mv next stateをCopy valueとして読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_drain %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner GuiRgba8888CompositorTileRlePresentVirtualDrain \owner:
+    *field::get_ref owner "drain"
+
+//: success ownerから元F5nzd record ownerを回収する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_take_record_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner \owner:
+    field::get owner "record_owner"
+
+//: success ownerが保持するcommand stepを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_take_record_owner owner
+
+//: bridge error kindを読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+//: F5mv typed errorをoptional Copy valueとして読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_error_drain_error_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError Option GuiRgba8888CompositorTileRlePresentVirtualDrainError \error:
+    *field::get_ref error "drain_error"
+
+//: failure ownerから元F5nzd record ownerを回収する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_error_take_record_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner \error:
+    field::get error "record_owner"
+
+//: failure ownerが保持するcommand stepを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_error_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_error_take_record_owner error

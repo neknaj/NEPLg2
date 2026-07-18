@@ -8721,3 +8721,7 @@ F5nzcはpublic F5nzbを1回だけ呼び、第二十二層terminal stepをborrow�
 ### F5nzd registered BeginFrame F5mu record owner
 
 F5nzdはpublic F5nyyを1回だけ呼び、第十九層BeginFrame stepをborrowしたまま既存F5mu host-command projectionへ1回だけ渡す。十九層Resultをlosslessに保持し、元のmove-only stepとCopy `Record(BeginFrame)` projectionを第二十authority ownerへ同居させる。productionはrecord、step result、descriptor、phaseを解釈または再構築せず、F5mv virtual drain、host execution、schedulerより前で停止する。fixtureだけがactual typed BeginFrame record、canonical descriptor、stepのBeginFrame、continuation `RunPending`、cleanupを検証する。次のF5nzeは文書化された依存順にF5mvへ接続する。
+
+### F5nze registered BeginFrame F5mv virtual drain owner
+
+F5nze production bridgeは単一のF5nzd ownerを受け、actual typed `Record(BeginFrame)`をempty F5mv target-free virtual drainへ1回だけ渡す。success ownerは元command stepを含むF5nzd ownerとF5mv next drain stateを同居させる。projection variant不一致またはF5mv failureはtyped error ownerとなり、error kind、optional F5mv error、元F5nzd ownerをlosslessに保持する。success/errorはいずれもconsuming recovery/freeを備え、Copy/Cloneにしない。runtime fixtureはpublic F5nzd pipelineの十九層failure authorityを同じ順序で閉じ、最深success ownerだけをproduction bridgeへ渡す。現行resource checkerが証明できない第二十層nested move-only Resultは公開しない。productionはF5mw schedule、host execution、transport、platform presenterへ進まず、fixtureだけがdrain後のtyped BeginFrame stateと元step recoveryを検証する。次のphaseはF5mw deterministic slice schedule接続である。

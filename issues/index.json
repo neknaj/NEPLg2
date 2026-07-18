@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-17T15:39:21.797Z",
+  "generated_at": "2026-07-18T04:54:35.873Z",
   "counts": {
     "total": 1417,
-    "open": 61,
-    "resolved": 1356,
+    "open": 60,
+    "resolved": 1357,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "gui-font": {
-        "total": 3,
-        "open": 1,
-        "resolved": 2
       },
       "RESOURCE": {
         "total": 5,
@@ -100,6 +95,11 @@
         "total": 39,
         "open": 0,
         "resolved": 39
+      },
+      "gui-font": {
+        "total": 3,
+        "open": 0,
+        "resolved": 3
       },
       "nodesrc": {
         "total": 16,
@@ -528,21 +528,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260717T153830514Z-F5NZE-REGISTERED-BEGINFRAME-VIRTUAL--8902C86C",
-      "title": "F5nze registered BeginFrame virtual drain connection",
-      "area": "gui-font",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-17",
-      "updated": "2026-07-17",
-      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260717T153830514Z-F5NZE-REGISTERED-BEGINFRAME-VIRTUAL--8902C86C.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -11793,6 +11778,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260717T145826052Z-F5NZD-REGISTERED-BEGINFRAME-HOST-COM-B047CB89.md"
+    },
+    {
+      "id": "ISS-20260717T153830514Z-F5NZE-REGISTERED-BEGINFRAME-VIRTUAL--8902C86C",
+      "title": "F5nze registered BeginFrame virtual drain connection",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-17",
+      "updated": "2026-07-17",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260717T153830514Z-F5NZE-REGISTERED-BEGINFRAME-VIRTUAL--8902C86C.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

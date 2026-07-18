@@ -2,8 +2,8 @@
 id: ISS-20260717T153830514Z-F5NZE-REGISTERED-BEGINFRAME-VIRTUAL--8902C86C
 title: "F5nze registered BeginFrame virtual drain connection"
 area: gui-font
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-17
@@ -41,3 +41,9 @@ Consume the F5nzd owner losslessly, pass its actual Record(BeginFrame) to F5mv e
 ## 検証
 
 Focused runtime fixture, F5mv and F5nzd regressions, source policy, normal compile isolation, trunk build, CLI JSON, and subagent reviews.
+
+## 完了
+
+F5nzd ownerをF5mv target-free virtual drainへexactly once渡すmove-only production bridgeを追加した。現行resource checkerで証明不能な第二十層nested move-only Resultは公開せず、runtime fixtureがF5nzdの十九層failure authorityを全て閉じた最深successでbridgeを呼ぶ連続契約とした。actual BeginFrame record、canonical descriptor、InFrame drain、元BeginFrame step、RunPending continuation、cleanupをevidence 255で検証した。
+
+source policy、専用normal compile、core lib 887件、release trunk、Playground editor CLI JSON 13/13、subagent diff/整合reviewを通過した。workspace integrationの`collection_slot_full_range` 8件はF5nze非依存の既存collection-slot intrinsic arity mismatchであり、このsliceの変更対象外である。
