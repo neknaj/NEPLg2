@@ -1,3 +1,4 @@
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
 
 use crate::span::Span;
@@ -234,11 +235,18 @@ impl ResourceOwnerCheckEngine<'_> {
                 }
             }
         }
+        let output_owner_leaf_keys = owner_leaf_places(self.types, output)
+            .into_iter()
+            .fold(BTreeMap::<_, BTreeSet<_>>::new(), |mut keys, leaf| {
+                keys.entry(leaf.suffix).or_default().insert(leaf.place.ty);
+                keys
+            });
         for projection in &summary.projection_returns {
             let output_projection = place_with_suffix(output, &projection.suffix, projection.ty);
-            if !owner_leaf_places(self.types, output).iter().any(|leaf| {
-                leaf.suffix == projection.suffix && leaf.place.ty == output_projection.ty
-            }) {
+            if !output_owner_leaf_keys
+                .get(&projection.suffix)
+                .is_some_and(|types| types.contains(&output_projection.ty))
+            {
                 continue;
             }
             self.apply_owner_projection_return_summary(

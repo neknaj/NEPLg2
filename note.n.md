@@ -168739,3 +168739,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - `f92fd9a655`でcanonical owner signatureを導入した際、match-arm returnの適用済みtarget indexがsource別`BTreeMap`から全source共通`Vec`へ戻り、deep return graphで無関係なsource targetまで線形走査していた。canonical `AppliedOwnerSourceKey`をkeyとする`BTreeMap`へ変更し、同じidentityのtargetだけを排他copy候補として走査する。alias、raw view、storage origin、recovery authorityのcopy契約は変更しない。
 - owner variant unit回帰は7件通過した。一方、F5nzt terminal stepを借用してF5mu typed resultへ投影するproduction composite fixtureは変更後も300秒でtimeoutしたため、fixture差分は撤去した。これはsource-local index退行だけを直すcompiler performance checkpointであり、F5nzu blockerの解決やslice完成を意味しない。
 - `ISS-20260718T200000000Z-F5NZU-REGISTERED-TERMINAL-RECORD`と`todo.md`は未完了のまま保持する。次はnative stage timingでinitialized i32 scalar summaryとowner summaryを分離し、残る増幅点を特定する。フォントレンダリングエンジンとGUIライブラリ全体も未完成である。`plan.md`は変更していない。
+
+2026-07-19 F5nzu owner projection membership checkpoint
+
+- actual compositeをnative release CLIで計測し、loader約95〜111秒、typecheck約24〜27秒、initialized moves約42〜45秒、effect boundaries約6秒までは完了する一方、owner summary固定点が残り時間を消費して300秒timeoutすることを確認した。i32 scalar summaryは約10秒であり主因ではない。
+- per-function timingでは17〜19 opsのnested budget wrapperがResult深度に応じて約0.1秒から0.8、2.8、5.2、7.8、10.4、14.2、19.5秒へ増大した。callee projectionごとに同じoutput owner leafを再列挙し、さらに全leafを線形membership走査していたため、call単位でsuffix別`TypeId`集合を一度だけ構築して借用lookupするよう変更した。deep projection回帰とcargo checkは通過した。
+- この最適化後もactual compositeは300秒timeoutしたためfixture差分と計測probeは撤去した。F5nzu issue/todoは未完了で、統合条件はactual evidence 2047の通常gate通過のままである。次はowner leaf projection自体のtype-local memoization、またはnested summary canonicalizationの残る再計算を計測して修正する。全体目標も未完成である。
