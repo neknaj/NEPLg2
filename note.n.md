@@ -168769,3 +168769,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - main owner summaryとvariant local collectorが共有する`returned_sources`はroot/projection/alias経路ごとに全sourceを線形dedupしていた。記録期間だけfirst-seen `Vec`とexact `BTreeSet<OwnerProjectionSource>`を同居させる`OwnerProjectionSourceRecorder`へ置き換え、root/projection record APIの全経路を同じaccumulatorへ接続した。
 - mainはvariant finalizer直前、variant local collectorは返却直前に`into_entries`してmembershipを破棄する。finalizerが行うretain/clear、consumed-owner判定、public summaryのfirst-seen順、parameter source/extentの契約は変更しない。
 - focused Rust回帰、owner-summary回帰、`cargo check`、release CLI buildは通過した。actual evidence 2047は変更後も通常60秒compile timeoutしたためfixture差分を撤去した。このcheckpointもF5nzu完成・統合条件達成ではなく、issue/todoと全体未完成状態を維持する。次はfixed-point依存通知とsummary producer自身の残る増幅をstage timingで分離する。`plan.md`は変更していない。
+
+2026-07-19 F5nzu variant condition / dependency convergence checkpoint
+
+- variant condition canonicalizationは同variantの既存condition treeを1件ごとにcloneして`Any`再正規化していた。事前normalize/sort/dedup後の同variant群を一つの`Any`として一度だけnormalizeし、empty/single/Always吸収、alternative順、canonical結果を維持して二次tree copyを除去した。
+- owner/function-value dependency graphはdirect callとindirect candidateの両categoryに同じcalleeが現れるとduplicate edgeを保持していた。全category追加後にfunction indexをsort/dedupし、self-edgeと別calleeを維持したままDFS/notifyの重複走査を除去した。
+- worklist上限到達時にpending functionが残っていても`pop`が`None`を返し、未収束summaryを正常fixed pointとして後段へ渡すcorrectness問題を確認した。pendingありの上限到達はfail-closed panicとし、silent under-approximationを禁止する専用回帰を追加した。将来のtyped convergence diagnostic化は別改善だが、正常summaryとしての継続は許可しない。
+- focused canonicalization/dependency/worklist/owner-summary回帰、`cargo check`、release CLI buildは通過した。actual evidence 2047は今回も60秒compile timeoutしたためfixture差分を撤去した。F5nzu issue、todo、フォントレンダリング/GUI全体は未完成で、main統合条件は未達である。`plan.md`は変更していない。

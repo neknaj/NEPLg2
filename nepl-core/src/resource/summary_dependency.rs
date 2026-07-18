@@ -325,6 +325,8 @@ fn function_value_call_dependency_names_to_indices(
                     .map(String::as_str),
             );
         }
+        dependencies[caller_index].sort_unstable();
+        dependencies[caller_index].dedup();
     }
     dependencies
 }
@@ -373,6 +375,8 @@ fn owner_call_dependency_names_to_indices(
                     .map(String::as_str),
             );
         }
+        dependencies[caller_index].sort_unstable();
+        dependencies[caller_index].dedup();
     }
     dependencies
 }
@@ -798,6 +802,30 @@ mod tests {
         let graph = ResourceSummaryDependencyGraph::build(&module);
 
         assert_eq!(graph.raw_init_dependencies(), &[vec![1], vec![]]);
+        assert_eq!(graph.owner_dependents(), &[vec![], vec![0]]);
+    }
+
+    #[test]
+    fn owner_dependency_graph_deduplicates_direct_and_indirect_candidate_edges() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops(
+                    "caller",
+                    vec![
+                        call("callee"),
+                        function_value("callee"),
+                        indirect_call("callback"),
+                    ],
+                ),
+                function_with_ops("callee", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.owner_dependencies(), &[vec![1], vec![]]);
         assert_eq!(graph.owner_dependents(), &[vec![], vec![0]]);
     }
 

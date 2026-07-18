@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use super::owner_extent::merge_owner_extent_summaries;
@@ -144,21 +145,39 @@ fn canonicalize_variant_conditions(conditions: &mut Vec<OwnerVariantCondition>) 
     }
     canonicalize_ord_vec(conditions);
     let mut grouped: Vec<OwnerVariantCondition> = Vec::new();
+    let mut current_variant = None;
+    let mut current_conditions = Vec::new();
     for condition in conditions.drain(..) {
-        if let Some(existing) = grouped
-            .last_mut()
-            .filter(|existing| existing.variant == condition.variant)
+        if current_variant
+            .as_ref()
+            .is_some_and(|variant| *variant != condition.variant)
         {
-            existing.condition =
-                normalize_owner_value_condition(OwnerValueCondition::Any(alloc::vec![
-                    existing.condition.clone(),
-                    condition.condition
-                ]));
-        } else {
-            grouped.push(condition);
+            if let Some(variant) = current_variant.take() {
+                push_grouped_variant_condition(
+                    &mut grouped,
+                    variant,
+                    core::mem::take(&mut current_conditions),
+                );
+            }
         }
+        current_variant = Some(condition.variant);
+        current_conditions.push(condition.condition);
+    }
+    if let Some(variant) = current_variant {
+        push_grouped_variant_condition(&mut grouped, variant, current_conditions);
     }
     *conditions = grouped;
+}
+
+fn push_grouped_variant_condition(
+    grouped: &mut Vec<OwnerVariantCondition>,
+    variant: String,
+    conditions: Vec<OwnerValueCondition>,
+) {
+    grouped.push(OwnerVariantCondition {
+        variant,
+        condition: normalize_owner_value_condition(OwnerValueCondition::Any(conditions)),
+    });
 }
 
 fn canonicalize_projection_return_summaries(summaries: &mut Vec<OwnerProjectionReturnSummary>) {

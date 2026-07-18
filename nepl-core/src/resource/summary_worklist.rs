@@ -136,6 +136,10 @@ impl<'a> SummaryWorklist<'a> {
 
     pub(super) fn pop(&mut self) -> Option<usize> {
         if self.recomputations >= self.max_recomputations {
+            assert!(
+                self.pending.is_empty(),
+                "resource summary fixed-point convergence limit reached with pending functions"
+            );
             return None;
         }
         let index = self.pending.pop_front()?;
@@ -156,6 +160,11 @@ impl<'a> SummaryWorklist<'a> {
 
     pub(super) fn recomputations(&self) -> usize {
         self.recomputations
+    }
+
+    #[cfg(test)]
+    pub(super) fn set_max_recomputations_for_test(&mut self, max_recomputations: usize) {
+        self.max_recomputations = max_recomputations;
     }
 
     pub(super) fn unrecomputed_initial_skips(&self, initially_skipped: &[bool]) -> Vec<bool> {

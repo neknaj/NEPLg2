@@ -100,6 +100,40 @@ fn filtered_summary_worklist_notify_changed_skips_irrelevant_dependents() {
 }
 
 #[test]
+#[should_panic(
+    expected = "resource summary fixed-point convergence limit reached with pending functions"
+)]
+fn summary_worklist_does_not_treat_a_pending_convergence_limit_as_success() {
+    let module = ResourceModule {
+        functions: vec![
+            function_with_ops("caller", vec![call("callee")]),
+            function_with_ops("callee", vec![]),
+        ],
+        entry: None,
+        string_literals: vec![],
+    };
+    let mut worklist = SummaryWorklist::new_filtered(&module, vec![true, true]);
+    worklist.set_max_recomputations_for_test(1);
+
+    assert_eq!(worklist.pop(), Some(1));
+    let _ = worklist.pop();
+}
+
+#[test]
+fn summary_worklist_accepts_an_exact_limit_after_the_queue_drains() {
+    let module = ResourceModule {
+        functions: vec![function_with_ops("leaf", vec![])],
+        entry: None,
+        string_literals: vec![],
+    };
+    let mut worklist = SummaryWorklist::new_filtered(&module, vec![true]);
+    worklist.set_max_recomputations_for_test(1);
+
+    assert_eq!(worklist.pop(), Some(0));
+    assert_eq!(worklist.pop(), None);
+}
+
+#[test]
 fn unrecomputed_initial_skips_keep_only_entries_that_never_reentered_worklist() {
     let module = ResourceModule {
         functions: vec![
