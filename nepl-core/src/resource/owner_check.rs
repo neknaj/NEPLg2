@@ -1,9 +1,10 @@
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use crate::resource_primitives::type_is_raw_pointer;
-use crate::types::TypeCtx;
+use crate::types::{TypeCtx, TypeId};
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::i32_call_facts::record_direct_call_i32_facts;
@@ -17,7 +18,7 @@ use super::owner_extent::PendingOwnerExtentRequirement;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_i32_leaf::raw_i32_owner_leaf_places;
-use super::owner_summary_leaf::owner_leaf_places;
+use super::owner_summary_leaf::{owner_leaf_places, OwnerLeafProjection};
 use super::owner_summary_parameters::seed_owner_check_parameters;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{
@@ -38,6 +39,7 @@ pub(super) struct ResourceOwnerCheckEngine<'a> {
     pub(super) owner_extent_requirements: Vec<PendingOwnerExtentRequirement>,
     pub(super) memory_span_requirements: Vec<OwnerMemorySpanRequirement>,
     pub(super) params: &'a [ResourceLocal],
+    pub(super) owner_leaf_projection_cache: BTreeMap<TypeId, Vec<OwnerLeafProjection>>,
 }
 
 impl ResourceOwnerCheckEngine<'_> {

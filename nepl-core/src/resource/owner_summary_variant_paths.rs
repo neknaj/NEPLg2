@@ -63,6 +63,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         owner_extent_requirements: engine.owner_extent_requirements.clone(),
         memory_span_requirements: engine.memory_span_requirements.clone(),
         params: engine.params,
+        owner_leaf_projection_cache: Default::default(),
     };
     let mut owners = owners.clone();
     let mut raw_aliases = raw_aliases.clone();
@@ -261,6 +262,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
         owner_extent_requirements: engine.owner_extent_requirements.clone(),
         memory_span_requirements: engine.memory_span_requirements.clone(),
         params: engine.params,
+        owner_leaf_projection_cache: Default::default(),
     };
     let mut path_owners = owners.clone();
     let mut path_raw_aliases = raw_aliases.clone();

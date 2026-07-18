@@ -232,6 +232,7 @@ fn check_resource_owner_obligations_inner(
             owner_extent_requirements: Vec::new(),
             memory_span_requirements: Vec::new(),
             params: &function.params,
+            owner_leaf_projection_cache: Default::default(),
         };
         let final_owners: Vec<OwnerStateEntry> = engine.check_function(function);
         let function_deferred = engine.deferred;

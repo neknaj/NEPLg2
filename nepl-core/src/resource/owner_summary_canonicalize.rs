@@ -49,8 +49,8 @@ fn canonicalize_parameter_return_extents(extents: &mut Vec<OwnerParameterReturnE
     let mut merged: Vec<OwnerParameterReturnExtent> = Vec::new();
     for extent in extents.drain(..) {
         if let Some(existing) = merged
-            .iter_mut()
-            .find(|existing| existing.source == extent.source)
+            .last_mut()
+            .filter(|existing| existing.source == extent.source)
         {
             existing.extent = merge_owner_extent_summaries(existing.extent.clone(), extent.extent);
             canonicalize_owner_extent_summary(&mut existing.extent);
@@ -74,7 +74,7 @@ fn canonicalize_consumed_extent_requirements(
     });
     let mut merged: Vec<OwnerConsumedExtentRequirement> = Vec::new();
     for requirement in requirements.drain(..) {
-        if let Some(existing) = merged.iter_mut().find(|existing| {
+        if let Some(existing) = merged.last_mut().filter(|existing| {
             existing.owner == requirement.owner && existing.operation == requirement.operation
         }) {
             existing.extent =
@@ -101,7 +101,7 @@ fn canonicalize_variant_consumed_extent_requirements(
     });
     let mut merged: Vec<OwnerVariantConsumedExtentRequirement> = Vec::new();
     for requirement in requirements.drain(..) {
-        if let Some(existing) = merged.iter_mut().find(|existing| {
+        if let Some(existing) = merged.last_mut().filter(|existing| {
             existing.variant == requirement.variant
                 && existing.owner == requirement.owner
                 && existing.operation == requirement.operation

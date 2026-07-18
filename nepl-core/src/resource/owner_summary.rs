@@ -158,6 +158,7 @@ fn function_owner_return_summary(
         owner_extent_requirements: Vec::new(),
         memory_span_requirements: Vec::new(),
         params: &function.params,
+        owner_leaf_projection_cache: Default::default(),
     };
     let mut owners = OwnerTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();

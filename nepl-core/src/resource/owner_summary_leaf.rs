@@ -17,7 +17,26 @@ pub(super) struct OwnerLeafPlace {
 }
 
 pub(super) fn owner_leaf_places(types: &TypeCtx, base: &Place) -> Vec<OwnerLeafPlace> {
-    owner_leaf_projections(types, base.ty)
+    owner_leaf_places_from_projections(base, owner_leaf_projections(types, base.ty))
+}
+
+pub(super) fn cached_owner_leaf_places(
+    types: &TypeCtx,
+    cache: &mut BTreeMap<TypeId, Vec<OwnerLeafProjection>>,
+    base: &Place,
+) -> Vec<OwnerLeafPlace> {
+    let projections = cache
+        .entry(base.ty)
+        .or_insert_with(|| owner_leaf_projections(types, base.ty))
+        .clone();
+    owner_leaf_places_from_projections(base, projections)
+}
+
+fn owner_leaf_places_from_projections(
+    base: &Place,
+    projections: Vec<OwnerLeafProjection>,
+) -> Vec<OwnerLeafPlace> {
+    projections
         .into_iter()
         .map(|leaf| OwnerLeafPlace {
             place: place_with_suffix(base, &leaf.suffix, leaf.ty),
@@ -215,15 +234,17 @@ fn apply_owner_leaf_projections(
 
 #[cfg(test)]
 mod tests {
+    use alloc::collections::BTreeMap;
     use alloc::string::ToString;
     use alloc::vec;
+    use alloc::vec::Vec;
 
     use crate::resource_primitives::{CompilerMemoryFieldSpec, OWNER_TOKEN_TYPE_NAME};
     use crate::source_map::CompilerMemoryType;
     use crate::types::{TypeCtx, TypeKind};
 
     use super::super::model::{Place, PlaceProjection};
-    use super::owner_leaf_places;
+    use super::{cached_owner_leaf_places, owner_leaf_places};
 
     #[test]
     fn owner_leaf_places_seed_owner_token_raw_field() {
@@ -256,6 +277,34 @@ mod tests {
                 offset_bytes: 0,
             }]
         );
+    }
+
+    #[test]
+    fn cached_owner_leaf_places_reuses_only_complete_root_projection() {
+        let mut types = TypeCtx::new();
+        let i32_ty = types.i32();
+        let str_ty = types.str();
+        let owner_ty = types.register_named(
+            "Owner".to_string(),
+            TypeKind::Struct {
+                name: "Owner".to_string(),
+                type_params: Vec::new(),
+                fields: vec![str_ty],
+                field_names: vec!["value".to_string()],
+            },
+        );
+        let base = Place::local("owner".to_string(), owner_ty);
+        let mut cache = BTreeMap::new();
+
+        let first = cached_owner_leaf_places(&types, &mut cache, &base);
+        let second = cached_owner_leaf_places(&types, &mut cache, &base);
+
+        assert_eq!(cache.len(), 1);
+        assert_eq!(first.len(), 1);
+        assert_eq!(second.len(), 1);
+        assert_eq!(first[0].suffix, second[0].suffix);
+        assert_eq!(first[0].place.ty, second[0].place.ty);
+        assert_ne!(first[0].place.ty, i32_ty);
     }
 }
 

@@ -12,7 +12,7 @@ use super::owner_raw_view::RawAddressViewTable;
 use super::owner_return_apply_extent::apply_returned_owner_extent;
 use super::owner_return_apply_place::owner_projection_source_place;
 use super::owner_state::OwnerTable;
-use super::owner_summary_leaf::owner_leaf_places;
+use super::owner_summary_leaf::cached_owner_leaf_places;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::place_with_suffix;
 use super::report::ResourceOwnerOperation;
@@ -235,12 +235,13 @@ impl ResourceOwnerCheckEngine<'_> {
                 }
             }
         }
-        let output_owner_leaf_keys = owner_leaf_places(self.types, output)
-            .into_iter()
-            .fold(BTreeMap::<_, BTreeSet<_>>::new(), |mut keys, leaf| {
-                keys.entry(leaf.suffix).or_default().insert(leaf.place.ty);
-                keys
-            });
+        let output_owner_leaf_keys =
+            cached_owner_leaf_places(self.types, &mut self.owner_leaf_projection_cache, output)
+                .into_iter()
+                .fold(BTreeMap::<_, BTreeSet<_>>::new(), |mut keys, leaf| {
+                    keys.entry(leaf.suffix).or_default().insert(leaf.place.ty);
+                    keys
+                });
         for projection in &summary.projection_returns {
             let output_projection = place_with_suffix(output, &projection.suffix, projection.ty);
             if !output_owner_leaf_keys

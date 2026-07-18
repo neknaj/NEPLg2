@@ -168745,3 +168745,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - actual compositeをnative release CLIで計測し、loader約95〜111秒、typecheck約24〜27秒、initialized moves約42〜45秒、effect boundaries約6秒までは完了する一方、owner summary固定点が残り時間を消費して300秒timeoutすることを確認した。i32 scalar summaryは約10秒であり主因ではない。
 - per-function timingでは17〜19 opsのnested budget wrapperがResult深度に応じて約0.1秒から0.8、2.8、5.2、7.8、10.4、14.2、19.5秒へ増大した。callee projectionごとに同じoutput owner leafを再列挙し、さらに全leafを線形membership走査していたため、call単位でsuffix別`TypeId`集合を一度だけ構築して借用lookupするよう変更した。deep projection回帰とcargo checkは通過した。
 - この最適化後もactual compositeは300秒timeoutしたためfixture差分と計測probeは撤去した。F5nzu issue/todoは未完了で、統合条件はactual evidence 2047の通常gate通過のままである。次はowner leaf projection自体のtype-local memoization、またはnested summary canonicalizationの残る再計算を計測して修正する。全体目標も未完成である。
+
+2026-07-19 F5nzu owner summary canonicalization / root projection cache checkpoint
+
+- owner summary canonicalizationの3系列はgroup keyでsortした後も各要素を先頭から探索しており、deep summaryで二次時間になっていた。parameter return extent、consumed extent、variant consumed extentをsort済み隣接keyだけのmergeへ変更し、merge規則とcanonical順序は維持した。
+- owner return applyが同じoutput typeのowner leafを繰り返し構造走査しないよう、`ResourceOwnerCheckEngine`単位でcomplete root queryをcacheする。empty mapping / empty seenから始まるroot結果だけを保持し、generic mappingとancestor cycle stateに依存する再帰途中結果はcacheしない。variant path engineはcache全体をdeep cloneせず空cacheから開始し、分岐ごとのsuffix allocation copyを増やさない。
+- dedicated Rust回帰、owner summary update回帰、`cargo check`、release CLI buildは通過した。一方F5nzt fixtureへF5nzu projectionを戻したactual gateは変更後も60秒compile timeoutしたためfixture差分を撤去した。このcompiler性能checkpointはF5nzu完成ではなく、issue/todoとactual evidence 2047の統合条件を維持する。フォントレンダリングエンジンとGUIライブラリ全体も未完成であり、`plan.md`は変更していない。
