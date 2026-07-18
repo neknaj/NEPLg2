@@ -15,6 +15,14 @@
 #import "std/gui/compositor_tile_present_schedule" as *
 #import "std/gui/compositor_tile_present_virtual_drain" as *
 
+//: downstream fixture用のactual F5nzi ownerを作る
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_loop_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoopOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok dispatch_owner:
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_into_loop dispatch_owner
+
 //: actual F5nzh ownerをF5nc one-shot pendingへ一度だけ接続する
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_loop_test_success_contract %impure fn unit i32 \_unit:

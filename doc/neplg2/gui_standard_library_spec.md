@@ -2412,3 +2412,7 @@ F5nzdはF5nyyの十九層Resultをlosslessに保ち、BeginFrame command stepを
 ### Registered stroke compositor F5nzi BeginFrame dispatch loop boundary
 
 `std/gui/compositor_tile_present_dispatch_loop`のinitial-dispatch adopterはsuccessful F5my stepをWaitingBegin rollback state付きF5nc one-shot pendingへ包む。registered F5nzi ownerはF5nzh command continuation authorityとnon-Copy pendingを保持し、後続F5ne bridgeが両方を一括移送する。completion、F5mz action、host execution、platform presenterはこのboundaryの責務外である。
+
+### Registered stroke compositor F5nzj BeginFrame host execution driver boundary
+
+registered F5nzj ownerはF5nziのcommand continuationとpendingを同時にmoveし、pendingを既存F5ne prepareでmetadata-preserving action付きdriver pendingへ変換する。continuationとdriver pendingは同居し、borrowed action observationとterminal abortだけを公開する。completion、actual executor、platform presenterは責務外である。

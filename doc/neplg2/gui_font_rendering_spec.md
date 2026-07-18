@@ -8741,3 +8741,7 @@ F5nzhは同じF5nzg authority内のsuccessful F5mw stepとF5mx requestを既存F
 ### F5nzi registered BeginFrame F5nc one-shot loop owner
 
 F5nziはF5nzhが保持するsuccessful F5my stepをinitial BeginFrame専用のF5nc trusted adopterへ一度渡し、WaitingBegin/0/0のrollback state、InFrame/1/0のnext state、Offscreen BeginFrame request、Yield post phaseを一つのnon-Copy pendingへ包む。元F5nzh command continuation authorityとpendingを同居させ、pending単独で分離せず、lower replay、F5nc completion、F5mz action、host execution、platform presentationへ進まない。
+
+### F5nzj registered BeginFrame F5ne host execution driver owner
+
+F5nzjはF5nzi ownerが持つF5nzh command continuationとF5nc pendingを同一transitionで各1回moveし、pendingを既存F5ne prepareへ一度渡す。F5neがF5mz actionを導出し、new ownerはcontinuationとdriver pendingを同居させる。driver pending単独で分離せず、completion、actual host execution、platform presentationへ進まない。

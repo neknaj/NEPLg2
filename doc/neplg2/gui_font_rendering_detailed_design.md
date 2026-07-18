@@ -11179,3 +11179,7 @@ F5nzh passes the successful schedule-step and host-request snapshots retained by
 F5nzi passes the successful F5my step retained by F5nzh to an initial-BeginFrame-only F5nc trusted adopter. The adopter constructs rollback from the initial WaitingBegin state and derives next state, request, and post phase from the same dispatch step. The registered move-only owner retains the F5nzh command continuation authority beside the non-Copy pending. A later dedicated F5ne bridge must consume and move both fields together; no public pending-only consuming accessor may split them. F5nzi stops before completion, F5mz action decoding, and host execution.
 
 The next registered boundary must prepare the existing F5ne host execution driver, which keeps the F5nc pending authority and its exactly-once F5mz action snapshot together. A registered F5mz-only owner would split that authority and is not the next phase.
+
+### F5nzj registered BeginFrame host execution driver prepare
+
+F5nzj consumes one F5nzi owner and moves its F5nzh command continuation and F5nc pending fields in the same transition. The pending enters existing F5ne `host_execution_driver_prepare` exactly once, so F5mz action decoding remains inside the formal driver. The new move-only owner retains the continuation beside the F5ne driver pending; it exposes borrowed action observation and terminal abort recovery only, never a driver-pending-only consuming accessor. The slice stops before outcome completion, host action sinks, actual execution, and platform presentation.

@@ -13892,3 +13892,10 @@ git diff --check
 - F5nzh command continuation authorityとnon-Copy F5nc pendingを同居させるregistered owner、borrowed pending observation、abort recovery/free、actual production fixtureを追加する。pending単独のconsuming accessorは公開しない。
 - source policy、normal isolation、F5nc回帰、trunk/CLI、subagent reviewを通し、F5nc completion、F5mz action、host execution前で停止する。
 - 次のregistered sliceはF5ne host execution driver prepareへ接続し、F5nc pending authorityとF5ne内部で一度だけ導出するF5mz actionを同居させたままactual execution前で停止する。F5mz単独のregistered ownerは追加しない。
+
+### F5nzj registered BeginFrame F5ne driver prepare
+
+- F5nzi ownerのF5nzh command continuationとF5nc pendingを同一transitionで各1回moveし、pendingだけを既存F5ne `host_execution_driver_prepare`へexactly once渡す。
+- success ownerはF5nzh continuationとF5ne driver pendingを同居させ、driver pending単独のconsuming accessorを公開しない。borrowed action observationとterminal abort recovery/freeのみを提供する。
+- actual fixtureはOffscreen BeginFrame、metadata 263/16/3/1、surface 7、frame 263、run/pixel 1/16、continuation cleanupを検証する。
+- source policy、dedicated normal isolation、F5ne回帰、release trunk、CLI JSON、subagent reviewを通し、completion、actual host execution、platform presentation前で停止する。

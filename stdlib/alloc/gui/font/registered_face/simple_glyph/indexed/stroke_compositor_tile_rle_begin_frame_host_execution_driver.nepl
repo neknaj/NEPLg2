@@ -1,0 +1,41 @@
+//: # registered stroke compositor tile RLE BeginFrame host execution driver
+//: F5nziのcommand continuationとF5nc pendingをF5ne prepareへ一括移送します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch_loop" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "core/field" as field
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_execution_driver" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner: command continuationとF5ne pendingを保持する
+//:
+//: 両authorityを後続へ一括移送するためCopy / Cloneを実装しません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner:
+    dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner
+    driver_pending %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending
+
+//: F5nzi ownerの両authorityを分離せずF5ne prepareへ一度だけ進める
+//:
+//: F5mz actionを直接構築せず、completion、actual host execution、platform presentationへ進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_loop_owner_into_host_execution_driver %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoopOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner \owner:
+    let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get owner "dispatch_owner"
+    let pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest field::get owner "pending"
+    let driver_pending %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending gui_rgba8888_compositor_tile_rle_present_host_execution_driver_prepare pending
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner dispatch_owner driver_pending
+
+//: owner内のF5ne driver pendingを借用する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_owner_pending %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner &GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending \owner:
+    field::get_ref owner "driver_pending"
+
+//: abort時に元F5nzh command continuation authorityを回収する
+//:
+//: 未実行のF5ne pending/actionは破棄され、このrequestをcompletionへ進めません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_owner_take_dispatch_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner \owner:
+    field::get owner "dispatch_owner"
+
+//: 未実行requestをabortし、registered continuation authorityを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_owner_take_dispatch_owner owner

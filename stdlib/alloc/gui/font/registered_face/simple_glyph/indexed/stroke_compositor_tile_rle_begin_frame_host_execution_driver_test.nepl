@@ -1,0 +1,44 @@
+//: # registered stroke compositor tile RLE BeginFrame host execution driver test adapter
+//: F5nzj prepareをactual registered F5nzi authorityで検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_execution_driver" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch_loop_test" as fixture with tests
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_execution_driver" as *
+#import "std/gui/window" as *
+
+//: F5mzが保持したactual BeginFrame descriptor metadataを検証する
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_test_descriptor_evidence %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor i32 \descriptor:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor
+    let surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface descriptor
+    let frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame descriptor
+    let metadata_ok %bool and and and eq gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata 263 eq gui_rgba8888_compositor_frame_entry_metadata_width &metadata 16 eq gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata 3 eq gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata 1
+    let evidence0 %i32 if metadata_ok then 2 else 0
+    let evidence1 %i32 add evidence0 (if eq (surface_id_raw &surface) 7 then 4 else 0)
+    let evidence2 %i32 add evidence1 (if eq (frame_id_raw &frame) 263 then 8 else 0)
+    let evidence3 %i32 add evidence2 (if eq (gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count descriptor) 1 then 16 else 0)
+    add evidence3 (if eq (gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count descriptor) 16 then 32 else 0)
+
+//: actual F5nzi ownerをF5ne driver pendingへ一度だけ接続する
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_test_success_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_loop_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok loop_owner:
+            let owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_loop_owner_into_host_execution_driver loop_owner
+            let driver %&GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_owner_pending &owner
+            let action %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_action driver
+            let action_evidence %i32 match action:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin descriptor:
+                    add 1 gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_test_descriptor_evidence &descriptor
+                _: 0
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_owner_free owner:
+                Result::Err _: sub 0 1
+                Result::Ok _: add action_evidence 64
