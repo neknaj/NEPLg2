@@ -9,6 +9,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/compositor_tile_present_host_command" as *
 
 //: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind: bridge failureの原因
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind:
@@ -51,6 +52,13 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
 //: success ownerのF5mw schedule stepをCopy valueとして読む
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_step %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner GuiRgba8888CompositorTileRlePresentScheduleStep \owner:
     *field::get_ref owner "schedule_step"
+
+//: retained F5nze authorityのactual F5mu projectionをCopy valueとして読む
+//:
+//: adopted schedule stateへrecordを再投入せず、元authorityを移動しません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_record_result %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner GuiRgba8888CompositorTileRlePresentHostCommandStepResult \owner:
+    let virtual_owner %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner field::get_ref owner "virtual_drain_owner"
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_record_result virtual_owner
 
 //: success ownerから元F5nze authorityを回収する
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_take_virtual_drain_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner \owner:

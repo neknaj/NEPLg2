@@ -1,0 +1,96 @@
+//: # registered stroke compositor tile RLE BeginFrame host continuation request
+//: F5nzf schedule authorityのactual BeginFrame recordをF5mx requestへ接続します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_schedule" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_import" as *
+#import "std/gui/host" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind: bridge failureの原因
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind:
+    ProjectionCompleted
+    ProjectionRunRecord
+    ProjectionEndFrame
+    HostImportRequestFailed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner: F5nzf authorityとF5mx requestを保持する
+//:
+//: retained command stepを所有するためCopy / Cloneを実装しません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner:
+    schedule_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner
+    request %GuiRgba8888CompositorTileRlePresentHostImportRequest
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError: failureと元F5nzf authorityを保持する
+//:
+//: unsupported hostでも別hostへの再試行または明示的な解放ができます。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError:
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind
+    schedule_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner
+    host_error %Option GuiError
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_projection_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError \kind\owner:
+    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError kind owner none
+
+//: F5nzf ownerを消費し、retained actual BeginFrame recordをF5mxへ一度だけ渡す
+//:
+//: F5mv/F5mwを再stepせず、dispatch、host execution、platform presenterへは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_into_host_request %fn &GuiHost fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError \host\owner:
+    let projection %GuiRgba8888CompositorTileRlePresentHostCommandStepResult gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_record_result &owner
+    match projection:
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Completed:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_projection_error GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind::ProjectionCompleted owner
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Record record:
+            match record:
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord _:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_projection_error GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind::ProjectionRunRecord owner
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame _:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_projection_error GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind::ProjectionEndFrame owner
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame _:
+                    match gui_rgba8888_compositor_tile_rle_present_host_import_request host record:
+                        Result::Ok request:
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner owner request
+                        Result::Err lower:
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind::HostImportRequestFailed owner some lower
+
+//: success ownerのF5mx requestをCopy valueとして読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_request %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner GuiRgba8888CompositorTileRlePresentHostImportRequest \owner:
+    *field::get_ref owner "request"
+
+//: success ownerから元F5nzf authorityを回収する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_take_schedule_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner \owner:
+    field::get owner "schedule_owner"
+
+//: success ownerが保持するcommand stepを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_take_schedule_owner owner
+
+//: bridge error kindを読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind \error:
+    *field::get_ref error "kind"
+
+//: F5mx typed errorをoptional Copy valueとして読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_host_error_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError Option GuiError \error:
+    *field::get_ref error "host_error"
+
+//: failure ownerから元F5nzf authorityを回収する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_take_schedule_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner \error:
+    field::get error "schedule_owner"
+
+//: failure ownerが保持するcommand stepを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_take_schedule_owner error

@@ -1,0 +1,95 @@
+//: # registered stroke compositor tile RLE BeginFrame host request test adapter
+//: F5nzg request bridgeをactual registered pipeline由来のF5nzf authorityで検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_request" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_schedule" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain_test" as fixture with tests
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_import" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_schedule_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_begin_frame_virtual_drain_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok virtual_owner:
+            match gui_rgba8888_compositor_tile_rle_present_schedule_policy 1 64:
+                Result::Err _:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_free virtual_owner:
+                        Result::Ok _: Result::Err sub 0 1
+                        Result::Err _: Result::Err sub 0 2
+                Result::Ok policy:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_into_schedule &policy virtual_owner:
+                        Result::Err error:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_error_free error:
+                                Result::Ok _: Result::Err sub 0 3
+                                Result::Err _: Result::Err sub 0 4
+                        Result::Ok owner: Result::Ok owner
+
+//: actual F5mu BeginFrame recordをsupported offscreen F5mx requestへ接続する
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_success_contract %impure fn unit i32 \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_schedule_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok schedule_owner:
+            let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_into_host_request &host schedule_owner:
+                Result::Err error:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_free error:
+                        Result::Ok _: sub 0 5
+                        Result::Err _: sub 0 6
+                Result::Ok owner:
+                    let request %GuiRgba8888CompositorTileRlePresentHostImportRequest gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_request &owner
+                    let target_ok %bool match gui_rgba8888_compositor_tile_rle_present_host_import_request_target &request:
+                        GuiRgba8888CompositorTileRlePresentHostImportTarget::Offscreen: true
+                        _: false
+                    let record_ok %bool match gui_rgba8888_compositor_tile_rle_present_host_import_request_record &request:
+                        GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame _: true
+                        _: false
+                    let retained %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_take_schedule_owner owner
+                    let schedule_step %GuiRgba8888CompositorTileRlePresentScheduleStep gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_step &retained
+                    let schedule_ok %bool match gui_rgba8888_compositor_tile_rle_present_schedule_step_phase &schedule_step:
+                        GuiRgba8888CompositorTileRlePresentSchedulePhase::Yield: true
+                        _: false
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_free retained:
+                        Result::Err _: sub 0 7
+                        Result::Ok _:
+                            if and and target_ok record_ok schedule_ok:
+                                then: 255
+                                else: 0
+
+//: unsupported host failureが元F5nzf authorityを失わず解放できることを検証する
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_unsupported_contract %impure fn unit i32 \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_schedule_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok schedule_owner:
+            let host %GuiHost gui_host_new gui_capabilities_headless none
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_into_host_request &host schedule_owner:
+                Result::Ok owner:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_free owner:
+                        Result::Ok _: sub 0 8
+                        Result::Err _: sub 0 9
+                Result::Err error:
+                    let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_kind &error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestErrorKind::HostImportRequestFailed: true
+                        _: false
+                    let lower_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_host_error_value &error:
+                        Option::Some lower:
+                            match lower:
+                                GuiError::Unsupported: true
+                                _: false
+                        _: false
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_free error:
+                        Result::Err _: sub 0 10
+                        Result::Ok _:
+                            if and kind_ok lower_ok:
+                                then: 255
+                                else: 0

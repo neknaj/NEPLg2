@@ -2400,3 +2400,7 @@ F5nzdはF5nyyの十九層Resultをlosslessに保ち、BeginFrame command stepを
 ### Registered stroke compositor F5nzf BeginFrame schedule boundary
 
 `alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_schedule`はF5nzeのvalidated F5mv authorityをF5mw deterministic scheduleへrecord replayなしで接続する。F5mw Begin adoptionは`InFrame`とseen counters 0/0を要求し、同じdrain、slice counters 1/0、exact command-budget phaseを返す。F5nzf owner/errorはF5nze owner全体を保持する。F5mx host continuation、dispatch、host execution、platform presenterはこのmoduleの責務外である。
+
+### Registered stroke compositor F5nzg BeginFrame host request boundary
+
+`alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_request`はF5nzfのretained actual F5mu BeginFrame recordを既存F5mx requestへ接続する。success/errorの双方がF5nzf owner全体を保持し、unsupported hostでも回収できる。F5my、F5mv/F5mw再step、host execution、platform presenterはこのmoduleの責務外である。

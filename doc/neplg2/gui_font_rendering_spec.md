@@ -8729,3 +8729,7 @@ F5nze production bridgeは単一のF5nzd ownerを受け、actual typed `Record(B
 ### F5nzf registered BeginFrame F5mw deterministic schedule owner
 
 F5nzfはF5nzeで既にBeginFrameを消費したF5mv drainをF5mwへ再投入せず引き継ぐ。F5mwのBegin専用adoption APIはpolicyを検査し、drainが`InFrame`かつseen run/pixel count 0/0である場合だけ、同じdrainを持つcommand count 1、pixel count 0のschedule stateを作る。command budget 1では`Yield`、それ以外は`Continue`となる。genericなdrain/counter constructorは公開しない。F5nzf success/error ownerはF5nze owner全体を保持し、recovery/freeをF5nzeへ委譲する。F5mu record replay、F5mv再step、F5mx host continuation、dispatch、host execution、platform presenterへは進まない。
+
+### F5nzg registered BeginFrame F5mx host continuation request owner
+
+F5nzgはF5nzf ownerに保持されたactual F5mu projectionをborrow-copy accessorで読み、typed `Record(BeginFrame)`だけを既存F5mx request constructorへ一度渡す。success ownerはF5nzf authorityとF5mx requestを、failure ownerはprojection kindまたはF5mx `GuiError`とF5nzf authority全体を保持する。unsupported hostでもauthorityを失わない。adopt済みBeginFrameをF5mwへ再投入する既存F5myは使わず、record再構築、F5mv/F5mw再step、host execution、platform presentationへ進まない。

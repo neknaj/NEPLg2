@@ -13873,3 +13873,9 @@ git diff --check
 - F5mw adoptionはvalid policy、`InFrame`、seen counters 0/0を要求し、slice counters 1/0、budget 1の`Yield`またはbudget余裕時の`Continue`を返す。generic drain/counter constructorは公開しない。
 - success/errorはF5nze owner全体を保持し、recovery/freeを既存F5nze APIへ委譲する。fixtureはactual registered pipeline、F5nze一回、adoption一回、F5mv authority、`RunPending`、cleanupを検証する。
 - F5mv/F5mw回帰、source policy、schedule専用normal compile isolation、trunk/CLI、subagent reviewを通す。F5nzfはF5mx、dispatch、host execution、platform presentationより前で停止する。
+
+### F5nzg registered BeginFrame F5mx request
+
+- F5nze/F5nzfにretained actual F5mu projectionのborrow-copy accessorを追加し、record再構築やowner移動を行わない。
+- F5nzf ownerと`&GuiHost`を受け、BeginFrameだけを既存F5mxへexactly once渡すmove-only success/error ownerを追加する。
+- supported offscreen request、unsupported host recovery、schedule authority、cleanupをfixtureで検証し、source policy、normal isolation、trunk/CLI、subagent reviewを通す。host execution前で停止する。
