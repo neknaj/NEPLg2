@@ -168788,3 +168788,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nzt 1023のnative release対照を導入commitまで戻しても180秒・約2.08GB RSSでtimeoutしたため、branch内性能checkpointの回帰ではないことを確認した。current quiet stage timingではloader 126.9秒、typecheck 30.8秒であり、60秒doctest timeout以前にloader自体が上限を超えていた。
 - loaderは通常importの依存をinline済みの累積`Module`を全階層でcloneしてcompleted-module cacheへ保持し、deep helper chainで保持AST量を二次増幅していた。通常import/preludeは既存`imported_once`が再読込を防ぐためcache保存せず、複数展開が必要なincludeだけをcacheするよう統一した。test-dependency promotionのmaterialized surface除去はcache key依存をやめ、promotion時のimport closureとtargetから導出する。
 - mixed import/include専用回帰とloader全94件、`cargo check`、release CLI buildは通過した。F5nzt native計測はloader 115.3秒、最大RSS約380MBまで改善したが、全compileは300秒timeoutのままである。このcheckpointは累積ASTの二次メモリ保持だけを解消し、F5nzu actual 2047、normal 60秒gate、issue close、main統合、フォントレンダリング/GUI全体完成を意味しない。次はloaderのshallow arity/public-surface closure再走査とowner-summary producerの残る時間を分離する。`plan.md`は変更していない。
+
+2026-07-19 F5nzu shallow arity canonical path cache checkpoint
+
+- shallow arity preloadは同一compile内で既にcanonical keyとしてcacheされた依存pathにも毎回OSの`Path::canonicalize`を実行していた。F5nzt 1023では2502回のcanonicalizeが約14.7秒を占めたため、exact pathがshallow cache keyとして存在する場合だけ既知canonical pathを再利用し、未登録path、lexical alias、symlink aliasは従来どおり初回canonicalizeする。
+- 専用回帰は既知canonical keyの再利用と`..`を含むaliasのcanonical解決を固定する。loader全94件とrelease CLI buildは通過した。stage timingではcanonicalizeが約14.7秒から2.9秒、同一条件のimported arity aggregateが約75.6秒から62.1秒へ減少したが、全compileは120秒timeoutのままである。
+- merge index案とcomplete hint `Vec` clone案はそれぞれ実測退行または累積3ms未満で支配要因ではなかったため採用していない。このcheckpointもF5nzu actual 2047、normal 60秒gate、issue close、main統合、フォントレンダリング/GUI全体完成を意味しない。次はshallow public-surface traversalの残る約59秒と後段owner summaryを分離する。`plan.md`は変更していない。

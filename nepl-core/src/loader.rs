@@ -1668,7 +1668,9 @@ impl Loader {
         visited: &mut BTreeSet<PathBuf>,
         shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
     ) -> Result<ShallowTypeArityHints, LoaderError> {
-        let canon = canonicalize_path(path);
+        let stage_start = loader_stage_start();
+        let canon = canonicalize_shallow_type_arity_path(path, shallow_type_arity_cache);
+        loader_stage_finish("shallow_arity_canonicalize", &canon, stage_start);
         if let Some(hints) = shallow_type_arity_cache
             .get(&canon)
             .and_then(|entry| entry.complete_hints.as_ref())
@@ -1718,7 +1720,9 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<ShallowTypeArityHints, LoaderError> {
-        let canon = canonicalize_path(path);
+        let stage_start = loader_stage_start();
+        let canon = canonicalize_shallow_type_arity_path(path, shallow_type_arity_cache);
+        loader_stage_finish("shallow_arity_canonicalize", &canon, stage_start);
         if let Some(hints) = shallow_type_arity_cache
             .get(&canon)
             .and_then(|entry| entry.complete_hints.as_ref())
@@ -2905,6 +2909,17 @@ fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> b
     imported_once.insert(canonicalize_path(target))
 }
 
+fn canonicalize_shallow_type_arity_path(
+    path: &PathBuf,
+    cache: &ShallowTypeArityHintCache,
+) -> PathBuf {
+    if cache.contains_key(path) {
+        path.clone()
+    } else {
+        canonicalize_path(path)
+    }
+}
+
 /// 通常 import は import-once 集合だけで再読込を防ぎ、include だけが完成済み module を再利用する。
 ///
 /// import 済み module は依存先を展開した累積 AST なので、各階層で clone して保持すると深い
@@ -3672,6 +3687,34 @@ mod tests {
         assert!(
             !import_not_seen(&mut imported_once, &direct),
             "same import reached through a lexical parent path must not be loaded twice"
+        );
+    }
+
+    #[test]
+    fn shallow_arity_path_reuses_known_canonical_key_and_resolves_aliases() {
+        let direct = canonicalize_path(&PathBuf::from(
+            "C:/nepl-test/stdlib/alloc/io/bytebuf.nepl",
+        ));
+        let via_parent = PathBuf::from(
+            "C:/nepl-test/stdlib/alloc/collections/../io/bytebuf.nepl",
+        );
+        let mut cache = ShallowTypeArityHintCache::default();
+        cache.insert(
+            direct.clone(),
+            ShallowTypeArityHintCacheEntry {
+                local_hints: Vec::new(),
+                dependency_paths: Vec::new(),
+                complete_hints: None,
+            },
+        );
+
+        assert_eq!(
+            canonicalize_shallow_type_arity_path(&direct, &cache),
+            direct
+        );
+        assert_eq!(
+            canonicalize_shallow_type_arity_path(&via_parent, &cache),
+            direct
         );
     }
 
