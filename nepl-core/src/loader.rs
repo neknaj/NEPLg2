@@ -1324,7 +1324,7 @@ impl Loader {
             is_root,
         )?;
         processing.remove(&canon);
-        cache.insert(canon.clone(), module.clone());
+        cache_loaded_module_for_reuse(cache, imported_once, &canon, &module);
         Ok(module)
     }
 
@@ -1401,7 +1401,7 @@ impl Loader {
             materialized_public_surfaces.as_deref_mut(),
         )?;
         processing.remove(&canon);
-        cache.insert(canon.clone(), module.clone());
+        cache_loaded_module_for_reuse(cache, imported_once, &canon, &module);
         loader_log!("[Loader] finished contents for {:?}", canon);
         Ok(module)
     }
@@ -1476,7 +1476,7 @@ impl Loader {
         loader_log!("[Loader] Finished loading: {:?}", canon);
         processing.remove(&canon);
         let stage_start = loader_stage_start();
-        cache.insert(canon.clone(), module.clone());
+        cache_loaded_module_for_reuse(cache, imported_once, &canon, &module);
         loader_stage_finish("cache_store_module_clone", &canon, stage_start);
         Ok(module)
     }
@@ -1557,7 +1557,7 @@ impl Loader {
             materialized_public_surfaces.as_deref_mut(),
         )?;
         processing.remove(&canon);
-        cache.insert(canon.clone(), module.clone());
+        cache_loaded_module_for_reuse(cache, imported_once, &canon, &module);
         Ok(module)
     }
 
@@ -2494,8 +2494,9 @@ impl Loader {
                                 None,
                                 None,
                             )?;
-                            let promoted_labels = promoted_cache
-                                .keys()
+                            let promoted_labels = promoted_imported_once
+                                .iter()
+                                .chain(core::iter::once(&target))
                                 .map(canonical_path_string)
                                 .collect::<BTreeSet<_>>();
                             if let Some(surfaces) = materialized_public_surfaces.as_deref_mut() {
@@ -2902,6 +2903,22 @@ fn push_loader_artifact<T>(target: &mut Option<&mut Vec<T>>, value: T) {
 
 fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> bool {
     imported_once.insert(canonicalize_path(target))
+}
+
+/// 通常 import は import-once 集合だけで再読込を防ぎ、include だけが完成済み module を再利用する。
+///
+/// import 済み module は依存先を展開した累積 AST なので、各階層で clone して保持すると深い
+/// import chain の保持量が二次増加する。include だけで到達した module は同じ内容を複数箇所へ
+/// 展開できるよう従来どおり cache を使う。
+fn cache_loaded_module_for_reuse(
+    cache: &mut BTreeMap<PathBuf, Module>,
+    imported_once: &BTreeSet<PathBuf>,
+    canon: &PathBuf,
+    module: &Module,
+) {
+    if !imported_once.contains(canon) {
+        cache.insert(canon.clone(), module.clone());
+    }
 }
 
 fn push_unique_canonical_path(
@@ -3656,6 +3673,80 @@ mod tests {
             !import_not_seen(&mut imported_once, &direct),
             "same import reached through a lexical parent path must not be loaded twice"
         );
+    }
+
+    #[test]
+    fn completed_module_cache_retains_includes_but_not_import_chains() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let a_path = canonicalize_path(&stdlib_path(&stdlib_root, &["a.nepl"]));
+        let b_path = canonicalize_path(&stdlib_path(&stdlib_root, &["b.nepl"]));
+        let included_path = canonicalize_path(&stdlib_path(&stdlib_root, &["included.nepl"]));
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            a_path.clone(),
+            String::from("#import \"b\" as *\npub fn a %fn void i32 \\void:\n    b\n"),
+        );
+        sources.insert(
+            b_path.clone(),
+            String::from("pub fn b %fn void i32 \\void:\n    1\n"),
+        );
+        sources.insert(
+            included_path.clone(),
+            String::from("fn included %fn void i32 \\void:\n    2\n"),
+        );
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let loader = Loader::new(stdlib_root);
+        let mut sm = SourceMap::new();
+        let mut cache = BTreeMap::new();
+        let mut processing = BTreeSet::new();
+        let mut imported_once = BTreeSet::new();
+        let mut shallow_type_arity_cache = BTreeMap::new();
+
+        let loaded = loader
+            .load_from_contents_with(
+                entry_path,
+                String::from(
+                    "#no_prelude\n#import \"a\" as *\n#include \"a\"\n#include \"a\"\n#include \"included\"\nfn main %fn void i32 \\void:\n    a\n",
+                ),
+                &mut sm,
+                &mut cache,
+                &mut processing,
+                &mut imported_once,
+                &mut shallow_type_arity_cache,
+                true,
+                &mut provider,
+                None,
+                None,
+                None,
+                None,
+            )
+            .expect("mixed import/include graph should load");
+
+        assert!(imported_once.contains(&a_path));
+        assert!(imported_once.contains(&b_path));
+        assert!(!cache.contains_key(&a_path));
+        assert!(!cache.contains_key(&b_path));
+        assert!(cache.contains_key(&included_path));
+        let a_count = loaded
+            .root
+            .items
+            .iter()
+            .filter(|item| matches!(item, Stmt::FnDef(def) if def.name.name == "a"))
+            .count();
+        let b_count = loaded
+            .root
+            .items
+            .iter()
+            .filter(|item| matches!(item, Stmt::FnDef(def) if def.name.name == "b"))
+            .count();
+        assert_eq!(a_count, 3, "import and both includes must expand a");
+        assert_eq!(b_count, 1, "a's dependency must remain import-once");
     }
 
     #[test]

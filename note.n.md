@@ -168782,3 +168782,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - variant projection return finalizerにowner leafの`(suffix, TypeId)` indexとroot parameter source indexを試作した。旧linear lookupとのexact membership、duplicate root sourceのfirst-wins、lazy構築、mutual exclusion/extent merge順の同値性はfocused owner-summary/owner-variant回帰とsubagent reviewで確認した。
 - actual F5nzt→F5nzu evidence 2047は引き続き通常60秒compile timeoutとなった。さらにF5nzu projectionを含まない既存F5nzt evidence 1023も、試作を戻した対照条件を含めて現在のbranch先端では60秒compile timeoutしたため、このindexを有効な改善checkpointとはせず全差分を撤回した。
 - release CLI build、focused Rust回帰、`cargo check`は通過した。`trunk build`はこのWSL環境のTrunk設定がWindows専用`npm.cmd`を起動して`No such file or directory`となるため実行不能だった。F5nzu issue/todoとactual 2047 gateは未完了のまま維持し、次はF5nzt 1023が60秒を超えた既存checkpoint列のstage timingを二分探索して、fixed-point producerの回帰点を特定する。フォントレンダリングエンジンとGUIライブラリ全体も未完成であり、`plan.md`は変更していない。
+
+2026-07-19 F5nzu loader completed-module cache checkpoint
+
+- F5nzt 1023のnative release対照を導入commitまで戻しても180秒・約2.08GB RSSでtimeoutしたため、branch内性能checkpointの回帰ではないことを確認した。current quiet stage timingではloader 126.9秒、typecheck 30.8秒であり、60秒doctest timeout以前にloader自体が上限を超えていた。
+- loaderは通常importの依存をinline済みの累積`Module`を全階層でcloneしてcompleted-module cacheへ保持し、deep helper chainで保持AST量を二次増幅していた。通常import/preludeは既存`imported_once`が再読込を防ぐためcache保存せず、複数展開が必要なincludeだけをcacheするよう統一した。test-dependency promotionのmaterialized surface除去はcache key依存をやめ、promotion時のimport closureとtargetから導出する。
+- mixed import/include専用回帰とloader全94件、`cargo check`、release CLI buildは通過した。F5nzt native計測はloader 115.3秒、最大RSS約380MBまで改善したが、全compileは300秒timeoutのままである。このcheckpointは累積ASTの二次メモリ保持だけを解消し、F5nzu actual 2047、normal 60秒gate、issue close、main統合、フォントレンダリング/GUI全体完成を意味しない。次はloaderのshallow arity/public-surface closure再走査とowner-summary producerの残る時間を分離する。`plan.md`は変更していない。
