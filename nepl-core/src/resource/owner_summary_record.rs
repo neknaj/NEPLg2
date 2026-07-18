@@ -1,3 +1,4 @@
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use crate::types::TypeId;
@@ -11,7 +12,7 @@ use super::summary::{
 };
 
 pub(super) fn record_projection_owner_return(
-    projection_returns: &mut Vec<OwnerProjectionReturnSummary>,
+    projection_returns: &mut OwnerProjectionReturnRecorder,
     suffix: Vec<PlaceProjection>,
     ty: TypeId,
     storage: StorageId,
@@ -19,22 +20,7 @@ pub(super) fn record_projection_owner_return(
     parameter_storage_sources: &[OwnerParameterStorageSource],
     returned_sources: &mut Vec<OwnerProjectionSource>,
 ) {
-    let entry_index = projection_returns
-        .iter()
-        .position(|entry| entry.suffix == suffix && entry.ty == ty)
-        .unwrap_or_else(|| {
-            projection_returns.push(OwnerProjectionReturnSummary {
-                suffix: suffix.clone(),
-                ty,
-                parameter_indices: Vec::new(),
-                parameter_sources: Vec::new(),
-                parameter_return_extents: Vec::new(),
-                returns_fresh_owner: false,
-                returns_fresh_owner_extent: OwnerExtentSummary::Unknown,
-                returns_maybe_owner: false,
-            });
-            projection_returns.len() - 1
-        });
+    let entry_index = projection_return_entry_index(projection_returns, suffix, ty);
     if let Some(source) = owner_source_for_storage(storage, parameter_storage_sources) {
         record_projection_owner_source(
             &mut projection_returns[entry_index],
@@ -59,27 +45,70 @@ pub(super) fn record_projection_owner_return(
 }
 
 pub(super) fn record_projection_maybe_owner_return(
-    projection_returns: &mut Vec<OwnerProjectionReturnSummary>,
+    projection_returns: &mut OwnerProjectionReturnRecorder,
     suffix: Vec<PlaceProjection>,
     ty: TypeId,
 ) {
-    let entry_index = projection_returns
-        .iter()
-        .position(|entry| entry.suffix == suffix && entry.ty == ty)
-        .unwrap_or_else(|| {
-            projection_returns.push(OwnerProjectionReturnSummary {
-                suffix: suffix.clone(),
-                ty,
-                parameter_indices: Vec::new(),
-                parameter_sources: Vec::new(),
-                parameter_return_extents: Vec::new(),
-                returns_fresh_owner: false,
-                returns_fresh_owner_extent: OwnerExtentSummary::Unknown,
-                returns_maybe_owner: false,
-            });
-            projection_returns.len() - 1
-        });
+    let entry_index = projection_return_entry_index(projection_returns, suffix, ty);
     projection_returns[entry_index].returns_maybe_owner = true;
+}
+
+fn projection_return_entry_index(
+    projection_returns: &mut OwnerProjectionReturnRecorder,
+    suffix: Vec<PlaceProjection>,
+    ty: TypeId,
+) -> usize {
+    if let Some(index) = projection_returns
+        .indices_by_suffix
+        .get(&suffix)
+        .and_then(|indices| indices.get(&ty))
+        .copied()
+    {
+        return index;
+    }
+    let index = projection_returns.entries.len();
+    projection_returns
+        .indices_by_suffix
+        .entry(suffix.clone())
+        .or_default()
+        .insert(ty, index);
+    projection_returns.entries.push(OwnerProjectionReturnSummary {
+        suffix,
+        ty,
+        parameter_indices: Vec::new(),
+        parameter_sources: Vec::new(),
+        parameter_return_extents: Vec::new(),
+        returns_fresh_owner: false,
+        returns_fresh_owner_extent: OwnerExtentSummary::Unknown,
+        returns_maybe_owner: false,
+    });
+    index
+}
+
+#[derive(Default)]
+pub(super) struct OwnerProjectionReturnRecorder {
+    entries: Vec<OwnerProjectionReturnSummary>,
+    indices_by_suffix: BTreeMap<Vec<PlaceProjection>, BTreeMap<TypeId, usize>>,
+}
+
+impl OwnerProjectionReturnRecorder {
+    pub(super) fn into_entries(self) -> Vec<OwnerProjectionReturnSummary> {
+        self.entries
+    }
+}
+
+impl core::ops::Index<usize> for OwnerProjectionReturnRecorder {
+    type Output = OwnerProjectionReturnSummary;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.entries[index]
+    }
+}
+
+impl core::ops::IndexMut<usize> for OwnerProjectionReturnRecorder {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.entries[index]
+    }
 }
 
 pub(super) fn record_projection_marker(
@@ -189,4 +218,41 @@ pub(super) fn push_or_merge_parameter_return_extent(
         return;
     }
     out.push(entry);
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+
+    use crate::types::TypeId;
+
+    use super::super::model::PlaceProjection;
+    use super::{record_projection_maybe_owner_return, OwnerProjectionReturnRecorder};
+
+    #[test]
+    fn projection_return_records_preserve_first_seen_order_and_merge_duplicates() {
+        let field_one = vec![PlaceProjection::Field {
+            index: 1,
+            offset_bytes: 4,
+        }];
+        let field_zero = vec![PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        }];
+        let mut returns = OwnerProjectionReturnRecorder::default();
+
+        record_projection_maybe_owner_return(&mut returns, field_one.clone(), TypeId(2));
+        record_projection_maybe_owner_return(&mut returns, field_zero.clone(), TypeId(3));
+        record_projection_maybe_owner_return(&mut returns, field_zero.clone(), TypeId(1));
+        record_projection_maybe_owner_return(&mut returns, field_one.clone(), TypeId(2));
+
+        let returns = returns.into_entries();
+        assert_eq!(returns.len(), 3);
+        assert_eq!(returns[0].suffix, field_one);
+        assert_eq!(returns[0].ty, TypeId(2));
+        assert_eq!(returns[1].suffix, field_zero);
+        assert_eq!(returns[1].ty, TypeId(3));
+        assert_eq!(returns[2].ty, TypeId(1));
+        assert!(returns.iter().all(|entry| entry.returns_maybe_owner));
+    }
 }

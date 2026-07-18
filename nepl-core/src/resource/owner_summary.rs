@@ -25,6 +25,7 @@ use super::owner_summary_raw_view_return::{
 use super::owner_summary_record::{
     owner_source_for_storage, record_projection_marker, record_projection_maybe_owner_return,
     record_projection_owner_return, record_root_owner_return,
+    OwnerProjectionReturnRecorder,
 };
 use super::owner_summary_relevance::owner_summary_relevant_functions;
 use super::owner_summary_resolved_variant::collect_resolved_parameter_variants_from_return;
@@ -179,7 +180,7 @@ fn function_owner_return_summary(
     let mut returns_fresh_owner = false;
     let mut returns_maybe_owner = false;
     let mut non_owning_raw_view_returns = Vec::new();
-    let mut projection_returns = Vec::new();
+    let mut projection_returns = OwnerProjectionReturnRecorder::default();
     let mut projection_markers = Vec::new();
     let mut storage_origin_markers = Vec::new();
     let mut host_size_returns = Vec::new();
@@ -504,6 +505,7 @@ fn function_owner_return_summary(
         }
     }
 
+    let mut projection_returns = projection_returns.into_entries();
     finalize_variant_projection_returns(
         &mut projection_returns,
         &mut returned_sources,

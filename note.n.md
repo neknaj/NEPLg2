@@ -168751,3 +168751,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - owner summary canonicalizationの3系列はgroup keyでsortした後も各要素を先頭から探索しており、deep summaryで二次時間になっていた。parameter return extent、consumed extent、variant consumed extentをsort済み隣接keyだけのmergeへ変更し、merge規則とcanonical順序は維持した。
 - owner return applyが同じoutput typeのowner leafを繰り返し構造走査しないよう、`ResourceOwnerCheckEngine`単位でcomplete root queryをcacheする。empty mapping / empty seenから始まるroot結果だけを保持し、generic mappingとancestor cycle stateに依存する再帰途中結果はcacheしない。variant path engineはcache全体をdeep cloneせず空cacheから開始し、分岐ごとのsuffix allocation copyを増やさない。
 - dedicated Rust回帰、owner summary update回帰、`cargo check`、release CLI buildは通過した。一方F5nzt fixtureへF5nzu projectionを戻したactual gateは変更後も60秒compile timeoutしたためfixture差分を撤去した。このcompiler性能checkpointはF5nzu完成ではなく、issue/todoとactual evidence 2047の統合条件を維持する。フォントレンダリングエンジンとGUIライブラリ全体も未完成であり、`plan.md`は変更していない。
+
+2026-07-19 F5nzu projection return recorder checkpoint
+
+- owner summaryのmain/variant local collectorはprojection returnを記録するたびに全entryを`(suffix, TypeId)`で線形探索していた。記録期間だけfirst-seen `Vec` indexをsuffix別`BTreeMap<TypeId, usize>`へ保持する`OwnerProjectionReturnRecorder`へ置き換え、重複recordはborrow lookupで同じentryへmergeする。
+- entry順は従来のfirst-seenを維持し、variant finalizerのretain/変形前に`into_entries`でindexを破棄する。variant mutual-exclusion merge、source/extent merge、canonicalizationの意味論は変更しない。専用unitは同suffix同typeのdedup、同suffix異type、異suffix同type、first-seen順を検証する。
+- owner summary回帰、`cargo check`、release CLI buildは通過した。actual F5nzt→F5nzu evidence 2047 gateは変更後も60秒compile timeoutしたためfixture差分を撤去した。このcheckpointもF5nzu完成・統合可能を意味せず、issue/todoと全体未完成状態を維持する。次はproducer内のsource/extent重複mergeまたはfixed-point反復回数をstage timingで分離する。`plan.md`は変更していない。

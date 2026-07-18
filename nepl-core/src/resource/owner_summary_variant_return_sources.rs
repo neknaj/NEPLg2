@@ -7,7 +7,7 @@ use super::owner_extent::summarize_owner_storage_extent_for_owner;
 use super::owner_state::OwnerTable;
 use super::owner_summary_record::{
     owner_source_for_storage, record_projection_owner_return, record_root_owner_return,
-    OwnerParameterConditionSource, OwnerParameterStorageSource,
+    OwnerParameterConditionSource, OwnerParameterStorageSource, OwnerProjectionReturnRecorder,
 };
 use super::place_utils::place_suffix_after_prefix;
 use super::summary::{OwnerExtentSummary, OwnerProjectionReturnSummary, OwnerProjectionSource};
@@ -22,7 +22,7 @@ pub(super) fn returned_owner_returns_for_value(
     Vec<OwnerProjectionReturnSummary>,
     Vec<OwnerProjectionSource>,
 ) {
-    let mut projection_returns = Vec::new();
+    let mut projection_returns = OwnerProjectionReturnRecorder::default();
     let mut returned_sources = Vec::new();
     let mut unused_indices = Vec::new();
     let mut unused_sources = Vec::new();
@@ -54,7 +54,7 @@ pub(super) fn returned_owner_returns_for_value(
             &mut unused_return_extents,
         );
     }
-    (projection_returns, returned_sources)
+    (projection_returns.into_entries(), returned_sources)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -64,7 +64,7 @@ fn record_returned_owner_returns_under_root(
     root: &Place,
     parameter_storage_sources: &[OwnerParameterStorageSource],
     parameter_condition_sources: &[OwnerParameterConditionSource],
-    projection_returns: &mut Vec<OwnerProjectionReturnSummary>,
+    projection_returns: &mut OwnerProjectionReturnRecorder,
     returned_sources: &mut Vec<OwnerProjectionSource>,
     unused_indices: &mut Vec<usize>,
     unused_sources: &mut Vec<OwnerProjectionSource>,
