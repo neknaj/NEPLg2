@@ -1,0 +1,61 @@
+//: # registered stroke compositor tile RLE BeginFrame dispatch test adapter
+//: F5nzh adoptionをactual registered pipeline由来のF5nzg authorityで検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_request" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_request_test" as fixture with tests
+#import "core/result" as *
+#import "core/math" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_import" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/compositor_tile_present_virtual_drain" as *
+
+//: actual F5nzg ownerをF5my RequestReadyへ一度だけ接続する
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_test_success_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok host_owner:
+            let owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_into_dispatch host_owner
+            let step %GuiRgba8888CompositorTileRlePresentDispatchStep gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_step &owner
+            let state %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_step_state &step
+            let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &state
+            let counters_ok %bool and eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 1 eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 0
+            let output_ok %bool match gui_rgba8888_compositor_tile_rle_present_dispatch_step_output &step:
+                GuiRgba8888CompositorTileRlePresentDispatchOutput::RequestReady ready:
+                    let phase_ok %bool match gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_post_phase &ready:
+                        GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Yield: true
+                        _: false
+                    let request %GuiRgba8888CompositorTileRlePresentHostImportRequest gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_request &ready
+                    let target_ok %bool match gui_rgba8888_compositor_tile_rle_present_host_import_request_target &request:
+                        GuiRgba8888CompositorTileRlePresentHostImportTarget::Offscreen: true
+                        _: false
+                    let record_ok %bool match gui_rgba8888_compositor_tile_rle_present_host_import_request_record &request:
+                        GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame _: true
+                        _: false
+                    and phase_ok and target_ok record_ok
+            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_take_host_request_owner owner
+            let recovered_request %GuiRgba8888CompositorTileRlePresentHostImportRequest gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_request &recovered
+            let recovered_target_ok %bool match gui_rgba8888_compositor_tile_rle_present_host_import_request_target &recovered_request:
+                GuiRgba8888CompositorTileRlePresentHostImportTarget::Offscreen: true
+                _: false
+            let recovered_step %GuiRgba8888CompositorTileRlePresentScheduleStep gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_schedule_step &recovered
+            let recovered_schedule_phase_ok %bool match gui_rgba8888_compositor_tile_rle_present_schedule_step_phase &recovered_step:
+                GuiRgba8888CompositorTileRlePresentSchedulePhase::Yield: true
+                _: false
+            let recovered_schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_schedule_step_state &recovered_step
+            let recovered_drain %GuiRgba8888CompositorTileRlePresentVirtualDrain gui_rgba8888_compositor_tile_rle_present_schedule_state_drain &recovered_schedule
+            let recovered_drain_phase_ok %bool match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase &recovered_drain:
+                GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::InFrame: true
+                _: false
+            let recovered_counters_ok %bool and eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &recovered_schedule 1 eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &recovered_schedule 0
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_free recovered:
+                Result::Err _: sub 0 1
+                Result::Ok _:
+                    if and counters_ok and output_ok and recovered_target_ok and recovered_schedule_phase_ok and recovered_drain_phase_ok recovered_counters_ok:
+                        then: 255
+                        else: 0

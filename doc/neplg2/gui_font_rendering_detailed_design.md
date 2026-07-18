@@ -11169,3 +11169,7 @@ The affine wrapper retains either the complete F5nyf error or complete F5mf star
 ### F5nzg registered BeginFrame host continuation request
 
 F5nzg consumes the F5nzf move-only owner and borrows the retained F5mu projection through F5nze/F5nzf delegate accessors. It validates the projection is BeginFrame, invokes F5mx exactly once, and stores the original schedule owner beside the Copy request. Failure stores the whole owner and optional typed host error. Existing F5my is not used because its record step would replay an already-adopted BeginFrame. Host execution and platform presentation remain downstream.
+
+### F5nzh registered BeginFrame scheduled dispatch
+
+F5nzh passes the successful schedule-step and host-request snapshots retained by one F5nzg authority to an F5my adoption constructor. The constructor maps phase and state and creates RequestReady without replaying validation or request construction. The registered move-only owner retains the complete F5nzg authority beside the Copy dispatch step. It stops before F5nc, F5mz, and host execution.

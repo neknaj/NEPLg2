@@ -8733,3 +8733,7 @@ F5nzfはF5nzeで既にBeginFrameを消費したF5mv drainをF5mwへ再投入せ�
 ### F5nzg registered BeginFrame F5mx host continuation request owner
 
 F5nzgはF5nzf ownerに保持されたactual F5mu projectionをborrow-copy accessorで読み、typed `Record(BeginFrame)`だけを既存F5mx request constructorへ一度渡す。success ownerはF5nzf authorityとF5mx requestを、failure ownerはprojection kindまたはF5mx `GuiError`とF5nzf authority全体を保持する。unsupported hostでもauthorityを失わない。adopt済みBeginFrameをF5mwへ再投入する既存F5myは使わず、record再構築、F5mv/F5mw再step、host execution、platform presentationへ進まない。
+
+### F5nzh registered BeginFrame F5my scheduled dispatch owner
+
+F5nzhは同じF5nzg authority内のsuccessful F5mw stepとF5mx requestを既存F5my adopterへ一度渡し、`RequestReady` dispatch stepと元F5nzg ownerを同居させる。adopterはschedule phase/stateをpost phase/dispatch stateへ写してrequestを保持するだけで、F5mv/F5mw/F5mxを再実行しない。新規failureやprevious-state rollbackを作らず、F5nc loop pending、F5mz action、host execution、platform presentationへ進まない。

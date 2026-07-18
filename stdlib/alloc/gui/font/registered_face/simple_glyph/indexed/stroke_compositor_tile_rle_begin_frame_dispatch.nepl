@@ -1,0 +1,37 @@
+//: # registered stroke compositor tile RLE BeginFrame dispatch
+//: F5nzgのsuccessful schedule/request pairをF5my RequestReadyへ接続します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_request" as *
+#import "core/field" as field
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner: F5nzg authorityとF5my stepを保持する
+//:
+//: retained command stepを所有するためCopy / Cloneを実装しません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner:
+    host_request_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner
+    dispatch_step %GuiRgba8888CompositorTileRlePresentDispatchStep
+
+//: F5nzg ownerを消費し、successful F5mw stepとF5mx requestをF5myへ一度だけ引き継ぐ
+//:
+//: BeginFrame record、schedule、requestを再実行せず、F5nc loop、F5mz action、host executionへ進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_into_dispatch %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner \owner:
+    let request gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_request &owner
+    let schedule_step gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_schedule_step &owner
+    let dispatch_step %GuiRgba8888CompositorTileRlePresentDispatchStep gui_rgba8888_compositor_tile_rle_present_dispatch_adopt_scheduled_request schedule_step request
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner owner dispatch_step
+
+//: success ownerのF5my dispatch stepをCopy valueとして読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_step %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner GuiRgba8888CompositorTileRlePresentDispatchStep \owner:
+    *field::get_ref owner "dispatch_step"
+
+//: success ownerから元F5nzg authorityを回収する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_take_host_request_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner \owner:
+    field::get owner "host_request_owner"
+
+//: success ownerが保持するcommand stepを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_take_host_request_owner owner

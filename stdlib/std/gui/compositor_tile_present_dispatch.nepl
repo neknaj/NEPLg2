@@ -226,6 +226,26 @@ pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_state %fn &GuiRgba
 pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_output %fn &GuiRgba8888CompositorTileRlePresentDispatchStep GuiRgba8888CompositorTileRlePresentDispatchOutput \step:
     *field::get_ref step "output"
 
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_adopt_scheduled_request: successful F5mw/F5mx pairをF5my stepへ包む
+//:
+//: [契約/けいやく]:
+//: - provenanceを型で再検証しないtrusted adoption boundaryです。
+//: - callerが単一のownerから得た、同じrecord系列のsuccessful schedule stepとhost requestだけを渡します。
+//: - 一般のdispatch構築には使わず、所有権付きbridgeが保持する既検証pairの接続に限定します。
+//: - F5mw/F5mvを再stepせず、F5mx requestも再構築しません。
+//: - schedule phaseをpost phaseへ写し、Continue / Yield / Completedのいずれでもrequestを落としません。
+//: - host import、F5nc loop、F5mz action、platform APIへは進みません。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_adopt_scheduled_request %fn GuiRgba8888CompositorTileRlePresentScheduleStep fn GuiRgba8888CompositorTileRlePresentHostImportRequest GuiRgba8888CompositorTileRlePresentDispatchStep \schedule_step\request:
+    let schedule_phase %GuiRgba8888CompositorTileRlePresentSchedulePhase gui_rgba8888_compositor_tile_rle_present_schedule_step_phase &schedule_step
+    let post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase gui_rgba8888_compositor_tile_rle_present_dispatch_post_phase_from_schedule schedule_phase
+    let schedule_state %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_schedule_step_state &schedule_step
+    let state %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_state_new schedule_state
+    let ready %GuiRgba8888CompositorTileRlePresentDispatchReadyRequest gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_new request post_phase
+    let output %GuiRgba8888CompositorTileRlePresentDispatchOutput GuiRgba8888CompositorTileRlePresentDispatchOutput::RequestReady ready
+    gui_rgba8888_compositor_tile_rle_present_dispatch_step_new state output
+
 //: gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_kind: error kind を[返/かえ]す
 //:
 //: neplg2:test[skip]

@@ -13879,3 +13879,9 @@ git diff --check
 - F5nze/F5nzfにretained actual F5mu projectionのborrow-copy accessorを追加し、record再構築やowner移動を行わない。
 - F5nzf ownerと`&GuiHost`を受け、BeginFrameだけを既存F5mxへexactly once渡すmove-only success/error ownerを追加する。
 - supported offscreen request、unsupported host recovery、schedule authority、cleanupをfixtureで検証し、source policy、normal isolation、trunk/CLI、subagent reviewを通す。host execution前で停止する。
+
+### F5nzh registered BeginFrame F5my dispatch adoption
+
+- F5myにsuccessful F5mw stepとF5mx requestを`RequestReady`へ包むinfallible adopterを追加し、lower step/requestを再実行しない。
+- F5nzg owner全体とCopy dispatch stepを保持するregistered owner、recovery/free、actual production fixtureを追加する。
+- source policy、normal isolation、F5my回帰、trunk/CLI、subagent reviewを通し、F5nc/F5mz/host execution前で停止する。

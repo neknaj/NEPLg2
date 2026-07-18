@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-18T06:38:17.985Z",
+  "generated_at": "2026-07-18T07:37:40.299Z",
   "counts": {
-    "total": 1419,
+    "total": 1420,
     "open": 60,
-    "resolved": 1359,
+    "resolved": 1360,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 5,
+        "total": 6,
         "open": 0,
-        "resolved": 5
+        "resolved": 6
       },
       "nodesrc": {
         "total": 16,
@@ -11823,6 +11823,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260718T061210672Z-F5NZG-REGISTERED-BEGINFRAME-HOST-CON-F2E787C0.md"
+    },
+    {
+      "id": "ISS-20260718T064405912Z-F5NZH-REGISTERED-BEGINFRAME-SCHEDULE-8678241B",
+      "title": "F5nzh registered BeginFrame scheduled dispatch adoption bridge",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-18",
+      "updated": "2026-07-18",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260718T064405912Z-F5NZH-REGISTERED-BEGINFRAME-SCHEDULE-8678241B.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
