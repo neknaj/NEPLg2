@@ -2424,3 +2424,7 @@ registered F5nzk boundaryはF5nzjのcommand continuationとF5ne driver pending�
 ### Registered stroke compositor F5nzl BeginFrame host action completion boundary
 
 registered F5nzl boundaryはF5nzkのcontinuationとsession pendingを同時にmoveし、caller-supplied support/outcomeを既存F5nh completeへ一度渡す。success/errorのどちらもregistered continuationとlower authorityを同居させ、error categoryはF5nh accessorから読む。outcome生成、F5ng/F5nf/F5ne direct call、actual executor、次command stepは責務外である。
+
+### Registered stroke compositor F5nzm BeginFrame Yield resume boundary
+
+registered F5nzm boundaryはF5nzl success completionをContinue/Yield/Completedのtyped ownerへ全域分類し、continuationとF5nc stateを分断しない。Yieldはschedulerへ返すunresumed authorityであり、Yield-only entryがF5nc resume helperを一度呼んでreset済みstate ownerへ進める。F5mw/F5my direct resume、next command、actual scheduler/platform executionは責務外である。

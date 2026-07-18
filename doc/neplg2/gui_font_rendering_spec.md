@@ -8753,3 +8753,7 @@ F5nzkはF5nzj ownerのcommand continuationとF5ne driver pendingを同一transit
 ### F5nzl registered BeginFrame F5nh outcome completion owner
 
 F5nzlはF5nzk ownerのcommand continuationとF5nh session pendingを同一transitionで各1回moveし、caller-supplied support/outcomeだけを既存F5nh completeへ一度渡す。successはcontinuationとF5nh completion、failureはcontinuationとtyped category/lower errorを同居させる。productionはoutcomeを生成・変換せず、F5ng/F5nf/F5neを直接呼ばず、actual platform executionや次commandへの自動stepへ進まない。
+
+### F5nzm registered BeginFrame Yield scheduler resume owner
+
+F5nzmはF5nzl success completionをContinue/Yield/Completedのtyped ownerへ全域分類し、各phaseでregistered continuationとF5nc stateを同居させる。Yield ownerだけがscheduler-visible unresumed authorityとなり、別entryで既存F5nc `state_resume_slice`へ一度渡される。resume後ownerもcontinuationとreset済みstateを保持し、F5mw direct resume、次command step、actual scheduler/platform executionへ進まない。

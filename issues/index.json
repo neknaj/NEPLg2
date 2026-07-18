@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-18T11:05:12.350Z",
+  "generated_at": "2026-07-18T11:37:16.958Z",
   "counts": {
-    "total": 1424,
+    "total": 1425,
     "open": 60,
-    "resolved": 1364,
+    "resolved": 1365,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 10,
+        "total": 11,
         "open": 0,
-        "resolved": 10
+        "resolved": 11
       },
       "nodesrc": {
         "total": 16,
@@ -11898,6 +11898,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260718T100152913Z-F5NZL-REGISTERED-BEGINFRAME-F5NH-OUT-5757E3A6.md"
+    },
+    {
+      "id": "ISS-20260718T111123026Z-F5NZM-REGISTERED-BEGINFRAME-YIELD-SC-A2E1771C",
+      "title": "F5nzm registered BeginFrame Yield scheduler resume authority",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-18",
+      "updated": "2026-07-18",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_yield_resume.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260718T111123026Z-F5NZM-REGISTERED-BEGINFRAME-YIELD-SC-A2E1771C.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

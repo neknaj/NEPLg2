@@ -11191,3 +11191,7 @@ F5nzk consumes one F5nzj owner and moves the registered command continuation and
 ### F5nzl registered BeginFrame host action completion
 
 F5nzl consumes one F5nzk action owner and moves its registered continuation and F5nh session pending in the same transition. Caller-supplied executor support and outcome pass unchanged to existing F5nh `executor_session_complete` exactly once. Success co-locates the continuation with the F5nh completion; failure co-locates the continuation with the borrowed-derived category and complete-error authority, including owner-bearing unsupported recovery. Explicit abort/free closes the registered continuation and intentionally discards any unresumed lower recovery. The production boundary never constructs an outcome, calls F5ng/F5nf/F5ne directly, invokes an actual executor, or advances the next command.
+
+### F5nzm registered BeginFrame Yield scheduler resume
+
+F5nzm consumes only F5nzl success and moves its registered continuation and F5nh completion once. It exhaustively maps Continue, Yield, and Completed into distinct move-only owners that co-locate the continuation with the F5nc state. Yield remains unresumed until the dedicated Yield-only entry consumes it and calls F5nc `state_resume_slice` exactly once. The resumed owner keeps the reset state beside the continuation. F5nzl failure is not consumed here. F5nzm never calls F5mw/F5my directly, advances the next command, or runs an actual scheduler or platform executor.

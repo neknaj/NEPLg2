@@ -1,0 +1,45 @@
+//: # registered BeginFrame host action Yield resume test adapter
+//: actual F5nzl Yieldをscheduler-visible ownerとして分類し、F5ncでresumeします。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_completion_test" as fixture with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_yield_resume" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+
+fn schedule_from_loop_state %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentScheduleState \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
+    gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_test_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok completion_owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_into_phase completion_owner:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionPhaseOwner::Continue owner:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_continue_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionPhaseOwner::Completed owner:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completed_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionPhaseOwner::Yield owner:
+                    let before_state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_owner_state &owner
+                    let before %GuiRgba8888CompositorTileRlePresentScheduleState schedule_from_loop_state &before_state
+                    let evidence1 %i32 1
+                    let evidence2 %i32 add evidence1 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &before 1 then 2 else 0
+                    let evidence3 %i32 add evidence2 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &before 0 then 4 else 0
+                    let resumed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionResumedOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_slice owner
+                    let after_state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_resumed_owner_state &resumed
+                    let after %GuiRgba8888CompositorTileRlePresentScheduleState schedule_from_loop_state &after_state
+                    let evidence4 %i32 add evidence3 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &after 0 then 8 else 0
+                    let evidence5 %i32 add evidence4 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &after 0 then 16 else 0
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_resumed_owner_free resumed:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: add evidence5 32

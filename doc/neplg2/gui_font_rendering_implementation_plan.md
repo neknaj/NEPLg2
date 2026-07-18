@@ -13913,3 +13913,10 @@ git diff --check
 - success ownerはcontinuationとF5nh completion、error ownerはcontinuationとcategory/lower errorを同居させ、両方に明示abort/freeを提供する。lower recoveryの再開は後続sliceへ残す。
 - actual fixtureはOffscreen+OkのYield successとWindow+OkのUnsupported rejectionを独立actual F5nzk ownerで検証し、両branchのregistered continuation cleanupを確認する。
 - source policy、normal isolation、F5nh回帰、release trunk、CLI JSON、subagent reviewを通し、actual platform execution、次command step前で停止する。
+
+### F5nzm registered BeginFrame Yield scheduler resume
+
+- F5nzl success ownerからregistered continuationとF5nh completionを各1回moveし、F5nh completion accessorを一度だけ読んでContinue/Yield/Completedのtyped ownerへ全域分類する。
+- Yield ownerをscheduler-visible unresumed authorityとして停止させ、Yield-only resume entryだけが既存F5nc `state_resume_slice`をexactly once呼ぶ。F5mw/F5my direct resumeは禁止する。
+- actual fixtureはYield、resume前slice counters 1/0、resume後0/0、continuation cleanupをevidence 63で検証する。
+- F5nzl error recovery、next command step、actual scheduler/platform executorは後続sliceへ残す。
