@@ -168816,3 +168816,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - 既存`NEPL_RESOURCE_PER_FUNCTION_TIMING`でF5nzt 1023対照を計測し、compileは約339秒で完走した。生成WasmをNode WASIで実行すると`gui_font_registered_begin_frame_resumed_terminal_command`はevidence 1023、failed 0を報告した。owner obligationsは約187.9秒、そのうちowner-return summariesが約173.5秒、function checksが約14.4秒である。summaryは924 recomputation / 920 relevant functionで、fixed-point再通知ではなく各deep bridgeの初回処理が支配する。
 - 最大の単体summaryはbegin-frame record budget約35.8秒、command cursor step約32.5秒、cursor start約24.6秒、present-frame recovery約19.7秒だった。root型から要求suffixだけを辿るmembership queryを試作し、OwnerToken/raw pointer/recursive `seen`文脈を保つ回帰とsubagent reviewを通したが、owner summaryは約172.0秒、総compile約354秒で改善しなかったため全差分を撤去した。filterではなくparameter seed等のdeep Result owner leaf全列挙自体が支配している。次は再帰列挙へcycle-sensitiveなconcrete subtype memoizationを導入し、列挙結果同値性をfocused differential回帰で固定する。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu concrete subtype projection cache measurement
+
+- mapped concrete `TypeId`ごとのowner leaf projectionを、再帰cycleへ依存した結果だけ保存しない局所cacheとして試作した。OwnerToken/raw pointerの特別扱いとApply mappingを維持し、focused `owner_summary_leaf` 2件、owner summary 33件、release CLI buildは通過した。subagent reviewは実装上のcorrectness blockerなしとし、採用時にはgeneric struct/enum、named alias、raw pointer、self/mutual recursionを旧walkerと比較するdifferential回帰が必要と指摘した。
+- F5nzt 1023対照を同じ`--test-mode`で実測すると、loader約82.4秒、typecheck約27.6秒、effect boundariesまで到達したものの、全compileは300秒でtimeoutした。基準の約339秒から通常gateへ近づく改善を確認できず、cloneを含むcache差分と未採用differential testを全て撤去した。次は最大単体summaryのparameter seed生成と、同一具象projection列が各function初回処理内で何回作られるかを分離計測する。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
