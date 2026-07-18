@@ -168691,3 +168691,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nzm resumed authorityにmove-only parts handoffを追加し、registered dispatch→host request→schedule→virtual drain→record take chainからRunPending command cursorを回収するF5nzn境界を接続した。
 - F5mt command cursor stepは一度だけ実行し、success/error双方でreset済F5nc stateとcursor authorityを同居させる。actual fixtureはRun、slice counters 0/0、cleanupを検証する。
 - このcheckpointはフォントレンダリングエンジン/GUIライブラリ全体の完成ではない。Run record、後続command、F5nzl failure recovery、actual scheduler/platform execution、native font/layout/raster/presentationは未完了である。
+2026-07-18 GUI font F5nzo resumed Run record
+
+- F5nzn successをformal partsで消費し、既存F5mu projectionを一度だけ呼んでreset済F5nc state、Run step、Copy RunRecordを同居させた。
+- actual fixtureはslice counters 0/0、Run offset/count 0/16、RGBA 11/22/33/44、step Run、cleanupを検証する。
+- 全体目標は未完了。次はempty drainやBeginFrame専用bridgeを使わず、state内の既存InFrame authorityへRunRecordを接続する。

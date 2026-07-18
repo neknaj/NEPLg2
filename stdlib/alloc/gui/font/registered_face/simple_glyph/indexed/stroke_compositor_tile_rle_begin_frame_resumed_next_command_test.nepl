@@ -18,6 +18,18 @@ fn reset_slice_counts %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState 
     and eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 0 eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 0
 
 #test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok resumed:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_owner_step_next_command resumed:
+                Result::Err error:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_error_free error:
+                        Result::Err _: Result::Err sub 0 1
+                        Result::Ok _: Result::Err 0
+                Result::Ok owner: Result::Ok owner
+
+#test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_test_contract %impure fn unit i32 \_unit:
     match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_test_owner _unit:
         Result::Err evidence: evidence

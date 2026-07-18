@@ -2432,3 +2432,7 @@ registered F5nzm boundaryはF5nzl success completionをContinue/Yield/Completed�
 ### Registered stroke compositor F5nzn resumed next command boundary
 
 registered F5nzn boundaryはF5nzm resumed ownerをformal parts handoffで消費し、既存registered take chainからF5mt RunPending cursorを回収して一commandだけ進める。success/errorはreset済F5nc stateとstepまたはlower recoveryを同居させる。Run record、再schedule/dispatch、次々command、actual scheduler/platform executionは責務外である。
+
+### Registered stroke compositor F5nzo resumed Run record boundary
+
+registered F5nzo boundaryはF5nzn successをformal partsで消費し、既存F5muへRun stepを一度だけborrow projectionする。reset済F5nc state、step、Copy RunRecord resultを同居させる。empty drain、BeginFrame専用drain bridge、再schedule/dispatch、次command、host/platform executionは責務外である。

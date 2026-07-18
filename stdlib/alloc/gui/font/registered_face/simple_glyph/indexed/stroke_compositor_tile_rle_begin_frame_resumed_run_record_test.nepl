@@ -1,0 +1,56 @@
+//: # registered BeginFrame resumed Run record test adapter
+//: actual F5nzn Run stepのF5mu projectionとreset済stateを検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_next_command_test" as fixture with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_run_record" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/gui/color" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+
+fn reset_slice_counts %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState bool \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+    and eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 0 eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 0
+
+fn run_record_evidence %fn GuiRgba8888CompositorTileRlePresentHostCommandStepResult i32 \result:
+    match result:
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Completed: 0
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Record record:
+            match record:
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame _: 0
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame _: 0
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:
+                    let run %GuiRgba8888RowTileRleRun gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run &run_record
+                    let color %Rgba8888 gui_rgba8888_row_tile_rle_run_color &run
+                    let evidence1 %i32 2
+                    let evidence2 %i32 add evidence1 if eq gui_rgba8888_row_tile_rle_run_pixel_offset &run 0 then 4 else 0
+                    let evidence3 %i32 add evidence2 if eq gui_rgba8888_row_tile_rle_run_pixel_count &run 16 then 8 else 0
+                    add evidence3 if and and and eq rgba8888_r &color cast 11 eq rgba8888_g &color cast 22 eq rgba8888_b &color cast 33 eq rgba8888_a &color cast 44 then 16 else 0
+
+fn step_is_run %fn GuiRgba8888CompositorTileRlePresentCommandCursorStepResult bool \result:
+    match result:
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed: false
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+            match command:
+                GuiRgba8888CompositorTileRlePresentCommand::Run _: true
+                _: false
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_test_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok next_owner:
+            let owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_into_run_record next_owner
+            let evidence1 %i32 if reset_slice_counts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_state &owner then 1 else 0
+            let evidence2 %i32 add evidence1 run_record_evidence gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_result &owner
+            let evidence3 %i32 add evidence2 if step_is_run gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_step_result &owner then 32 else 0
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_free owner:
+                Result::Err _: sub 0 1
+                Result::Ok _: add evidence3 64

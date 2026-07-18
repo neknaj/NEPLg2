@@ -8761,3 +8761,7 @@ F5nzmはF5nzl success completionをContinue/Yield/Completedのtyped ownerへ全�
 ### F5nzn registered resumed next command owner
 
 F5nznはF5nzm resumed ownerを単一parts authorityへ移し、dispatch、host request、schedule、virtual drain、recordのformal take APIとF5mt finish-ownerだけでRunPending cursorを回収する。F5mt command cursor stepは一度だけ実行し、successはreset済F5nc stateとRun step、failureは同じstateとowner-bearing lower errorを同居させる。Run record、再schedule/dispatch、次々command、actual scheduler/platform executionへ進まない。
+
+### F5nzo registered resumed Run record owner
+
+F5nzoはF5nzn success ownerをformal partsへ一度だけ移し、既存F5mu projectionをRun stepのborrowで一度だけ読む。reset済F5nc state、move-only Run step、Copy record resultを同居させ、Run virtual drain、再schedule/dispatch、次command、host/platform executionへ進まない。後続はempty drainを作らずstate内の既存InFrame authorityを使う。

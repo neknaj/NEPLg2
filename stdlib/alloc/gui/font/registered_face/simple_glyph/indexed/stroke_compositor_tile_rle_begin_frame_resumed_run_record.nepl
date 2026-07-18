@@ -1,0 +1,36 @@
+//: # registered stroke compositor tile RLE resumed Run record
+//: F5nzn Run stepをF5mu typed recordへ接続します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_next_command" as *
+#import "core/field" as field
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner:
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    result %GuiRgba8888CompositorTileRlePresentHostCommandStepResult
+
+//: reset済stateとRun stepを保持したままF5mu projectionを一度だけ読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_into_run_record %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner \owner:
+    let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_into_parts owner
+    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState field::get parts "state"
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+    let result %GuiRgba8888CompositorTileRlePresentHostCommandStepResult gui_rgba8888_compositor_tile_rle_present_host_command_step_result &step
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner state step result
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_state %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
+    *field::get_ref owner "state"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_result %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner GuiRgba8888CompositorTileRlePresentHostCommandStepResult \owner:
+    *field::get_ref owner "result"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_step_result %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepResult \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result field::get_ref owner "step"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"

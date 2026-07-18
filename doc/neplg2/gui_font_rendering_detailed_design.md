@@ -11199,3 +11199,7 @@ F5nzm consumes only F5nzl success and moves its registered continuation and F5nh
 ### F5nzn registered resumed next command
 
 F5nzn consumes the F5nzm resumed owner through one move-only parts handoff. It follows only the registered dispatch-to-record take chain, finishes the retained BeginFrame step into its RunPending cursor, and invokes the existing F5mt cursor step exactly once. Success co-locates the reset F5nc state with the returned Run step; failure co-locates that state with the owner-bearing lower error. It does not record Run, reschedule, redispatch, execute another command, or invoke scheduler/platform work.
+
+### F5nzo registered resumed Run record
+
+F5nzo consumes the F5nzn success owner through one formal parts handoff and borrows its Run step once for the existing total F5mu projection. The move-only owner co-locates reset F5nc state, the step, and Copy RunRecord result. It does not create an empty drain, reuse the BeginFrame drain bridge, reschedule, redispatch, advance another command, or invoke host/platform work.

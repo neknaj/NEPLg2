@@ -13926,3 +13926,9 @@ git diff --check
 - F5nzm resumed ownerをparts authorityへ一度だけ移し、registered formal take chainでBeginFrame stepのRunPending cursorを回収する。
 - 既存F5mt command cursor stepをexactly once呼び、success/error双方でreset済F5nc stateとcursor authorityを同居させる。
 - actual fixtureは次commandがRun、state counters 0/0、cleanupを検証する。Run record、再schedule/dispatch、次々command、actual scheduler/platform executorは後続sliceへ残す。
+
+### F5nzo registered resumed Run F5mu record
+
+- F5nzn successをformal partsへ一度だけ移し、既存F5mu step projectionをborrowでexactly once呼ぶ。
+- reset済F5nc state、Run step、Copy RunRecord resultをmove-only ownerに同居させる。
+- actual fixtureはRunRecord payload、state counters 0/0、stepのRun、cleanupを検証する。後続はempty drainやBeginFrame専用bridgeを使わず既存InFrame authorityへ接続する。
