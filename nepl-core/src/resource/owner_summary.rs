@@ -72,7 +72,7 @@ pub(super) fn compute_owner_return_summaries_with_recomputations(
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
         let function_start = ResourceFunctionTimer::start();
-        let (summary, stage_measurements) = {
+        let (summary, stage_measurements, variant_return_profiles) = {
             let summary_index = summary_name_index.as_summary_index(&summaries);
             function_owner_return_summary(function, types, &summary_index)
         };
@@ -80,6 +80,11 @@ pub(super) fn compute_owner_return_summaries_with_recomputations(
         if let Some(stage_measurements) = stage_measurements {
             for measurement in stage_measurements {
                 measurement.log(function);
+            }
+        }
+        if let Some(variant_return_profiles) = variant_return_profiles {
+            for profile in variant_return_profiles {
+                profile.log(function.name.as_str());
             }
         }
         if update_owner_return_summary_with_index(&mut summaries, &mut summary_name_index, summary)
@@ -140,7 +145,7 @@ pub(super) fn compute_owner_return_summaries_for_root_for_test(
     let mut summaries = Vec::new();
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
-        let (summary, _) = {
+        let (summary, _, _) = {
             let summary_index = summary_name_index.as_summary_index(&summaries);
             function_owner_return_summary(&module.functions[function_index], types, &summary_index)
         };
@@ -159,8 +164,11 @@ fn function_owner_return_summary(
 ) -> (
     OwnerReturnSummary,
     Option<Vec<ResourceFunctionStageMeasurement>>,
+    Option<Vec<super::owner_summary_variant_profile::OwnerVariantReturnProfile>>,
 ) {
     let mut stage_measurements =
+        ResourceFunctionStageTimer::measurements_enabled(function.name.as_str()).then(Vec::new);
+    let mut variant_return_profiles =
         ResourceFunctionStageTimer::measurements_enabled(function.name.as_str()).then(Vec::new);
     let mut engine = ResourceOwnerCheckEngine {
         function: function.name.as_str(),
@@ -240,7 +248,7 @@ fn function_owner_return_summary(
         {
             let return_collection_start = ResourceFunctionStageTimer::start(function.name.as_str());
             let variant_return_start = ResourceFunctionStageTimer::start(function.name.as_str());
-            collect_variant_consumed_owner_parameters_from_return(
+            let variant_return_profile = collect_variant_consumed_owner_parameters_from_return(
                 &mut variant_consumed_parameter_indices,
                 &mut variant_consumed_parameter_sources,
                 &mut variant_consumed_extent_requirements,
@@ -563,6 +571,12 @@ fn function_owner_return_summary(
                 return_collection_start,
                 "owner_summary_return_collection",
             );
+            if let (Some(profiles), Some(profile)) = (
+                &mut variant_return_profiles,
+                variant_return_profile.into_enabled(),
+            ) {
+                profiles.push(profile);
+            }
         }
     }
     record_owner_summary_stage(
@@ -627,7 +641,7 @@ fn function_owner_return_summary(
         finalize_start,
         "owner_summary_finalize",
     );
-    (summary, stage_measurements)
+    (summary, stage_measurements, variant_return_profiles)
 }
 
 fn record_owner_summary_stage(

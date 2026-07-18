@@ -1,0 +1,157 @@
+use super::timing::ResourceFunctionStageTimer;
+
+#[derive(Clone, Copy)]
+pub(super) enum OwnerVariantProfilePhase {
+    StateClone,
+    BranchFork,
+    MatchEntry,
+    SequentialReplay,
+    PathReplay,
+    Terminal,
+}
+
+pub(super) struct OwnerVariantProfileTimer {
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    start: Option<std::time::Instant>,
+}
+
+#[cfg_attr(any(target_os = "none", target_arch = "wasm32"), allow(dead_code))]
+#[derive(Default)]
+pub(super) struct OwnerVariantReturnProfile {
+    enabled: bool,
+    nested_calls: usize,
+    path_calls: usize,
+    branch_forks: usize,
+    match_arms: usize,
+    recursive_paths: usize,
+    constructed_paths: usize,
+    sequential_replay_ops: usize,
+    path_replay_ops: usize,
+    max_depth: usize,
+    state_clone_ns: u128,
+    branch_fork_ns: u128,
+    match_entry_ns: u128,
+    sequential_replay_ns: u128,
+    path_replay_ns: u128,
+    terminal_ns: u128,
+}
+
+impl OwnerVariantReturnProfile {
+    pub(super) fn new(function_name: &str) -> Self {
+        Self {
+            enabled: ResourceFunctionStageTimer::measurements_enabled(function_name),
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn start(&self) -> OwnerVariantProfileTimer {
+        #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+        {
+            OwnerVariantProfileTimer {
+                start: self.enabled.then(std::time::Instant::now),
+            }
+        }
+        #[cfg(any(target_os = "none", target_arch = "wasm32"))]
+        OwnerVariantProfileTimer {}
+    }
+
+    pub(super) fn into_enabled(self) -> Option<Self> {
+        self.enabled.then_some(self)
+    }
+
+    pub(super) fn finish(
+        &mut self,
+        timer: OwnerVariantProfileTimer,
+        phase: OwnerVariantProfilePhase,
+    ) {
+        #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+        if let Some(start) = timer.start {
+            let elapsed_ns = start.elapsed().as_nanos();
+            match phase {
+                OwnerVariantProfilePhase::StateClone => self.state_clone_ns += elapsed_ns,
+                OwnerVariantProfilePhase::BranchFork => self.branch_fork_ns += elapsed_ns,
+                OwnerVariantProfilePhase::MatchEntry => self.match_entry_ns += elapsed_ns,
+                OwnerVariantProfilePhase::SequentialReplay => {
+                    self.sequential_replay_ns += elapsed_ns
+                }
+                OwnerVariantProfilePhase::PathReplay => self.path_replay_ns += elapsed_ns,
+                OwnerVariantProfilePhase::Terminal => self.terminal_ns += elapsed_ns,
+            }
+        }
+        #[cfg(any(target_os = "none", target_arch = "wasm32"))]
+        {
+            let _ = timer;
+            let _ = phase;
+        }
+    }
+
+    pub(super) fn observe_nested(&mut self, depth: usize) {
+        if self.enabled {
+            self.nested_calls += 1;
+            self.max_depth = self.max_depth.max(depth);
+        }
+    }
+
+    pub(super) fn observe_path(&mut self, depth: usize) {
+        if self.enabled {
+            self.path_calls += 1;
+            self.max_depth = self.max_depth.max(depth);
+        }
+    }
+
+    pub(super) fn observe_branch_fork(&mut self) {
+        self.branch_forks += usize::from(self.enabled);
+    }
+
+    pub(super) fn observe_match_arm(&mut self) {
+        self.match_arms += usize::from(self.enabled);
+    }
+
+    pub(super) fn observe_recursive_path(&mut self) {
+        self.recursive_paths += usize::from(self.enabled);
+    }
+
+    pub(super) fn observe_constructed_path(&mut self) {
+        self.constructed_paths += usize::from(self.enabled);
+    }
+
+    pub(super) fn observe_sequential_replay(&mut self, op_count: usize) {
+        if self.enabled {
+            self.sequential_replay_ops += op_count;
+        }
+    }
+
+    pub(super) fn observe_path_replay(&mut self, op_count: usize) {
+        if self.enabled {
+            self.path_replay_ops += op_count;
+        }
+    }
+
+    pub(super) fn log(self, function_name: &str) {
+        if !self.enabled {
+            return;
+        }
+        #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+        std::eprintln!(
+            "[resource-owner-variant-profile] function={} nested_calls={} path_calls={} branch_forks={} match_arms={} recursive_paths={} constructed_paths={} max_depth={} sequential_replay_ops={} path_replay_ops={} state_clone_us={} branch_fork_us={} match_entry_us={} sequential_replay_us={} path_replay_us={} terminal_us={}",
+            function_name,
+            self.nested_calls,
+            self.path_calls,
+            self.branch_forks,
+            self.match_arms,
+            self.recursive_paths,
+            self.constructed_paths,
+            self.max_depth,
+            self.sequential_replay_ops,
+            self.path_replay_ops,
+            self.state_clone_ns / 1_000,
+            self.branch_fork_ns / 1_000,
+            self.match_entry_ns / 1_000,
+            self.sequential_replay_ns / 1_000,
+            self.path_replay_ns / 1_000,
+            self.terminal_ns / 1_000,
+        );
+        #[cfg(any(target_os = "none", target_arch = "wasm32"))]
+        let _ = function_name;
+    }
+}

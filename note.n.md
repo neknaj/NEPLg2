@@ -168832,3 +168832,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - variant return traversal内だけでcomplete-root owner leaf projectionを`TypeId`別に共有する試作を行った。compile-localかつ同一`TypeCtx`内に限定し、recursive walker内部の`seen`依存結果を保存しないため、subagent reviewではcorrectness blockerなしだった。`cargo check -p nepl-core`、owner summary 33件、release CLI buildは通過した。
 - 同じF5nzt 1023対照でbegin-frame record budgetのvariant returnは基準約36.0秒から約39.9秒へ悪化し、全compileも380秒でtimeoutした。leaf展開は支配要因でないため試作差分を全て撤去し、実装には残していない。
 - subagent全体整合reviewは、nested/path入口でのstate bundle clone、Branch condition用とpath入口の二重clone、reachable Match arm列挙、singleton sequential replayとleaf whole-path replayの乗算を最有力とした。次は無効時allocationなしのroot accumulatorでclone、path/arm/depth、replay、terminal postprocessをexclusive bucket計測する。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu nested variant traversal profile checkpoint
+
+- native限定opt-in root accumulatorをvariant collectorへ追加し、nested/path回数と深さ、reachable branch/match、state clone、sequential/leaf replay、terminal aggregationを再帰ごとのI/Oなしで集約する。filter不一致、none、wasm32ではInstantを生成せず、profile出力はstage/body/function timer停止後に行う。小区間はnanosecondで累積して最後にmicrosecondへ変換し、reachable armだけを`match_arms`へ数える。StateCloneとTerminalは各entry/finalize内訳を束ねたbucketである。
+- F5nzt 1023対照の最大begin-frame record budgetはnested 19、path 38、reachable match arm 38、recursive 18、constructed 20、depth 19だった。127 singleton sequential replay opsが約29.4秒、terminal aggregationが約6.1秒でvariant return約35.7秒のほぼ全量を占め、state clone、match entry、312 leaf replay opsは支配要因でなかった。全compileはowner summary完了後に390秒上限へ達した。
+- subagent reviewはgeneric `check_ops`がBranch/Match subtreeを再帰処理する一方、specialized variant traversalも同じreturn control subtreeを下降する重複を最有力とした。単純skipはpost-control state/effectsを失うため禁止し、specialized traversalからmerge可能なfinal stateを返すsingle traversal化とgeneric replayをoracleにしたdifferential回帰を次の実装とする。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。

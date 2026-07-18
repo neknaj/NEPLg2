@@ -12,6 +12,7 @@ use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterS
 use super::owner_summary_seed_leaf::owner_seed_leaf_places;
 use super::owner_summary_variant_paths::collect_variant_consumed_owner_parameters_from_nested_return;
 use super::owner_summary_variant_payload_conditions::OwnerVariantPayloadConditionAccumulator;
+use super::owner_summary_variant_profile::OwnerVariantReturnProfile;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
@@ -38,7 +39,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     host_size_out: &mut Vec<OwnerHostSizeReturn>,
     type_size_out: &mut Vec<OwnerTypeSizeReturn>,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
-) {
+) -> OwnerVariantReturnProfile {
     let engine = ResourceOwnerCheckEngine {
         function: function.name.as_str(),
         types,
@@ -65,6 +66,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
         }
     }
 
+    let mut profile = OwnerVariantReturnProfile::new(function.name.as_str());
     collect_variant_consumed_owner_parameters_from_nested_return(
         index_out,
         source_out,
@@ -86,5 +88,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
         host_size_out,
         type_size_out,
         return_out,
+        &mut profile,
+        0,
     );
+    profile
 }

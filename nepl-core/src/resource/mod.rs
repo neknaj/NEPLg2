@@ -472,6 +472,7 @@ mod owner_summary_variant_match;
 mod owner_summary_variant_path_conditions;
 mod owner_summary_variant_paths;
 mod owner_summary_variant_payload_conditions;
+mod owner_summary_variant_profile;
 mod owner_summary_variant_projection;
 mod owner_summary_variant_return;
 mod owner_summary_variant_return_sources;

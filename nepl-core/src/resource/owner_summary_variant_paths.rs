@@ -18,6 +18,7 @@ use super::owner_summary_variant_conditions::{
 use super::owner_summary_variant_construct::construct_variant_for_value;
 use super::owner_summary_variant_path_conditions::record_owner_variant_path_condition;
 use super::owner_summary_variant_payload_conditions::OwnerVariantPayloadConditionAccumulator;
+use super::owner_summary_variant_profile::{OwnerVariantProfilePhase, OwnerVariantReturnProfile};
 use super::owner_summary_variant_return::record_variant_projection_returns;
 use super::owner_summary_variant_return_sources::returned_owner_returns_for_value;
 use super::owner_variant::PendingVariantOwnerEffects;
@@ -52,8 +53,12 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     host_size_out: &mut Vec<OwnerHostSizeReturn>,
     type_size_out: &mut Vec<OwnerTypeSizeReturn>,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
+    profile: &mut OwnerVariantReturnProfile,
+    depth: usize,
 ) {
+    profile.observe_nested(depth);
     let payload_observations_before = payload_condition_out.observation_count();
+    let state_clone_timer = profile.start();
     let mut engine = ResourceOwnerCheckEngine {
         function: engine.function,
         types: engine.types,
@@ -72,6 +77,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     let mut function_aliases = function_aliases.clone();
     let mut pending_reallocs = pending_reallocs.clone();
     let mut variant_owner_effects = variant_owner_effects.clone();
+    profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
     for (index, op) in ops.iter().enumerate() {
         match op {
             ResourceOp::Branch {
@@ -84,6 +90,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 span,
                 ..
             } if output == return_value => {
+                profile.observe_branch_fork();
+                let branch_fork_timer = profile.start();
                 let mut then_owners = owners.clone();
                 let mut then_raw_aliases = raw_aliases.clone();
                 let mut then_storage_origins = storage_origins.clone();
@@ -98,6 +106,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     true,
                     *span,
                 );
+                profile.finish(branch_fork_timer, OwnerVariantProfilePhase::BranchFork);
                 collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
@@ -121,7 +130,11 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     host_size_out,
                     type_size_out,
                     return_out,
+                    profile,
+                    depth + 1,
                 );
+                profile.observe_branch_fork();
+                let branch_fork_timer = profile.start();
                 let mut else_owners = owners.clone();
                 let mut else_raw_aliases = raw_aliases.clone();
                 let mut else_storage_origins = storage_origins.clone();
@@ -136,6 +149,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     false,
                     *span,
                 );
+                profile.finish(branch_fork_timer, OwnerVariantProfilePhase::BranchFork);
                 collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
@@ -159,6 +173,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     host_size_out,
                     type_size_out,
                     return_out,
+                    profile,
+                    depth + 1,
                 );
             }
             ResourceOp::Match {
@@ -172,6 +188,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
                         continue;
                     }
+                    profile.observe_match_arm();
                     collect_variant_consumed_owner_parameters_from_path(
                         index_out,
                         source_out,
@@ -195,11 +212,15 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         host_size_out,
                         type_size_out,
                         return_out,
+                        profile,
+                        depth + 1,
                     );
                 }
             }
             _ => {}
         }
+        profile.observe_sequential_replay(1);
+        let replay_timer = profile.start();
         engine.check_ops(
             &mut owners,
             &mut function_aliases,
@@ -210,7 +231,9 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
             &mut variant_owner_effects,
             &ops[index..=index],
         );
+        profile.finish(replay_timer, OwnerVariantProfilePhase::SequentialReplay);
     }
+    let terminal_timer = profile.start();
     variant_owner_effects.collect_result_owner_effect_summaries(
         &engine,
         &owners,
@@ -224,6 +247,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         extent_out,
         return_out,
     );
+    profile.finish(terminal_timer, OwnerVariantProfilePhase::Terminal);
     if payload_condition_out.observation_count() == payload_observations_before {
         payload_condition_out.observe_unknown_path();
     }
@@ -252,7 +276,11 @@ fn collect_variant_consumed_owner_parameters_from_path(
     host_size_out: &mut Vec<OwnerHostSizeReturn>,
     type_size_out: &mut Vec<OwnerTypeSizeReturn>,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
+    profile: &mut OwnerVariantReturnProfile,
+    depth: usize,
 ) {
+    profile.observe_path(depth);
+    let state_clone_timer = profile.start();
     let mut path_engine = ResourceOwnerCheckEngine {
         function: engine.function,
         types: engine.types,
@@ -271,6 +299,8 @@ fn collect_variant_consumed_owner_parameters_from_path(
     let mut path_function_aliases = function_aliases.clone();
     let mut path_pending_reallocs = pending_reallocs.clone();
     let mut path_variant_owner_effects = variant_owner_effects.clone();
+    profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
+    let match_entry_timer = profile.start();
     super::owner_summary_variant_match::apply_match_arm_entry(
         &mut path_engine,
         &mut path_owners,
@@ -282,7 +312,9 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &mut path_variant_owner_effects,
         match_arm,
     );
+    profile.finish(match_entry_timer, OwnerVariantProfilePhase::MatchEntry);
     let Some(constructed_variant) = construct_variant_for_value(path_ops, path_value) else {
+        profile.observe_recursive_path();
         collect_variant_consumed_owner_parameters_from_nested_return(
             index_out,
             source_out,
@@ -304,9 +336,14 @@ fn collect_variant_consumed_owner_parameters_from_path(
             host_size_out,
             type_size_out,
             return_out,
+            profile,
+            depth,
         );
         return;
     };
+    profile.observe_constructed_path();
+    profile.observe_path_replay(path_ops.len());
+    let path_replay_timer = profile.start();
     path_engine.check_ops(
         &mut path_owners,
         &mut path_function_aliases,
@@ -317,6 +354,8 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &mut path_variant_owner_effects,
         path_ops,
     );
+    profile.finish(path_replay_timer, OwnerVariantProfilePhase::PathReplay);
+    let terminal_timer = profile.start();
     record_owner_variant_path_condition(
         condition_out,
         variant_owner_effects,
@@ -417,6 +456,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
             },
         );
     }
+    profile.finish(terminal_timer, OwnerVariantProfilePhase::Terminal);
 }
 
 fn push_unique_variant_parameter_index(
