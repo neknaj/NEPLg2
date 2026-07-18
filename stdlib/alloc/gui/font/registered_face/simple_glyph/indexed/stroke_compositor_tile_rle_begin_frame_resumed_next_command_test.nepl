@@ -12,7 +12,7 @@
 #import "std/gui/compositor_tile_present_dispatch_loop" as *
 #import "std/gui/compositor_tile_present_schedule" as *
 
-fn reset_slice_counts %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState bool \state:
+fn resumed_next_command_reset_slice_counts %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState bool \state:
     let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
     let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
     and eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 0 eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 0
@@ -40,8 +40,10 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
                         Result::Err _: sub 0 1
                         Result::Ok _: 0
                 Result::Ok owner:
-                    let evidence1 %i32 if reset_slice_counts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_state &owner then 1 else 0
-                    let evidence2 %i32 add evidence1 match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_result &owner:
+                    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_state &owner
+                    let result %GuiRgba8888CompositorTileRlePresentCommandCursorStepResult gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_result &owner
+                    let evidence1 %i32 if resumed_next_command_reset_slice_counts &state then 1 else 0
+                    let evidence2 %i32 add evidence1 match result:
                         GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed: 0
                         GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
                             match command:

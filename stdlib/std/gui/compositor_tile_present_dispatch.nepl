@@ -202,6 +202,10 @@ pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_state_resume_slice %fn 
 pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule %fn &GuiRgba8888CompositorTileRlePresentDispatchState GuiRgba8888CompositorTileRlePresentScheduleState \state:
     *field::get_ref state "schedule"
 
+//: successful F5mw stepをrequest生成なしでF5my stateへ再包装する
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_state_adopt_schedule_step %fn &GuiRgba8888CompositorTileRlePresentScheduleStep GuiRgba8888CompositorTileRlePresentDispatchState \step:
+    gui_rgba8888_compositor_tile_rle_present_dispatch_state_new gui_rgba8888_compositor_tile_rle_present_schedule_step_state step
+
 //: gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_request: ready request の request を[返/かえ]す
 //:
 //: neplg2:test[skip]

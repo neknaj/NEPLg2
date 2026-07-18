@@ -13932,3 +13932,9 @@ git diff --check
 - F5nzn successをformal partsへ一度だけ移し、既存F5mu step projectionをborrowでexactly once呼ぶ。
 - reset済F5nc state、Run step、Copy RunRecord resultをmove-only ownerに同居させる。
 - actual fixtureはRunRecord payload、state counters 0/0、stepのRun、cleanupを検証する。後続はempty drainやBeginFrame専用bridgeを使わず既存InFrame authorityへ接続する。
+
+### F5nzp registered resumed Run schedule-only transition
+
+- F5nc schedule-only adapterがloop stateから既存F5mw stateを読み、RunRecordをF5mwへexactly once渡す。
+- F5my trusted adopterでsuccessful schedule stepをloop stateへ再包装し、cursor stepとupdated/rollback authorityを同居させる。
+- actual fixtureはContinue、slice counters 1/16、drain seen 1/16、cleanupを検証する。host request、EndFrame step、platform executionは後続へ残す。

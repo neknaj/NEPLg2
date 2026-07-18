@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-18T12:06:33.538Z",
+  "generated_at": "2026-07-18T12:23:22.710Z",
   "counts": {
-    "total": 1427,
+    "total": 1428,
     "open": 60,
-    "resolved": 1367,
+    "resolved": 1368,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 13,
+        "total": 14,
         "open": 0,
-        "resolved": 13
+        "resolved": 14
       },
       "nodesrc": {
         "total": 16,
@@ -11943,6 +11943,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260718T140000000Z-F5NZO-REGISTERED-RESUMED-RUN-RECORD.md"
+    },
+    {
+      "id": "ISS-20260718T150000000Z-F5NZP-REGISTERED-RESUMED-RUN-SCHEDULE",
+      "title": "F5nzp registered resumed Run schedule authority",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-18",
+      "updated": "2026-07-18",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_run_schedule.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260718T150000000Z-F5NZP-REGISTERED-RESUMED-RUN-SCHEDULE.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

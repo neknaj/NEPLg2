@@ -60,6 +60,14 @@ pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest:
 pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopStep:
     pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest
 
+pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep:
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    phase %GuiRgba8888CompositorTileRlePresentSchedulePhase
+
+pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyError:
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    lower %GuiRgba8888CompositorTileRlePresentScheduleStepError
+
 //: GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion: host outcome [反映/はんえい][後/ご]の loop completion
 //:
 //: post phase を Continue / Yield / Completed として[明示/めいじ]し、bool や raw code に[落/お]としません。
@@ -181,6 +189,33 @@ pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_resume_slice
 //: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentDispatchState \state:
     *field::get_ref state "dispatch"
+
+//: loop state内の既存F5mw/F5mv authorityへrecordを一度だけ反映する
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_step_record %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy fn GuiRgba8888CompositorTileRlePresentDispatchLoopState fn GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyError \policy\state\record:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch &state
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+    match gui_rgba8888_compositor_tile_rle_present_schedule_step_record policy schedule record:
+        Result::Err lower: Result::Err GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyError state lower
+        Result::Ok step:
+            let next_dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_state_adopt_schedule_step &step
+            let next %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_new next_dispatch
+            let phase %GuiRgba8888CompositorTileRlePresentSchedulePhase gui_rgba8888_compositor_tile_rle_present_schedule_step_phase &step
+            Result::Ok GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep next phase
+
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_state %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep GuiRgba8888CompositorTileRlePresentDispatchLoopState \step:
+    *field::get_ref step "state"
+
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_phase %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep GuiRgba8888CompositorTileRlePresentSchedulePhase \step:
+    *field::get_ref step "phase"
+
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_error_state %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyError GuiRgba8888CompositorTileRlePresentDispatchLoopState \error:
+    *field::get_ref error "state"
+
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_error_kind %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyError GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind \error:
+    gui_rgba8888_compositor_tile_rle_present_schedule_step_error_kind field::get_ref error "lower"
+
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_error_category_value %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyError Option GuiError \error:
+    gui_rgba8888_compositor_tile_rle_present_schedule_step_error_category_value field::get_ref error "lower"
 
 //: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_pending: step から pending request を[取/と]り[出/だ]す
 //:

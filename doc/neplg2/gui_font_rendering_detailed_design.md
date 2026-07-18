@@ -11203,3 +11203,7 @@ F5nzn consumes the F5nzm resumed owner through one move-only parts handoff. It f
 ### F5nzo registered resumed Run record
 
 F5nzo consumes the F5nzn success owner through one formal parts handoff and borrows its Run step once for the existing total F5mu projection. The move-only owner co-locates reset F5nc state, the step, and Copy RunRecord result. It does not create an empty drain, reuse the BeginFrame drain bridge, reschedule, redispatch, advance another command, or invoke host/platform work.
+
+### F5nzp registered resumed Run schedule-only transition
+
+F5nzp consumes F5nzo through formal parts and passes its RunRecord to an F5nc schedule-only adapter exactly once. The adapter extracts the existing F5mw state, invokes F5mw/F5mv, and rewraps the successful schedule step through a narrow F5my trusted adopter without creating a host request. Success and failure both retain the cursor step beside updated or rollback loop authority. It stops before EndFrame stepping and host/platform work.

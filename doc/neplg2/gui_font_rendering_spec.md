@@ -8765,3 +8765,7 @@ F5nznはF5nzm resumed ownerを単一parts authorityへ移し、dispatch、host r
 ### F5nzo registered resumed Run record owner
 
 F5nzoはF5nzn success ownerをformal partsへ一度だけ移し、既存F5mu projectionをRun stepのborrowで一度だけ読む。reset済F5nc state、move-only Run step、Copy record resultを同居させ、Run virtual drain、再schedule/dispatch、次command、host/platform executionへ進まない。後続はempty drainを作らずstate内の既存InFrame authorityを使う。
+
+### F5nzp registered resumed Run schedule-only owner
+
+F5nzpはF5nc schedule-only adapterを通じ、reset済loop state内の既存F5mw/F5mv authorityへRunRecordを一度だけ反映する。F5myのtrusted schedule-step adopterで更新stateを再包装し、successはcursor stepとupdated loop step、failureはcursor stepとrollback/lower diagnosticsを同居させる。host request、次command、platform executionへ進まない。

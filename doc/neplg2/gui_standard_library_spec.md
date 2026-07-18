@@ -2436,3 +2436,7 @@ registered F5nzn boundaryはF5nzm resumed ownerをformal parts handoffで消費�
 ### Registered stroke compositor F5nzo resumed Run record boundary
 
 registered F5nzo boundaryはF5nzn successをformal partsで消費し、既存F5muへRun stepを一度だけborrow projectionする。reset済F5nc state、step、Copy RunRecord resultを同居させる。empty drain、BeginFrame専用drain bridge、再schedule/dispatch、次command、host/platform executionは責務外である。
+
+### Registered stroke compositor F5nzp resumed Run schedule boundary
+
+F5nc schedule-only adapterは既存loop state内のF5mw/F5mv authorityへrecordを一度だけ反映し、F5my trusted adopterでupdated scheduleをloop stateへ再包装する。registered ownerはcursor stepとupdated state、errorはcursor stepとrollback/lower diagnosticsを同居させる。host request、次command、platform executionは責務外である。

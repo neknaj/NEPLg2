@@ -168696,3 +168696,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nzn successをformal partsで消費し、既存F5mu projectionを一度だけ呼んでreset済F5nc state、Run step、Copy RunRecordを同居させた。
 - actual fixtureはslice counters 0/0、Run offset/count 0/16、RGBA 11/22/33/44、step Run、cleanupを検証する。
 - 全体目標は未完了。次はempty drainやBeginFrame専用bridgeを使わず、state内の既存InFrame authorityへRunRecordを接続する。
+2026-07-18 GUI font F5nzp resumed Run schedule
+
+- F5nc schedule-only adapterとF5my schedule-step adopterを追加し、F5nzo RunRecordをreset済state内の既存InFrame F5mw/F5mv authorityへ一度だけ反映した。
+- success/errorともcursor stepとupdated/rollback authorityを同居させる。actual fixtureはContinue、slice 1/16、drain seen 1/16、cleanupを検証する。
+- 全体目標は未完了。次はupdated stateとcursor continuationからEndFrameを一度だけ進め、host request/platformはさらに後続で接続する。
