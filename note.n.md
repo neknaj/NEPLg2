@@ -168800,3 +168800,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - normal preload path計算とshallow public re-export traversalが同じsourceを別々にlex/edge解析し、331 fileに対して`compute_source_arity_surface`を680回実行していた。shallow cache entryへ完全な`CachedAritySurface`を保持し、最初に観測したcanonical source snapshotからnormal preload、local type arity、public re-export pathを共有する。
 - provider/session cacheは最初のsurface取得だけ従来の`source_arity_surface`を通し、同一load内の後続参照は最初のsnapshotを維持する。cycle rootのcomplete昇格、root/non-root default prelude、public/private edge、complete hint cacheは変更しない。snapshot専用回帰、cycle root、diamond provider回帰は通過した。
 - F5nzt 1023計測ではsurface計算が680回・約28.9秒から349回・約15.9秒、imported arity aggregateが約60.4秒から44.4秒へ減少した。全compileは100秒timeoutのままであり、このcheckpointもF5nzu actual 2047、normal 60秒gate、issue close、main統合、フォントレンダリング/GUI全体完成を意味しない。次はloader後段とowner summaryの残時間を再計測する。`plan.md`は変更していない。
+
+2026-07-19 F5nzu nested test fixture loader investigation
+
+- F5nzt 1023 compileはloader約69.6秒、resource typecheck約27.1秒、全体約97.1秒まで到達し、従来timeoutに隠れていたnested `with tests` fixture ownerのundefined identifierを確認した。同じundefinedは`f4562bb76`直前の`4d7831c25`でも再現し、shallow arity source surface共有化の回帰ではない。
+- materialized parent探索中のdescendantが`imported_once`へ残る仮説にはcold/warm最小回帰を作成した。全set snapshot rollbackはloaderを約92.3秒へ退行させ、staged artifact probeをjournal代用する案はprobe生成不能edgeを取りこぼすため、subagent reviewで却下して全差分を撤去した。正しい再開点は`process_directives_with`の実際のcanonical path insertをoptional journalへ直接記録し、materialized parent bodyを捨てる場合だけ新規descendantをrollbackすることである。
+- actual fixture edgesを計測すると、問題のvirtual drain/end-frame test importsはいずれも`seen=false`かつ`processing=false`で最初からsource loadされており、上記materialized-parent仮説だけではactual undefinedを説明しない。通常loaderで既読test edgeをisolated reloadする案もcycle/重複定義を壊すため撤去した。次はmerged ASTの`Test`/`DependencyTest` localize結果とalias import projectionを対象fixtureのFileIdごとに計測する。F5nzu actual 2047、issue、todo、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
