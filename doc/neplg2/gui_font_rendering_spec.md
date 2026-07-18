@@ -8745,3 +8745,7 @@ F5nziはF5nzhが保持するsuccessful F5my stepをinitial BeginFrame専用のF5
 ### F5nzj registered BeginFrame F5ne host execution driver owner
 
 F5nzjはF5nzi ownerが持つF5nzh command continuationとF5nc pendingを同一transitionで各1回moveし、pendingを既存F5ne prepareへ一度渡す。F5neがF5mz actionを導出し、new ownerはcontinuationとdriver pendingを同居させる。driver pending単独で分離せず、completion、actual host execution、platform presentationへ進まない。
+
+### F5nzk registered BeginFrame F5nh executor session request owner
+
+F5nzkはF5nzj ownerのcommand continuationとF5ne driver pendingを同一transitionで各1回moveし、driver pendingを既存F5nh session start/requestへ各一度渡す。`Action`ではcontinuationとexecutor-session pendingを同居させ、expected actionはF5nh borrowed accessorだけで観測する。start直後に型上現れる`Completed`はsynthetic driverやoutcomeを作らず、continuationを保持するowner-bearing `UnexpectedCompleted`へ写す。session pending単独で分離せず、outcome生成、F5nh complete、F5ng/F5nf、actual host execution、platform presentationへ進まない。

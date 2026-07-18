@@ -13899,3 +13899,10 @@ git diff --check
 - success ownerはF5nzh continuationとF5ne driver pendingを同居させ、driver pending単独のconsuming accessorを公開しない。borrowed action observationとterminal abort recovery/freeのみを提供する。
 - actual fixtureはOffscreen BeginFrame、metadata 263/16/3/1、surface 7、frame 263、run/pixel 1/16、continuation cleanupを検証する。
 - source policy、dedicated normal isolation、F5ne回帰、release trunk、CLI JSON、subagent reviewを通し、completion、actual host execution、platform presentation前で停止する。
+
+### F5nzk registered BeginFrame F5nh executor session request
+
+- F5nzj ownerのF5nzh command continuationとF5ne driver pendingを同一transitionで各1回moveし、driverを既存F5nh `executor_session_start` / `executor_session_request`へexactly onceずつ渡す。
+- reachable `Action`はcontinuationとF5nh session pendingを同居させるmove-only ownerへ包み、pending単独のconsuming accessorを公開しない。start直後の`Completed`はcontinuationを保持するowner-bearing `UnexpectedCompleted`へ写す。
+- actual fixtureはF5nzj test ownerからOffscreen BeginFrame、metadata 263/16/3/1、surface 7、frame 263、run/pixel 1/16、continuation cleanupをevidence 255で検証する。
+- source policy、dedicated normal isolation、F5nh回帰、release trunk、CLI JSON、subagent reviewを通し、outcome生成、completion、actual host execution、platform presentation前で停止する。

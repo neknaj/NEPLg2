@@ -26,6 +26,14 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begi
     let evidence3 %i32 add evidence2 (if eq (gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count descriptor) 1 then 16 else 0)
     add evidence3 (if eq (gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count descriptor) 16 then 32 else 0)
 
+//: actual F5nzj ownerを後続registered fixtureへ渡す
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_loop_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok loop_owner:
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_loop_owner_into_host_execution_driver loop_owner
+
 //: actual F5nzi ownerをF5ne driver pendingへ一度だけ接続する
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_test_success_contract %impure fn unit i32 \_unit:

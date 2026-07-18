@@ -2416,3 +2416,7 @@ F5nzdはF5nyyの十九層Resultをlosslessに保ち、BeginFrame command stepを
 ### Registered stroke compositor F5nzj BeginFrame host execution driver boundary
 
 registered F5nzj ownerはF5nziのcommand continuationとpendingを同時にmoveし、pendingを既存F5ne prepareでmetadata-preserving action付きdriver pendingへ変換する。continuationとdriver pendingは同居し、borrowed action observationとterminal abortだけを公開する。completion、actual executor、platform presenterは責務外である。
+
+### Registered stroke compositor F5nzk BeginFrame host action executor session boundary
+
+registered F5nzk boundaryはF5nzjのcommand continuationとF5ne driver pendingを同時にmoveし、driverを既存F5nh start/requestへ各一度接続する。`Action` ownerはcontinuationとF5nh session pendingを同居させ、pending単独のconsuming accessorを公開しない。start直後の`Completed`はcontinuationを保持するtyped unexpected resultへ写し、synthetic driver/outcomeを作らない。F5nh complete、F5ng/F5nf、actual executor、platform presenterは責務外である。
