@@ -11215,3 +11215,7 @@ F5nzq inspects the F5nzp schedule phase before cursor recovery. Continue alone r
 ### F5nzr registered resumed EndFrame record projection
 
 F5nzr consumes F5nzq through one formal parts handoff and borrows the retained EndFrame step once for the existing total F5mu projection. It retains updated loop state, step, and Copy record result and stops before scheduling and host/platform work.
+
+### F5nzs registered resumed EndFrame schedule-only transition
+
+F5nzs consumes the F5nzr owner through one formal parts handoff, accepts only its typed EndFrame record, and invokes the existing F5nc dispatch-loop schedule-only entry exactly once. Success retains the cursor beside updated state in Completed schedule phase; failure retains an outer kind, separate optional lower kind, cursor, rollback state, and category. Borrowed diagnostics expose a predicate instead of returning the non-Copy outer enum; typed kind transfer is limited to consuming parts. The actual fixture forces a command-budget failure and checks rollback counters, InFrame drain phase, ResourceExhausted category, and cursor cleanup. It does not advance the terminal cursor or perform host/platform work.

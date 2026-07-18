@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-18T13:16:47.654Z",
+  "generated_at": "2026-07-18T13:42:05.987Z",
   "counts": {
-    "total": 1430,
+    "total": 1431,
     "open": 60,
-    "resolved": 1370,
+    "resolved": 1371,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 16,
+        "total": 17,
         "open": 0,
-        "resolved": 16
+        "resolved": 17
       },
       "nodesrc": {
         "total": 16,
@@ -11988,6 +11988,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260718T170000000Z-F5NZR-REGISTERED-END-FRAME-RECORD.md"
+    },
+    {
+      "id": "ISS-20260718T180000000Z-F5NZS-REGISTERED-END-FRAME-SCHEDULE",
+      "title": "F5nzs registered resumed EndFrame schedule authority",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-18",
+      "updated": "2026-07-18",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260718T180000000Z-F5NZS-REGISTERED-END-FRAME-SCHEDULE.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

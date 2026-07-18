@@ -13950,3 +13950,9 @@ git diff --check
 - F5nzq successをformal partsへ一度だけ移し、既存F5mu projectionをEndFrame stepからexactly once読む。
 - updated state、EndFrame step、Copy EndFrame recordをmove-only ownerへ同居させる。
 - actual fixtureはstate 1/16、drain seen 1/16、canonical EndFrame descriptor、cleanupを検証する。schedule、request、platform、terminal stepは後続へ残す。
+
+### F5nzs registered resumed EndFrame schedule-only transition
+
+- F5nzr successをformal partsへ一度だけ移し、CompletedはRecordExpected、BeginFrame/RunはEndFrameExpectedとして拒否する。
+- EndFrame recordだけを既存F5nc dispatch-loop schedule-only入口へexactly once渡し、cursorとupdated/rollback authorityを同居させる。failure diagnosticsはouter kindとseparate lower-kind Optionへ分け、borrowed outer-kind APIはpredicateだけを返す。typed kindはconsuming partsに限定する。
+- actual fixtureはsuccessのslice 2/16、drain seen 1/16、Ended、Completedに加え、command budget failureのrollback 1/16、InFrame、lower kind/category、cursor cleanupを検証する。terminal command、request、platform executionは後続へ残す。

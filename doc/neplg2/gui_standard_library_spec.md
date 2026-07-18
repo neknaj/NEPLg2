@@ -2448,3 +2448,7 @@ F5nzqはF5nzpのContinue authorityだけから既存F5mt command cursorを一度
 ### Registered stroke compositor F5nzr resumed EndFrame record boundary
 
 F5nzrはF5nzq successをformal partsで消費し、既存F5muへEndFrame stepを一度だけborrow projectionする。updated state、step、Copy EndFrame recordを同居させ、schedule、request、terminal step、platform executionを行わない。
+
+### Registered stroke compositor F5nzs resumed EndFrame schedule boundary
+
+F5nzsはF5nzr EndFrame recordを既存F5nc dispatch-loop schedule-only入口へexactly once渡す。success ownerはcursor stepとslice 2/16、drain Ended、schedule Completedのupdated stateを同居させる。errorはouter kind、separate lower-kind Option、cursor、rollback state、categoryを保持する。borrow APIはouter enumを返さずpredicateだけを公開し、typed kindはconsuming partsに限定する。fixtureはcommand budget failureのrollback 1/16、InFrame、ResourceExhausted、cursor cleanupを検証する。terminal command、host request、platform executionは責務外である。

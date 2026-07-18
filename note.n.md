@@ -168712,3 +168712,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - F5nzq successをformal partsで一度だけ消費し、既存F5muへEndFrame stepを一度だけborrow projectionしてupdated state、step、Copy EndFrame recordを同居させた。
 - actual fixtureはtyped EndFrame recordとcleanupを検証する。EndFrame schedule、host request/platform、terminal Completedは未接続で全体目標は未完了である。
+
+2026-07-18 GUI font F5nzs resumed EndFrame schedule
+
+- F5nzr successをformal partsで一度だけ消費し、typed EndFrame recordだけを既存F5nc dispatch-loop schedule-only入口へexactly once渡すowner/error boundaryを追加した。
+- successはcursorとslice 2/16、drain seen 1/16、Ended、schedule Completedのupdated stateを同居させる。failureはcursor、rollback state、lower kind/categoryを保持する。
+- non-Copy outer enumをshared borrowから返さないよう、borrow APIをScheduleFailed predicateへ変更し、typed kindはconsuming partsだけに残した。separate lower-kind Optionはborrow検証できる。actual fixtureはproduction-derived F5nzq/F5nzr chainのsuccessに加え、command budget failureを強制し、rollback 1/16、InFrame、ScheduleFailed + lower CommandBudgetExceeded、ResourceExhausted、cursor cleanupを検証する。terminal command、host request/platform executionは未接続で全体目標は未完了である。
+- 最終修正後のactual doctest 22/22（evidence 638、failed 0）、専用normal compile、Web source-policy、issues 1431件、release trunk build、Playground editor CLI JSON 13/13、diff check、subagent差分・全体整合reviewを通過した。

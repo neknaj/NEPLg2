@@ -8777,3 +8777,7 @@ F5nzqはF5nzpのupdated InFrame stateとRun cursor stepを分解し、schedule p
 ### F5nzr registered resumed EndFrame record owner
 
 F5nzrはF5nzqをformal partsで一度だけ消費し、EndFrame stepを既存F5muへ一度だけborrow projectionする。updated state、step、Copy EndFrame recordを同居させ、schedule、host request、platform executionへ進まない。
+
+### F5nzs registered resumed EndFrame schedule-only owner
+
+F5nzsはF5nzrをformal partsで一度だけ消費し、EndFrame recordだけを既存F5nc dispatch-loop schedule-only入口へ一度だけ渡す。successはcursor stepとupdated loop state、Completed schedule phaseを同居させる。failureはouter kindとseparate lower-kind Option、step、rollback state、categoryを保持する。borrow APIはouter enumを返さずpredicateだけを公開し、typed kindはconsuming partsに限定する。actual fixtureはcommand budget failureでrollback counters、InFrame、ResourceExhausted、cursor cleanupを検証する。terminal command、host request、platform executionへ進まない。

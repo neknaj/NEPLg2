@@ -1,0 +1,98 @@
+//: # registered resumed EndFrame schedule test adapter
+//: actual F5nzr EndFrame recordを既存InFrame drainへ一度だけ反映します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_test" as fixture with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_record" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/gui/error" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/compositor_tile_present_virtual_drain" as *
+
+fn resumed_end_frame_schedule_state_evidence %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState i32 \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+    let drain %GuiRgba8888CompositorTileRlePresentVirtualDrain gui_rgba8888_compositor_tile_rle_present_schedule_state_drain &schedule
+    let a %i32 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 2 then 1 else 0
+    let b %i32 add a if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 16 then 2 else 0
+    let c %i32 add b if eq gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_run_count &drain 1 then 4 else 0
+    let d %i32 add c if eq gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_pixel_count &drain 16 then 8 else 0
+    add d match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase &drain:
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::Ended: 16
+        _: 0
+
+fn resumed_end_frame_schedule_rollback_evidence %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState i32 \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+    let drain %GuiRgba8888CompositorTileRlePresentVirtualDrain gui_rgba8888_compositor_tile_rle_present_schedule_state_drain &schedule
+    let a %i32 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 1 then 1 else 0
+    let b %i32 add a if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 16 then 2 else 0
+    let c %i32 add b if eq gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_run_count &drain 1 then 4 else 0
+    let d %i32 add c if eq gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_pixel_count &drain 16 then 8 else 0
+    add d match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase &drain:
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::InFrame: 16
+        _: 0
+
+fn resumed_end_frame_schedule_failure_evidence %impure fn unit i32 \_unit:
+    match gui_rgba8888_compositor_tile_rle_present_schedule_policy 1 32:
+        Result::Err _: sub 0 1
+        Result::Ok policy:
+            match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_test_owner _unit:
+                Result::Err evidence: evidence
+                Result::Ok end_owner:
+                    let record_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecordOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_owner_into_record end_owner
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_record_owner_into_schedule &policy record_owner:
+                        Result::Ok owner:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_free owner:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        Result::Err error:
+                            let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_error_state &error
+                            let evidence %i32 resumed_end_frame_schedule_rollback_evidence &state
+                            let kind %i32 add evidence if gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_error_is_schedule_failed &error then 32 else 0
+                            let lower_kind %i32 add kind match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_error_lower_kind_value &error:
+                                Option::Some lower:
+                                    match lower:
+                                        GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::CommandBudgetExceeded: 64
+                                        _: 0
+                                Option::None: 0
+                            let category %i32 add lower_kind match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_error_category_value &error:
+                                Option::Some value:
+                                    match value:
+                                        GuiError::ResourceExhausted: 128
+                                        _: 0
+                                Option::None: 0
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_error_free error:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: add category 256
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_test_contract %impure fn unit i32 \_unit:
+    match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:
+        Result::Err _: sub 0 1
+        Result::Ok policy:
+            match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_test_owner _unit:
+                Result::Err evidence: evidence
+                Result::Ok end_owner:
+                    let record_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecordOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_owner_into_record end_owner
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_record_owner_into_schedule &policy record_owner:
+                        Result::Err error:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_error_free error:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        Result::Ok owner:
+                            let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_state &owner
+                            let phase %GuiRgba8888CompositorTileRlePresentSchedulePhase gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_phase &owner
+                            let evidence %i32 resumed_end_frame_schedule_state_evidence &state
+                            let completed %i32 add evidence match phase:
+                                GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed: 32
+                                _: 0
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_free owner:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: add add completed 64 resumed_end_frame_schedule_failure_evidence _unit
