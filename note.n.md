@@ -168794,3 +168794,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - shallow arity preloadは同一compile内で既にcanonical keyとしてcacheされた依存pathにも毎回OSの`Path::canonicalize`を実行していた。F5nzt 1023では2502回のcanonicalizeが約14.7秒を占めたため、exact pathがshallow cache keyとして存在する場合だけ既知canonical pathを再利用し、未登録path、lexical alias、symlink aliasは従来どおり初回canonicalizeする。
 - 専用回帰は既知canonical keyの再利用と`..`を含むaliasのcanonical解決を固定する。loader全94件とrelease CLI buildは通過した。stage timingではcanonicalizeが約14.7秒から2.9秒、同一条件のimported arity aggregateが約75.6秒から62.1秒へ減少したが、全compileは120秒timeoutのままである。
 - merge index案とcomplete hint `Vec` clone案はそれぞれ実測退行または累積3ms未満で支配要因ではなかったため採用していない。このcheckpointもF5nzu actual 2047、normal 60秒gate、issue close、main統合、フォントレンダリング/GUI全体完成を意味しない。次はshallow public-surface traversalの残る約59秒と後段owner summaryを分離する。`plan.md`は変更していない。
+
+2026-07-19 F5nzu shallow arity source surface snapshot checkpoint
+
+- normal preload path計算とshallow public re-export traversalが同じsourceを別々にlex/edge解析し、331 fileに対して`compute_source_arity_surface`を680回実行していた。shallow cache entryへ完全な`CachedAritySurface`を保持し、最初に観測したcanonical source snapshotからnormal preload、local type arity、public re-export pathを共有する。
+- provider/session cacheは最初のsurface取得だけ従来の`source_arity_surface`を通し、同一load内の後続参照は最初のsnapshotを維持する。cycle rootのcomplete昇格、root/non-root default prelude、public/private edge、complete hint cacheは変更しない。snapshot専用回帰、cycle root、diamond provider回帰は通過した。
+- F5nzt 1023計測ではsurface計算が680回・約28.9秒から349回・約15.9秒、imported arity aggregateが約60.4秒から44.4秒へ減少した。全compileは100秒timeoutのままであり、このcheckpointもF5nzu actual 2047、normal 60秒gate、issue close、main統合、フォントレンダリング/GUI全体完成を意味しない。次はloader後段とowner summaryの残時間を再計測する。`plan.md`は変更していない。

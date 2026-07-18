@@ -496,8 +496,7 @@ type ShallowTypeArityHintCache = BTreeMap<PathBuf, ShallowTypeArityHintCacheEntr
 
 #[derive(Debug, Clone)]
 struct ShallowTypeArityHintCacheEntry {
-    local_hints: Vec<(String, usize)>,
-    dependency_paths: Vec<PathBuf>,
+    surface: CachedAritySurface,
     complete_hints: Option<Vec<(String, usize)>>,
 }
 
@@ -1580,7 +1579,14 @@ impl Loader {
         // load would cache context-dependent merged modules before the real
         // import pass and can multiply diamond stdlib graphs into very large
         // merged ASTs.
-        let paths = self.type_arity_preload_paths(base, file_id, src, is_root);
+        let surface = self.shallow_type_arity_surface(
+            base,
+            file_id,
+            src,
+            shallow_type_arity_cache,
+            None,
+        );
+        let paths = surface.preload_paths(is_root);
         let mut hints = Vec::new();
         for path in paths {
             let mut visited = BTreeSet::new();
@@ -1625,13 +1631,14 @@ impl Loader {
         // virtual file provider, but this query still avoids normal loading so
         // Web sessions do not cache merged modules from a speculative preload
         // context.
-        let paths = self.type_arity_preload_paths_with_cache(
+        let surface = self.shallow_type_arity_surface(
             base,
             file_id,
             src,
-            is_root,
+            shallow_type_arity_cache,
             session_cache.as_deref_mut(),
         );
+        let paths = surface.preload_paths(is_root);
         let mut hints = Vec::new();
         for path in paths {
             let mut visited = BTreeSet::new();
@@ -1781,9 +1788,9 @@ impl Loader {
         // both leak module boundaries and multiply stdlib implementation
         // graphs during speculative arity discovery.
         if let Some(src) = src {
+            let surface = self.compute_source_arity_surface(canon, file_id, src);
             let entry = ShallowTypeArityHintCacheEntry {
-                local_hints: parser::type_arity_hints_from_source(file_id, src),
-                dependency_paths: self.shallow_type_arity_dependency_paths(canon, file_id, src),
+                surface,
                 complete_hints: None,
             };
             shallow_type_arity_cache.insert(canon.clone(), entry);
@@ -1792,9 +1799,10 @@ impl Loader {
             .get(canon)
             .expect("a source or cached local shallow arity surface is available")
             .clone();
-        let mut hints = entry.local_hints;
+        let dependency_paths = entry.surface.public_reexport_paths();
+        let mut hints = entry.surface.local_type_arity_hints;
         let mut complete = true;
-        for dep in entry.dependency_paths {
+        for dep in dependency_paths {
             let Ok(dep_hints) = self.shallow_type_arity_hints_from_file(
                 &dep,
                 file_id,
@@ -1822,10 +1830,8 @@ impl Loader {
         if let Some(src) = src {
             let surface =
                 self.source_arity_surface(canon, file_id, src, session_cache.as_deref_mut());
-            let dependency_paths = surface.public_reexport_paths();
             let entry = ShallowTypeArityHintCacheEntry {
-                local_hints: surface.local_type_arity_hints,
-                dependency_paths,
+                surface,
                 complete_hints: None,
             };
             shallow_type_arity_cache.insert(canon.clone(), entry);
@@ -1834,9 +1840,10 @@ impl Loader {
             .get(canon)
             .expect("a source or cached local shallow arity surface is available")
             .clone();
-        let mut hints = entry.local_hints;
+        let dependency_paths = entry.surface.public_reexport_paths();
+        let mut hints = entry.surface.local_type_arity_hints;
         let mut complete = true;
-        for dep in entry.dependency_paths {
+        for dep in dependency_paths {
             let dep_hints = self.shallow_type_arity_hints_from_file_with(
                 &dep,
                 file_id,
@@ -1851,31 +1858,30 @@ impl Loader {
         Ok(ShallowTypeArityHints { hints, complete })
     }
 
-    fn shallow_type_arity_dependency_paths(
+    fn shallow_type_arity_surface(
         &self,
         base: &PathBuf,
         file_id: FileId,
         src: &str,
-    ) -> Vec<PathBuf> {
-        // Cycle recovery must stay shallow. Parser-facing type arities follow
-        // public facade edges and includes, but not private implementation
-        // imports. That keeps `%FacadeType ...` parseable through public
-        // re-exports without making every implementation helper's private
-        // dependencies visible to unrelated importers.
-        self.compute_source_arity_surface(base, file_id, src)
-            .public_reexport_paths()
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
+        session_cache: Option<&mut LoaderSessionCache>,
+    ) -> CachedAritySurface {
+        let canon = canonicalize_shallow_type_arity_path(base, shallow_type_arity_cache);
+        if let Some(entry) = shallow_type_arity_cache.get(&canon) {
+            return entry.surface.clone();
+        }
+        let surface = self.source_arity_surface(&canon, file_id, src, session_cache);
+        shallow_type_arity_cache.insert(
+            canon,
+            ShallowTypeArityHintCacheEntry {
+                surface: surface.clone(),
+                complete_hints: None,
+            },
+        );
+        surface
     }
 
-    fn type_arity_preload_paths(
-        &self,
-        base: &PathBuf,
-        file_id: FileId,
-        src: &str,
-        is_root: bool,
-    ) -> Vec<PathBuf> {
-        self.type_arity_preload_paths_with_cache(base, file_id, src, is_root, None)
-    }
-
+    #[cfg(test)]
     fn type_arity_preload_paths_with_cache(
         &self,
         base: &PathBuf,
@@ -2067,22 +2073,29 @@ impl Loader {
         src: &str,
         session_cache: Option<&mut LoaderSessionCache>,
     ) -> CachedAritySurface {
+        let stage_start = loader_stage_start();
         let canon = canonicalize_path(base);
         let Some(session_cache) = session_cache else {
-            return self.compute_source_arity_surface(&canon, file_id, src);
+            let surface = self.compute_source_arity_surface(&canon, file_id, src);
+            loader_stage_finish("source_arity_surface", &canon, stage_start);
+            return surface;
         };
 
         if !self.configured_stdlib_source_path(&canon) {
             session_cache.record_arity_surface_bypass();
-            return self.compute_source_arity_surface(&canon, file_id, src);
+            let surface = self.compute_source_arity_surface(&canon, file_id, src);
+            loader_stage_finish("source_arity_surface", &canon, stage_start);
+            return surface;
         }
 
         let key = session_cache.arity_surface_key_for(&self.stdlib_root, &canon, src);
         if let Some(surface) = session_cache.get_arity_surface(&key) {
+            loader_stage_finish("source_arity_surface", &canon, stage_start);
             return surface;
         }
         let surface = self.compute_source_arity_surface(&canon, file_id, src);
         session_cache.store_arity_surface(key, surface.clone());
+        loader_stage_finish("source_arity_surface", &canon, stage_start);
         surface
     }
 
@@ -2092,6 +2105,7 @@ impl Loader {
         file_id: FileId,
         src: &str,
     ) -> CachedAritySurface {
+        let stage_start = loader_stage_start();
         // This scan reads only file-level dependency directives and declaration
         // heads. Full directive validation, import-clause visibility, and body
         // diagnostics remain the responsibility of the normal parser and
@@ -2103,13 +2117,15 @@ impl Loader {
             .iter()
             .any(|diagnostic| diagnostic.severity == Severity::Error)
         {
-            return CachedAritySurface {
+            let surface = CachedAritySurface {
                 local_type_arity_hints: Vec::new(),
                 edges: Vec::new(),
                 default_prelude_path: self.resolve_path(base, "std/prelude_base"),
                 no_prelude: false,
                 implicit_default_prelude: false,
             };
+            loader_stage_finish("compute_source_arity_surface", base, stage_start);
+            return surface;
         }
 
         let mut edges = Vec::new();
@@ -2155,13 +2171,15 @@ impl Loader {
             }
         }
 
-        CachedAritySurface {
+        let surface = CachedAritySurface {
             local_type_arity_hints: parser::type_arity_hints_from_tokens(&lex.tokens),
             edges,
             default_prelude_path: self.resolve_path(base, "std/prelude_base"),
             no_prelude,
             implicit_default_prelude: true,
-        }
+        };
+        loader_stage_finish("compute_source_arity_surface", base, stage_start);
+        surface
     }
 
     fn process_directives(
@@ -3702,8 +3720,13 @@ mod tests {
         cache.insert(
             direct.clone(),
             ShallowTypeArityHintCacheEntry {
-                local_hints: Vec::new(),
-                dependency_paths: Vec::new(),
+                surface: CachedAritySurface {
+                    local_type_arity_hints: Vec::new(),
+                    edges: Vec::new(),
+                    default_prelude_path: direct.clone(),
+                    no_prelude: true,
+                    implicit_default_prelude: false,
+                },
                 complete_hints: None,
             },
         );
@@ -3716,6 +3739,38 @@ mod tests {
             canonicalize_shallow_type_arity_path(&via_parent, &cache),
             direct
         );
+    }
+
+    #[test]
+    fn shallow_arity_surface_keeps_first_source_snapshot() {
+        let loader = test_loader();
+        let path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let mut cache = ShallowTypeArityHintCache::default();
+
+        let first = loader.shallow_type_arity_surface(
+            &path,
+            FileId(0),
+            "#no_prelude\n#import \"a\" as *\n",
+            &mut cache,
+            None,
+        );
+        let second = loader.shallow_type_arity_surface(
+            &path,
+            FileId(0),
+            "#no_prelude\n#import \"b\" as *\n",
+            &mut cache,
+            None,
+        );
+
+        assert_eq!(first.preload_paths(true), second.preload_paths(true));
+        assert!(second
+            .preload_paths(true)
+            .iter()
+            .any(|dependency| dependency.ends_with("a.nepl")));
+        assert!(!second
+            .preload_paths(true)
+            .iter()
+            .any(|dependency| dependency.ends_with("b.nepl")));
     }
 
     #[test]
