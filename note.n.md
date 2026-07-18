@@ -168776,3 +168776,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - owner/function-value dependency graphはdirect callとindirect candidateの両categoryに同じcalleeが現れるとduplicate edgeを保持していた。全category追加後にfunction indexをsort/dedupし、self-edgeと別calleeを維持したままDFS/notifyの重複走査を除去した。
 - worklist上限到達時にpending functionが残っていても`pop`が`None`を返し、未収束summaryを正常fixed pointとして後段へ渡すcorrectness問題を確認した。pendingありの上限到達はfail-closed panicとし、silent under-approximationを禁止する専用回帰を追加した。将来のtyped convergence diagnostic化は別改善だが、正常summaryとしての継続は許可しない。
 - focused canonicalization/dependency/worklist/owner-summary回帰、`cargo check`、release CLI buildは通過した。actual evidence 2047は今回も60秒compile timeoutしたためfixture差分を撤去した。F5nzu issue、todo、フォントレンダリング/GUI全体は未完成で、main統合条件は未達である。`plan.md`は変更していない。
+
+2026-07-19 F5nzu variant return membership index investigation
+
+- variant projection return finalizerにowner leafの`(suffix, TypeId)` indexとroot parameter source indexを試作した。旧linear lookupとのexact membership、duplicate root sourceのfirst-wins、lazy構築、mutual exclusion/extent merge順の同値性はfocused owner-summary/owner-variant回帰とsubagent reviewで確認した。
+- actual F5nzt→F5nzu evidence 2047は引き続き通常60秒compile timeoutとなった。さらにF5nzu projectionを含まない既存F5nzt evidence 1023も、試作を戻した対照条件を含めて現在のbranch先端では60秒compile timeoutしたため、このindexを有効な改善checkpointとはせず全差分を撤回した。
+- release CLI build、focused Rust回帰、`cargo check`は通過した。`trunk build`はこのWSL環境のTrunk設定がWindows専用`npm.cmd`を起動して`No such file or directory`となるため実行不能だった。F5nzu issue/todoとactual 2047 gateは未完了のまま維持し、次はF5nzt 1023が60秒を超えた既存checkpoint列のstage timingを二分探索して、fixed-point producerの回帰点を特定する。フォントレンダリングエンジンとGUIライブラリ全体も未完成であり、`plan.md`は変更していない。
