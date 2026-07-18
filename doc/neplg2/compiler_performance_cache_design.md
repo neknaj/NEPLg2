@@ -4224,3 +4224,11 @@ mergeの入口でfirst-seen順の`Vec`とは別に`BTreeSet`を重複判定へ�
 Owner variant projection returnを記録する際、ownerを運べるprojectionかどうかはresult typeのowner leaf集合とのexact suffix/type照合で判定する。このowner leaf集合は同一record呼出し中の全projectionで不変なので、一度だけ展開して共有する。共有範囲はcompile-localな1回のrecord呼出しに限定し、TypeCtxを跨ぐglobal cacheやproof artifactには含めない。
 
 この再利用はprojectionの走査順、variant正規化、source condition、extent mergeを変更しない。owner leaf展開結果を長寿命cacheへ保持すると小さい関数でmap管理費が上回り得るため、関数固定点全体ではなく実際に重複が存在する局所境界だけを対象とする。
+
+## 2026-07-19 owner return summary stage timing
+
+deepなResult graphを返すowner summaryの初回処理を、parameter seed、Resource op適用、variant return収集、direct/aliased return収集、metadata、storage origin、finalizeへ分離するopt-in計測を追加した。`NEPL_RESOURCE_PER_FUNCTION_TIMING=1`を指定したnative compilerでだけ有効になり、`target_os=none`と`wasm32`にはtimer、環境変数参照、出力を持ち込まない。
+
+`NEPL_RESOURCE_TIMING_FUNCTION`はmonomorphized function nameのsubstring filterであり、従来の`NEPL_RESOURCE_OP_TIMING_FUNCTION`を互換fallbackとして扱う。filterは既存`[resource-function-timing]`と新規`[resource-function-stage-timing]`の両方へ適用する。stage lineはstage名、function名、elapsed millisecondsを出し、summary、proof、diagnostic、cache keyを変更しない。
+
+F5nzt 1023対照の最大`begin_frame_record_budget` summaryではparameter seed約30ms、`check_ops`約3.5秒、return collection約36.0秒、finalize約1msだった。return collectionの内訳はvariant return約36.0秒で、direct return約1ms、aliased return、metadata、storage originはいずれも1ms未満だった。したがってparameter owner leaf列挙やprojection cacheは支配要因ではなく、nested variant return collectorによるpath replayを次の最適化対象とする。

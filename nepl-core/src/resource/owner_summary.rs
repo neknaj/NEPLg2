@@ -24,8 +24,8 @@ use super::owner_summary_raw_view_return::{
 };
 use super::owner_summary_record::{
     owner_source_for_storage, record_projection_marker, record_projection_maybe_owner_return,
-    record_projection_owner_return, record_root_owner_return,
-    OwnerProjectionReturnRecorder, OwnerProjectionSourceRecorder,
+    record_projection_owner_return, record_root_owner_return, OwnerProjectionReturnRecorder,
+    OwnerProjectionSourceRecorder,
 };
 use super::owner_summary_relevance::owner_summary_relevant_functions;
 use super::owner_summary_resolved_variant::collect_resolved_parameter_variants_from_return;
@@ -44,7 +44,9 @@ use super::summary::{OwnerExtentSummary, OwnerReturnSummary, OwnerReturnSummaryI
 use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::summary_index::SummaryNameIndex;
 use super::summary_worklist::SummaryWorklist;
-use super::timing::ResourceFunctionTimer;
+use super::timing::{
+    ResourceFunctionStageMeasurement, ResourceFunctionStageTimer, ResourceFunctionTimer,
+};
 
 pub(super) fn compute_owner_return_summaries_with_recomputations(
     module: &ResourceModule,
@@ -70,11 +72,16 @@ pub(super) fn compute_owner_return_summaries_with_recomputations(
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
         let function_start = ResourceFunctionTimer::start();
-        let summary = {
+        let (summary, stage_measurements) = {
             let summary_index = summary_name_index.as_summary_index(&summaries);
             function_owner_return_summary(function, types, &summary_index)
         };
         function_start.log("owner_summary", function);
+        if let Some(stage_measurements) = stage_measurements {
+            for measurement in stage_measurements {
+                measurement.log(function);
+            }
+        }
         if update_owner_return_summary_with_index(&mut summaries, &mut summary_name_index, summary)
         {
             worklist.notify_changed(function_index);
@@ -133,7 +140,7 @@ pub(super) fn compute_owner_return_summaries_for_root_for_test(
     let mut summaries = Vec::new();
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
-        let summary = {
+        let (summary, _) = {
             let summary_index = summary_name_index.as_summary_index(&summaries);
             function_owner_return_summary(&module.functions[function_index], types, &summary_index)
         };
@@ -149,7 +156,12 @@ fn function_owner_return_summary(
     function: &ResourceFunction,
     types: &TypeCtx,
     summaries: &OwnerReturnSummaryIndex<'_>,
-) -> OwnerReturnSummary {
+) -> (
+    OwnerReturnSummary,
+    Option<Vec<ResourceFunctionStageMeasurement>>,
+) {
+    let mut stage_measurements =
+        ResourceFunctionStageTimer::measurements_enabled(function.name.as_str()).then(Vec::new);
     let mut engine = ResourceOwnerCheckEngine {
         function: function.name.as_str(),
         types,
@@ -165,6 +177,7 @@ fn function_owner_return_summary(
     let mut raw_aliases = RawCellAddressAliases::default();
     let mut raw_views = RawAddressViewTable::default();
     let mut storage_origins = StorageOriginTable::default();
+    let parameter_seed_start = ResourceFunctionStageTimer::start(function.name.as_str());
     let (parameter_storage_sources, parameter_condition_sources) = seed_owner_summary_parameters(
         types,
         function,
@@ -172,6 +185,11 @@ fn function_owner_return_summary(
         &mut owners,
         &mut raw_aliases,
         &mut storage_origins,
+    );
+    record_owner_summary_stage(
+        &mut stage_measurements,
+        parameter_seed_start,
+        "owner_summary_parameter_seed",
     );
 
     let mut parameter_indices = Vec::new();
@@ -198,7 +216,9 @@ fn function_owner_return_summary(
     let mut function_aliases = FunctionAliasTable::default();
     let mut pending_reallocs = PendingRawReallocs::default();
     let mut variant_owner_effects = PendingVariantOwnerEffects::default();
+    let body_start = ResourceFunctionStageTimer::start(function.name.as_str());
     for block in &function.blocks {
+        let check_ops_start = ResourceFunctionStageTimer::start(function.name.as_str());
         engine.check_ops(
             &mut owners,
             &mut function_aliases,
@@ -209,10 +229,17 @@ fn function_owner_return_summary(
             &mut variant_owner_effects,
             &block.ops,
         );
+        record_owner_summary_stage(
+            &mut stage_measurements,
+            check_ops_start,
+            "owner_summary_check_ops",
+        );
         if let ResourceTerminator::Return {
             value: Some(value), ..
         } = &block.terminator
         {
+            let return_collection_start = ResourceFunctionStageTimer::start(function.name.as_str());
+            let variant_return_start = ResourceFunctionStageTimer::start(function.name.as_str());
             collect_variant_consumed_owner_parameters_from_return(
                 &mut variant_consumed_parameter_indices,
                 &mut variant_consumed_parameter_sources,
@@ -237,7 +264,13 @@ fn function_owner_return_summary(
                 &block.ops,
                 value,
             );
+            record_owner_summary_stage(
+                &mut stage_measurements,
+                variant_return_start,
+                "owner_summary_variant_return",
+            );
 
+            let direct_return_start = ResourceFunctionStageTimer::start(function.name.as_str());
             let resolved_value = resolve_owner_alias_place(&owners, &raw_aliases, value);
             if !returned_projection_is_non_owning_raw_view(&raw_views, value, &[], value.ty) {
                 match owners.state(&resolved_value) {
@@ -358,6 +391,12 @@ fn function_owner_return_summary(
                     }
                 }
             }
+            record_owner_summary_stage(
+                &mut stage_measurements,
+                direct_return_start,
+                "owner_summary_direct_return",
+            );
+            let aliased_return_start = ResourceFunctionStageTimer::start(function.name.as_str());
             for aliased in aliased_owner_descendant_entries(&owners, &raw_aliases, &resolved_value)
             {
                 if returned_projection_is_non_owning_raw_view(
@@ -414,6 +453,12 @@ fn function_owner_return_summary(
                     OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {}
                 }
             }
+            record_owner_summary_stage(
+                &mut stage_measurements,
+                aliased_return_start,
+                "owner_summary_aliased_return",
+            );
+            let return_metadata_start = ResourceFunctionStageTimer::start(function.name.as_str());
             record_non_owning_raw_view_returns(&raw_views, value, &mut non_owning_raw_view_returns);
             if resolved_value != *value {
                 record_non_owning_raw_view_returns(
@@ -429,6 +474,12 @@ fn function_owner_return_summary(
                 value,
                 &resolved_value,
             );
+            record_owner_summary_stage(
+                &mut stage_measurements,
+                return_metadata_start,
+                "owner_summary_return_metadata",
+            );
+            let storage_origin_start = ResourceFunctionStageTimer::start(function.name.as_str());
             for entry in storage_origins.entries_under(&resolved_value) {
                 if let Some(suffix) = place_suffix_after_prefix(&entry.place, &resolved_value) {
                     if returned_projection_is_non_owning_raw_view(
@@ -502,9 +553,25 @@ fn function_owner_return_summary(
                     );
                 }
             }
+            record_owner_summary_stage(
+                &mut stage_measurements,
+                storage_origin_start,
+                "owner_summary_storage_origins",
+            );
+            record_owner_summary_stage(
+                &mut stage_measurements,
+                return_collection_start,
+                "owner_summary_return_collection",
+            );
         }
     }
+    record_owner_summary_stage(
+        &mut stage_measurements,
+        body_start,
+        "owner_summary_body_and_returns",
+    );
 
+    let finalize_start = ResourceFunctionStageTimer::start(function.name.as_str());
     let mut projection_returns = projection_returns.into_entries();
     let mut returned_sources = returned_sources.into_entries();
     finalize_variant_projection_returns(
@@ -528,7 +595,7 @@ fn function_owner_return_summary(
         &consumed_parameter_sources,
     );
     let memory_span_requirements = engine.memory_span_requirements.clone();
-    OwnerReturnSummary {
+    let summary = OwnerReturnSummary {
         function: function.name.clone(),
         type_params: owner_summary_type_params(types, function),
         parameter_indices,
@@ -554,6 +621,22 @@ fn function_owner_return_summary(
         projection_returns,
         projection_markers,
         storage_origin_markers,
+    };
+    record_owner_summary_stage(
+        &mut stage_measurements,
+        finalize_start,
+        "owner_summary_finalize",
+    );
+    (summary, stage_measurements)
+}
+
+fn record_owner_summary_stage(
+    measurements: &mut Option<Vec<ResourceFunctionStageMeasurement>>,
+    timer: ResourceFunctionStageTimer,
+    stage: &'static str,
+) {
+    if let (Some(measurements), Some(measurement)) = (measurements, timer.finish(stage)) {
+        measurements.push(measurement);
     }
 }
 

@@ -168821,3 +168821,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - mapped concrete `TypeId`ごとのowner leaf projectionを、再帰cycleへ依存した結果だけ保存しない局所cacheとして試作した。OwnerToken/raw pointerの特別扱いとApply mappingを維持し、focused `owner_summary_leaf` 2件、owner summary 33件、release CLI buildは通過した。subagent reviewは実装上のcorrectness blockerなしとし、採用時にはgeneric struct/enum、named alias、raw pointer、self/mutual recursionを旧walkerと比較するdifferential回帰が必要と指摘した。
 - F5nzt 1023対照を同じ`--test-mode`で実測すると、loader約82.4秒、typecheck約27.6秒、effect boundariesまで到達したものの、全compileは300秒でtimeoutした。基準の約339秒から通常gateへ近づく改善を確認できず、cloneを含むcache差分と未採用differential testを全て撤去した。次は最大単体summaryのparameter seed生成と、同一具象projection列が各function初回処理内で何回作られるかを分離計測する。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu owner variant return stage profile
+
+- native限定opt-in function stage timerを追加し、`NEPL_RESOURCE_PER_FUNCTION_TIMING=1`と`NEPL_RESOURCE_TIMING_FUNCTION` substring filterでowner summary内部を分離した。旧`NEPL_RESOURCE_OP_TIMING_FUNCTION`は互換fallbackで、既存function timingと新規stage timingの両方が同じfilterを使う。none/wasm32 targetの挙動とsummary semanticsは変更しない。subagent review指摘により無関係なrustfmt差分を撤去し、filter semanticsを統一した。
+- F5nzt 1023対照は約355秒でcompile完了し、generated Wasmはevidence 1023 / failed 0を維持した。最大begin-frame record budget summary約39.6秒の内訳はparameter seed約30ms、check ops約3.5秒、return collection約36.0秒、finalize約1msだった。return collectionはvariant return約36.0秒が全量を占め、direct return約1ms、aliased return、metadata、storage originは1ms未満だった。parameter leaf cache仮説を棄却し、次はnested variant return collectorのpath replayとowner state clone/merge回数を分離する。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
