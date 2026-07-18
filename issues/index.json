@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-18T07:37:40.299Z",
+  "generated_at": "2026-07-18T08:18:49.033Z",
   "counts": {
-    "total": 1420,
+    "total": 1421,
     "open": 60,
-    "resolved": 1360,
+    "resolved": 1361,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 6,
+        "total": 7,
         "open": 0,
-        "resolved": 6
+        "resolved": 7
       },
       "nodesrc": {
         "total": 16,
@@ -11838,6 +11838,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260718T064405912Z-F5NZH-REGISTERED-BEGINFRAME-SCHEDULE-8678241B.md"
+    },
+    {
+      "id": "ISS-20260718T074829090Z-F5NZI-REGISTERED-BEGINFRAME-F5NC-ONE-4E9E4F56",
+      "title": "F5nzi registered BeginFrame F5nc one-shot loop adoption",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-18",
+      "updated": "2026-07-18",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch_loop.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260718T074829090Z-F5NZI-REGISTERED-BEGINFRAME-F5NC-ONE-4E9E4F56.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

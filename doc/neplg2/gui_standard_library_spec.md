@@ -2408,3 +2408,7 @@ F5nzdはF5nyyの十九層Resultをlosslessに保ち、BeginFrame command stepを
 ### Registered stroke compositor F5nzh BeginFrame dispatch boundary
 
 `std/gui/compositor_tile_present_dispatch`のscheduled-request adopterはsuccessful F5mw stepとF5mx requestを再実行せずF5my `RequestReady`へ包む。registered F5nzh ownerはF5nzg authority全体とdispatch stepを保持する。F5nc loop、F5mz action、host execution、platform presenterはこのboundaryの責務外である。
+
+### Registered stroke compositor F5nzi BeginFrame dispatch loop boundary
+
+`std/gui/compositor_tile_present_dispatch_loop`のinitial-dispatch adopterはsuccessful F5my stepをWaitingBegin rollback state付きF5nc one-shot pendingへ包む。registered F5nzi ownerはF5nzh command continuation authorityとnon-Copy pendingを保持し、後続F5ne bridgeが両方を一括移送する。completion、F5mz action、host execution、platform presenterはこのboundaryの責務外である。

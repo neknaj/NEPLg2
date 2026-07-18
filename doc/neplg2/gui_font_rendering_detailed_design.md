@@ -11173,3 +11173,9 @@ F5nzg consumes the F5nzf move-only owner and borrows the retained F5mu projectio
 ### F5nzh registered BeginFrame scheduled dispatch
 
 F5nzh passes the successful schedule-step and host-request snapshots retained by one F5nzg authority to an F5my adoption constructor. The constructor maps phase and state and creates RequestReady without replaying validation or request construction. The registered move-only owner retains the complete F5nzg authority beside the Copy dispatch step. It stops before F5nc, F5mz, and host execution.
+
+### F5nzi registered BeginFrame one-shot dispatch loop
+
+F5nzi passes the successful F5my step retained by F5nzh to an initial-BeginFrame-only F5nc trusted adopter. The adopter constructs rollback from the initial WaitingBegin state and derives next state, request, and post phase from the same dispatch step. The registered move-only owner retains the F5nzh command continuation authority beside the non-Copy pending. A later dedicated F5ne bridge must consume and move both fields together; no public pending-only consuming accessor may split them. F5nzi stops before completion, F5mz action decoding, and host execution.
+
+The next registered boundary must prepare the existing F5ne host execution driver, which keeps the F5nc pending authority and its exactly-once F5mz action snapshot together. A registered F5mz-only owner would split that authority and is not the next phase.

@@ -14,13 +14,20 @@
 #import "std/gui/compositor_tile_present_schedule" as *
 #import "std/gui/compositor_tile_present_virtual_drain" as *
 
+//: downstream fixture用のactual F5nzh ownerを作る
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok host_owner:
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_into_dispatch host_owner
+
 //: actual F5nzg ownerをF5my RequestReadyへ一度だけ接続する
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_test_success_contract %impure fn unit i32 \_unit:
-    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_owner _unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_test_owner _unit:
         Result::Err evidence: evidence
-        Result::Ok host_owner:
-            let owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_into_dispatch host_owner
+        Result::Ok owner:
             let step %GuiRgba8888CompositorTileRlePresentDispatchStep gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_step &owner
             let state %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_step_state &step
             let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &state

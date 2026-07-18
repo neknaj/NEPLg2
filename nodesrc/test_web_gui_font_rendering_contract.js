@@ -10,6 +10,20 @@ function read(relPath) {
     return fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
 }
 
+function readTreeWithExtension(relPath, extension) {
+    const root = path.join(repoRoot, relPath);
+    const files = [];
+    const visit = (directory) => {
+        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+            const absolute = path.join(directory, entry.name);
+            if (entry.isDirectory()) visit(absolute);
+            else if (entry.isFile() && entry.name.endsWith(extension)) files.push(fs.readFileSync(absolute, "utf8"));
+        }
+    };
+    visit(root);
+    return files.join("\n");
+}
+
 function withoutComments(text) {
     return text
         .split("\n")
@@ -473,6 +487,7 @@ const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrame
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameSchedule = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_schedule.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_request.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatch = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoop = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch_loop.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountStepTest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step_test.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleTerminalRecordTest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_terminal_record_test.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordTest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_record_test.nepl");
@@ -480,6 +495,7 @@ const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrame
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleTest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_schedule_test.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestTest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_request_test.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchTest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch_test.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoopTest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch_loop_test.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountFixture = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
@@ -5514,11 +5530,30 @@ assert((f5nzhRegisteredBridge.match(/begin_frame_host_request_owner_schedule_ste
 assert((f5nzhRegisteredBridge.match(/present_dispatch_adopt_scheduled_request schedule_step request/g) || []).length === 1, "F5nzh must invoke the F5my adopter exactly once");
 assertNoMatch(withoutComments(f5nzhRegisteredBridge), /schedule_step_record|present_virtual_drain|present_host_import_request |dispatch_step_record|dispatch_loop|host_execution|platform|fallback/, "F5nzh must not replay lower boundaries or enter host execution");
 assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatch, /impl (?:Copy|Clone) GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner/, "F5nzh owner must remain move-only");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchTest, /#test\s+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_test_owner/, "F5nzh downstream owner factory must remain test-only");
 assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchTest.includes("begin_frame_dispatch_test_success_contract"), "F5nzh fixture must expose reachable success");
 assertOrderedFragments(spec, ["### F5nzg registered BeginFrame F5mx host continuation request owner", "### F5nzh registered BeginFrame F5my scheduled dispatch owner", "F5my", "F5nc"], "F5nzh spec heading order");
 assertOrderedFragments(detailedDesign, ["### F5nzg registered BeginFrame host continuation request", "### F5nzh registered BeginFrame scheduled dispatch", "F5my", "F5nc"], "F5nzh design heading order");
 assertOrderedFragments(implementationPlan, ["### F5nzg registered BeginFrame F5mx request", "### F5nzh registered BeginFrame F5my dispatch adoption", "F5my", "F5nc"], "F5nzh plan heading order");
 assertOrderedFragments(guiStandardLibrarySpec, ["### Registered stroke compositor F5nzg BeginFrame host request boundary", "### Registered stroke compositor F5nzh BeginFrame dispatch boundary", "F5my", "F5nc"], "F5nzh standard-library spec order");
+const f5nziStdAdopter = functionSlice(stdGuiCompositorTilePresentDispatchLoop, "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_adopt_initial_dispatch_pending");
+assert((f5nziStdAdopter.match(/dispatch_loop_state_initial/g) || []).length === 1, "F5nzi adopter must construct the initial rollback state once");
+assert((f5nziStdAdopter.match(/present_dispatch_step_state &dispatch_step/g) || []).length === 1, "F5nzi adopter must read the next state once");
+assert((f5nziStdAdopter.match(/present_dispatch_step_output &dispatch_step/g) || []).length === 1, "F5nzi adopter must read the request output once");
+assertNoMatch(withoutComments(f5nziStdAdopter), /dispatch_loop_step_record|dispatch_step_record|schedule_step|virtual_drain_(?:empty|step)|present_host_import_request |complete_request|host_action|host_execution|platform|fallback/, "F5nzi adopter must only package the successful F5my step");
+const f5nziRegisteredBridge = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoop, "gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_into_loop");
+assert((withoutComments(readTreeWithExtension("stdlib", ".nepl")).match(/gui_rgba8888_compositor_tile_rle_present_dispatch_loop_adopt_initial_dispatch_pending/g) || []).length === 2, "F5nzi trusted adopter must be defined once and used only by the registered bridge across stdlib");
+assert((f5nziRegisteredBridge.match(/begin_frame_dispatch_owner_step &owner/g) || []).length === 1, "F5nzi must borrow the F5my step once");
+assert((f5nziRegisteredBridge.match(/dispatch_loop_adopt_initial_dispatch_pending dispatch_step/g) || []).length === 1, "F5nzi must invoke the F5nc adopter once");
+assertNoMatch(withoutComments(f5nziRegisteredBridge), /dispatch_loop_step_record|dispatch_step_record|schedule_step|virtual_drain|present_host_import_request |complete_request|host_action|host_execution|platform|fallback/, "F5nzi must not replay lower boundaries or complete the pending request");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoop, /impl (?:Copy|Clone) GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoopOwner/, "F5nzi owner must remain move-only");
+assertNoMatch(withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoop), /owner_take_pending/, "F5nzi must not split pending from the registered continuation authority");
+assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoopTest.includes("begin_frame_dispatch_loop_test_success_contract"), "F5nzi fixture must expose reachable success");
+assertNoMatch(withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoopTest), /complete_request/, "F5nzi fixture must stop before completing its recovered pending authority");
+assertOrderedFragments(spec, ["### F5nzh registered BeginFrame F5my scheduled dispatch owner", "### F5nzi registered BeginFrame F5nc one-shot loop owner", "F5nc", "F5mz"], "F5nzi spec heading order");
+assertOrderedFragments(detailedDesign, ["### F5nzh registered BeginFrame scheduled dispatch", "### F5nzi registered BeginFrame one-shot dispatch loop", "F5nc", "F5mz"], "F5nzi design heading order");
+assertOrderedFragments(implementationPlan, ["### F5nzh registered BeginFrame F5my dispatch adoption", "### F5nzi registered BeginFrame F5nc loop adoption", "F5nc", "F5mz"], "F5nzi plan heading order");
+assertOrderedFragments(guiStandardLibrarySpec, ["### Registered stroke compositor F5nzh BeginFrame dispatch boundary", "### Registered stroke compositor F5nzi BeginFrame dispatch loop boundary", "F5nc", "F5mz"], "F5nzi standard-library spec order");
 assert(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountStepTest.includes("software_drain_compositor_tile_rle_command_cursor_start_bridge_test_success_contract"), "F5nyx adapter must include reachable command-cursor start success");
 assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainTests.includes("software_drain_compositor_tile_rle_command_cursor_start_bridge_test_success_contract"), "F5nyx doctest must execute command-cursor start success");
 const f5nyxCursorFixtureConsume = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleCountStepTest, "gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_command_cursor_start_bridge_test_consume");

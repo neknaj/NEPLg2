@@ -8737,3 +8737,7 @@ F5nzgはF5nzf ownerに保持されたactual F5mu projectionをborrow-copy access
 ### F5nzh registered BeginFrame F5my scheduled dispatch owner
 
 F5nzhは同じF5nzg authority内のsuccessful F5mw stepとF5mx requestを既存F5my adopterへ一度渡し、`RequestReady` dispatch stepと元F5nzg ownerを同居させる。adopterはschedule phase/stateをpost phase/dispatch stateへ写してrequestを保持するだけで、F5mv/F5mw/F5mxを再実行しない。新規failureやprevious-state rollbackを作らず、F5nc loop pending、F5mz action、host execution、platform presentationへ進まない。
+
+### F5nzi registered BeginFrame F5nc one-shot loop owner
+
+F5nziはF5nzhが保持するsuccessful F5my stepをinitial BeginFrame専用のF5nc trusted adopterへ一度渡し、WaitingBegin/0/0のrollback state、InFrame/1/0のnext state、Offscreen BeginFrame request、Yield post phaseを一つのnon-Copy pendingへ包む。元F5nzh command continuation authorityとpendingを同居させ、pending単独で分離せず、lower replay、F5nc completion、F5mz action、host execution、platform presentationへ進まない。

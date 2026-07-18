@@ -13885,3 +13885,10 @@ git diff --check
 - F5myにsuccessful F5mw stepとF5mx requestを`RequestReady`へ包むinfallible adopterを追加し、lower step/requestを再実行しない。
 - F5nzg owner全体とCopy dispatch stepを保持するregistered owner、recovery/free、actual production fixtureを追加する。
 - source policy、normal isolation、F5my回帰、trunk/CLI、subagent reviewを通し、F5nc/F5mz/host execution前で停止する。
+
+### F5nzi registered BeginFrame F5nc loop adoption
+
+- F5ncにinitial registered BeginFrame専用trusted adopterを追加し、rollback stateはWaitingBegin initial、next/request/post phaseは同じF5my stepから導出する。
+- F5nzh command continuation authorityとnon-Copy F5nc pendingを同居させるregistered owner、borrowed pending observation、abort recovery/free、actual production fixtureを追加する。pending単独のconsuming accessorは公開しない。
+- source policy、normal isolation、F5nc回帰、trunk/CLI、subagent reviewを通し、F5nc completion、F5mz action、host execution前で停止する。
+- 次のregistered sliceはF5ne host execution driver prepareへ接続し、F5nc pending authorityとF5ne内部で一度だけ導出するF5mz actionを同居させたままactual execution前で停止する。F5mz単独のregistered ownerは追加しない。

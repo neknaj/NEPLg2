@@ -34,6 +34,7 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begi
                         Result::Ok owner: Result::Ok owner
 
 //: downstream fixtureへactual supported F5nzg ownerを一度だけ渡すtest-only factory
+#test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostRequestOwner i32 \_unit:
     match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_test_schedule_owner _unit:
         Result::Err evidence: Result::Err evidence
