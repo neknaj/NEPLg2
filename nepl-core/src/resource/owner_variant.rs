@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -149,7 +150,7 @@ impl PendingVariantOwnerEffects {
             .collect::<Vec<_>>();
         let available =
             snapshot_return_availability(&matching_returns, engine, owners, raw_aliases);
-        let mut applied_targets = Vec::<AppliedOwnerTarget>::new();
+        let mut applied_targets = BTreeMap::<AppliedOwnerSourceKey, Vec<Place>>::new();
         for (index, entry) in matching_returns.iter().enumerate() {
             if should_skip_unavailable_alternative(&matching_returns, &available, index) {
                 continue;
@@ -172,10 +173,10 @@ impl PendingVariantOwnerEffects {
                     )
                 }) {
                     if available[index].source.is_some() {
-                        applied_targets.push(AppliedOwnerTarget {
-                            source_identity: source_identity.clone(),
-                            target,
-                        });
+                        applied_targets
+                            .entry(source_identity.clone())
+                            .or_default()
+                            .push(target);
                     }
                     continue;
                 }
@@ -195,10 +196,10 @@ impl PendingVariantOwnerEffects {
                     .get(index)
                     .and_then(|availability| availability.source_identity.clone())
                     .unwrap_or(AppliedOwnerSourceKey::Place(source.clone()));
-                applied_targets.push(AppliedOwnerTarget {
-                    source_identity,
-                    target,
-                });
+                applied_targets
+                    .entry(source_identity)
+                    .or_default()
+                    .push(target);
             }
         }
     }
@@ -931,12 +932,6 @@ enum OwnerSourceStateKey {
     Freed,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct AppliedOwnerTarget {
-    source_identity: AppliedOwnerSourceKey,
-    target: Place,
-}
-
 fn applied_owner_source_key(
     owners: &OwnerTable,
     raw_aliases: &RawCellAddressAliases,
@@ -1049,18 +1044,19 @@ fn places_are_mutually_exclusive(left: Option<&Place>, right: Option<&Place>) ->
 }
 
 fn mutually_exclusive_applied_targets(
-    applied_targets: &[AppliedOwnerTarget],
+    applied_targets: &BTreeMap<AppliedOwnerSourceKey, Vec<Place>>,
     source_identity: &AppliedOwnerSourceKey,
     target: &Place,
 ) -> Vec<Place> {
     applied_targets
-        .iter()
-        .filter_map(|applied| {
-            if applied.source_identity == *source_identity
-                && applied.target.ty == target.ty
-                && places_are_mutually_exclusive(Some(&applied.target), Some(target))
+        .get(source_identity)
+        .into_iter()
+        .flatten()
+        .filter_map(|applied_target| {
+            if applied_target.ty == target.ty
+                && places_are_mutually_exclusive(Some(applied_target), Some(target))
             {
-                return Some(applied.target.clone());
+                return Some(applied_target.clone());
             }
             None
         })
@@ -1355,10 +1351,7 @@ mod alternative_tests {
         );
         let source_key = AppliedOwnerSourceKey::Place(source.clone());
         let other_source_key = AppliedOwnerSourceKey::Place(other_source.clone());
-        let applied = vec![AppliedOwnerTarget {
-            source_identity: source_key.clone(),
-            target: left.clone(),
-        }];
+        let applied = BTreeMap::from([(source_key.clone(), vec![left.clone()])]);
         assert_eq!(
             mutually_exclusive_applied_targets(&applied, &source_key, &right,),
             vec![left.clone()]
@@ -1394,10 +1387,7 @@ mod alternative_tests {
             }],
             TypeId(1),
         );
-        let struct_applied = vec![AppliedOwnerTarget {
-            source_identity: source_key.clone(),
-            target: first_field,
-        }];
+        let struct_applied = BTreeMap::from([(source_key.clone(), vec![first_field])]);
         assert_eq!(
             mutually_exclusive_applied_targets(&struct_applied, &source_key, &second_field),
             Vec::new()

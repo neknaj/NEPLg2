@@ -168733,3 +168733,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nztがterminal invariantを確立済みなのでproductionはresult、descriptor、cursor phaseを再検査せず、F5mtを再advanceしない。terminal `Completed`はhost-command recordではなく、F5mv、schedule、host request、platform executionへ進まない。
 - 最初のdeep state+step再包装案はactual compileが300秒超、約1.8GB RSSへ非線形拡大したため撤回した。既存F5nzt fixture内でformal parts回収後にF5nzu projectionを一度呼び、canonical descriptor、cursor Completed、cleanupを継続する。source-policy、normal compile、全gate、subagent差分・整合reviewは進行中である。F5nzu checkpointもフォントレンダリングエンジン/GUIライブラリ全体の完成とは扱わない。
 - F5nzu helperのsource-policy、normal compile、release trunk build、Playground editor CLI JSON 13/13は通過した。一方actual composite fixtureは60/120/300秒の全上限でcompile timeoutとなり、約1.8GB RSSへ拡大したため撤回した。issuesは1433件（F5nzu open）で、F5nzu統合条件はcompiler summary境界修正後にactual 2047 evidenceを通常gateで通すことである。
+
+2026-07-19 F5nzu compiler source-local owner target index checkpoint
+
+- `f92fd9a655`でcanonical owner signatureを導入した際、match-arm returnの適用済みtarget indexがsource別`BTreeMap`から全source共通`Vec`へ戻り、deep return graphで無関係なsource targetまで線形走査していた。canonical `AppliedOwnerSourceKey`をkeyとする`BTreeMap`へ変更し、同じidentityのtargetだけを排他copy候補として走査する。alias、raw view、storage origin、recovery authorityのcopy契約は変更しない。
+- owner variant unit回帰は7件通過した。一方、F5nzt terminal stepを借用してF5mu typed resultへ投影するproduction composite fixtureは変更後も300秒でtimeoutしたため、fixture差分は撤去した。これはsource-local index退行だけを直すcompiler performance checkpointであり、F5nzu blockerの解決やslice完成を意味しない。
+- `ISS-20260718T200000000Z-F5NZU-REGISTERED-TERMINAL-RECORD`と`todo.md`は未完了のまま保持する。次はnative stage timingでinitialized i32 scalar summaryとowner summaryを分離し、残る増幅点を特定する。フォントレンダリングエンジンとGUIライブラリ全体も未完成である。`plan.md`は変更していない。
