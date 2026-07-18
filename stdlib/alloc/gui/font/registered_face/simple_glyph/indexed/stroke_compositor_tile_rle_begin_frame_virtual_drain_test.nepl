@@ -83,149 +83,157 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begi
                 then: add record_evidence 192
                 else: record_evidence
 
-fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_4 %impure fn Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError i32 \value:
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_4 %impure fn Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner i32 \value:
     match value:
         Result::Err error:
             match gui_rgba8888_compositor_tile_rle_present_run_step_error_free error:
-                Result::Ok _: sub 0 32
-                Result::Err _: sub 0 33
+                Result::Ok _: Result::Err sub 0 32
+                Result::Err _: Result::Err sub 0 33
         Result::Ok p:
             match p:
                 Result::Err error:
                     match gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_free error:
-                        Result::Ok _: sub 0 34
-                        Result::Err _: sub 0 35
+                        Result::Ok _: Result::Err sub 0 34
+                        Result::Err _: Result::Err sub 0 35
                 Result::Ok q:
                     match q:
                         Result::Err error:
                             match gui_rgba8888_compositor_tile_rle_present_command_cursor_start_error_free error:
-                                Result::Ok _: sub 0 36
-                                Result::Err _: sub 0 37
+                                Result::Ok _: Result::Err sub 0 36
+                                Result::Err _: Result::Err sub 0 37
                         Result::Ok r:
                             match r:
                                 Result::Err error:
                                     match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_free error:
-                                        Result::Ok _: sub 0 38
-                                        Result::Err _: sub 0 39
+                                        Result::Ok _: Result::Err sub 0 38
+                                        Result::Err _: Result::Err sub 0 39
                                 Result::Ok record_owner:
                                     match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_record_owner_into_virtual_drain record_owner:
                                         Result::Err error:
                                             match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_error_free error:
-                                                Result::Ok _: sub 0 40
-                                                Result::Err _: sub 0 41
-                                        Result::Ok owner:
-                                            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_consume owner
+                                                Result::Ok _: Result::Err sub 0 40
+                                                Result::Err _: Result::Err sub 0 41
+                                        Result::Ok owner: Result::Ok owner
 
-fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_3 %impure fn Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError i32 \value:
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_3 %impure fn Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner i32 \value:
     match value:
         Result::Err error:
             match gui_rgba8888_compositor_tile_rle_packet_prepare_error_free error:
-                Result::Ok _: sub 0 24
-                Result::Err _: sub 0 25
+                Result::Ok _: Result::Err sub 0 24
+                Result::Err _: Result::Err sub 0 25
         Result::Ok l:
             match l:
                 Result::Err error:
                     match gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_free error:
-                        Result::Ok _: sub 0 26
-                        Result::Err _: sub 0 27
+                        Result::Ok _: Result::Err sub 0 26
+                        Result::Err _: Result::Err sub 0 27
                 Result::Ok m:
                     match m:
                         Result::Err error:
                             match gui_rgba8888_compositor_tile_rle_present_run_cursor_start_error_free error:
-                                Result::Ok _: sub 0 28
-                                Result::Err _: sub 0 29
+                                Result::Ok _: Result::Err sub 0 28
+                                Result::Err _: Result::Err sub 0 29
                         Result::Ok n:
                             match n:
                                 Result::Err error:
                                     match gui_rgba8888_compositor_tile_rle_present_run_step_error_free error:
-                                        Result::Ok _: sub 0 30
-                                        Result::Err _: sub 0 31
+                                        Result::Ok _: Result::Err sub 0 30
+                                        Result::Err _: Result::Err sub 0 31
                                 Result::Ok o:
                                     gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_4 o
 
-fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_2 %impure fn Result Result Result Result Result Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteCursorStartError GuiRgba8888CompositorTileRleStoragePrepareError i32 \value:
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_2 %impure fn Result Result Result Result Result Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteCursorStartError GuiRgba8888CompositorTileRleStoragePrepareError Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner i32 \value:
     match value:
         Result::Err error:
             match gui_rgba8888_compositor_tile_rle_storage_prepare_error_free error:
-                Result::Ok _: sub 0 14
-                Result::Err _: sub 0 15
+                Result::Ok _: Result::Err sub 0 14
+                Result::Err _: Result::Err sub 0 15
         Result::Ok g:
             match g:
                 Result::Err error:
                     match gui_rgba8888_compositor_tile_rle_write_cursor_start_error_free error:
-                        Result::Ok _: sub 0 16
-                        Result::Err _: sub 0 17
+                        Result::Ok _: Result::Err sub 0 16
+                        Result::Err _: Result::Err sub 0 17
                 Result::Ok h:
                     match h:
                         Result::Err error:
                             match gui_rgba8888_compositor_tile_rle_write_step_error_free error:
-                                Result::Ok _: sub 0 18
-                                Result::Err _: sub 0 19
+                                Result::Ok _: Result::Err sub 0 18
+                                Result::Err _: Result::Err sub 0 19
                         Result::Ok i:
                             match i:
                                 Result::Err error:
                                     match gui_rgba8888_compositor_tile_rle_write_step_error_free error:
-                                        Result::Ok _: sub 0 20
-                                        Result::Err _: sub 0 21
+                                        Result::Ok _: Result::Err sub 0 20
+                                        Result::Err _: Result::Err sub 0 21
                                 Result::Ok j:
                                     match j:
                                         Result::Err error:
                                             match gui_rgba8888_compositor_tile_rle_encoded_seal_error_free error:
-                                                Result::Ok _: sub 0 22
-                                                Result::Err _: sub 0 23
+                                                Result::Ok _: Result::Err sub 0 22
+                                                Result::Err _: Result::Err sub 0 23
                                         Result::Ok k:
                                             gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_3 k
 
-fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_1 %impure fn Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteCursorStartError GuiRgba8888CompositorTileRleStoragePrepareError GuiRgba8888CompositorTileRleWriterPlanError GuiRgba8888CompositorTileRleEncodeCursorError GuiRgba8888CompositorTileRleEncodeSeedError GuiRgba8888CompositorTileRleCountCompletedError GuiRgba8888CompositorTileRleCountStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeError i32 \value:
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_1 %impure fn Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecordOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepError GuiRgba8888CompositorTileRlePresentCommandCursorStartError GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorStartError GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteStepError GuiRgba8888CompositorTileRleWriteCursorStartError GuiRgba8888CompositorTileRleStoragePrepareError GuiRgba8888CompositorTileRleWriterPlanError GuiRgba8888CompositorTileRleEncodeCursorError GuiRgba8888CompositorTileRleEncodeSeedError GuiRgba8888CompositorTileRleCountCompletedError GuiRgba8888CompositorTileRleCountStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeError Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner i32 \value:
     match value:
         Result::Err error:
             let recovery %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompositorTileRleCountStartBridgeRecovery gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_recovery error
             gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_recovery_free recovery
-            sub 0 3
+            Result::Err sub 0 3
         Result::Ok a:
             match a:
                 Result::Err error:
                     match gui_rgba8888_compositor_tile_rle_count_step_error_free error:
-                        Result::Ok _: sub 0 4
-                        Result::Err _: sub 0 5
+                        Result::Ok _: Result::Err sub 0 4
+                        Result::Err _: Result::Err sub 0 5
                 Result::Ok b:
                     match b:
                         Result::Err error:
                             match gui_rgba8888_compositor_tile_rle_count_completed_error_free error:
-                                Result::Ok _: sub 0 6
-                                Result::Err _: sub 0 7
+                                Result::Ok _: Result::Err sub 0 6
+                                Result::Err _: Result::Err sub 0 7
                         Result::Ok c:
                             match c:
                                 Result::Err error:
                                     match gui_rgba8888_compositor_tile_rle_encode_seed_error_free error:
-                                        Result::Ok _: sub 0 8
-                                        Result::Err _: sub 0 9
+                                        Result::Ok _: Result::Err sub 0 8
+                                        Result::Err _: Result::Err sub 0 9
                                 Result::Ok d:
                                     match d:
                                         Result::Err error:
                                             match gui_rgba8888_compositor_tile_rle_encode_cursor_error_free error:
-                                                Result::Ok _: sub 0 10
-                                                Result::Err _: sub 0 11
+                                                Result::Ok _: Result::Err sub 0 10
+                                                Result::Err _: Result::Err sub 0 11
                                         Result::Ok e:
                                             match e:
                                                 Result::Err error:
                                                     match gui_rgba8888_compositor_tile_rle_writer_plan_error_free error:
-                                                        Result::Ok _: sub 0 12
-                                                        Result::Err _: sub 0 13
+                                                        Result::Ok _: Result::Err sub 0 12
+                                                        Result::Err _: Result::Err sub 0 13
                                                 Result::Ok f:
                                                     gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_2 f
+
+//: full registered pipelineから最初のBeginFrame virtual drain ownerを作る
+//:
+//: 後続fixtureがproduction bridgeを検証できるよう、F5nzdの全failure authorityを閉じたF5nze ownerだけを公開します。
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_begin_frame_virtual_drain_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner i32 \_unit:
+    match surface_id_result 7:
+        Result::Err _: Result::Err sub 0 2
+        Result::Ok surface:
+            match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed 473:
+                Option::None: Result::Err sub 0 3
+                Option::Some completed:
+                    let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 263 2
+                    let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_1 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_begin_frame_record_budget completed surface frame_config tile_config 0 64
 
 //: full registered pipelineから最初のBeginFrameをvirtual drainへ渡す
 //:
 //: F5nzd nested Resultの全failure authorityを各free APIで閉じ、最深success ownerをF5mv bridgeへ渡してtyped drain ownerとして検証します。
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_begin_frame_virtual_drain_bridge_test_success_contract %impure fn unit i32 \_unit:
-    match surface_id_result 7:
-        Result::Err _: sub 0 2
-        Result::Ok surface:
-            match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed 473:
-                Option::None: sub 0 3
-                Option::Some completed:
-                    let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 263 2
-                    let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
-                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_1 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_begin_frame_record_budget completed surface frame_config tile_config 0 64
+    match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_begin_frame_virtual_drain_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok owner: gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_consume owner

@@ -13866,3 +13866,10 @@ git diff --check
 - runtime fixtureはpublic F5nzd pipelineのupstream十九層をlosslessに閉じ、最深success ownerをproduction bridgeへexactly once渡す。現行resource checkerが証明できない第二十層nested move-only Resultはpublic surfaceにしない。success ownerはF5nzd record ownerとnext drain state、error ownerはprojection/F5mv error authorityとF5nzd record ownerを保持する。
 - success/error双方にconsuming record-owner recoveryとfreeを用意し、Copy/Cloneを禁止する。fixtureだけがtyped BeginFrame drain state、metadata、元command step、continuation、全cleanupを検証する。
 - F5nzd/F5mv回帰、連続owner契約source policy、virtual-drain専用normal compile isolation、trunk/CLIを通す。F5nzeはF5mw deterministic slice schedule、host execution、platform presentationより前で停止し、次のphaseでF5mwへ接続する。
+
+## Phase F5nzf: registered BeginFrame F5mw deterministic schedule owner
+
+- F5nze ownerからvalidated F5mv drainをborrow-copyし、F5mw Begin専用adoptionへexactly once渡す。F5mu recordを`step_record`へ再投入せず、F5mv stepを二重に呼ばない。
+- F5mw adoptionはvalid policy、`InFrame`、seen counters 0/0を要求し、slice counters 1/0、budget 1の`Yield`またはbudget余裕時の`Continue`を返す。generic drain/counter constructorは公開しない。
+- success/errorはF5nze owner全体を保持し、recovery/freeを既存F5nze APIへ委譲する。fixtureはactual registered pipeline、F5nze一回、adoption一回、F5mv authority、`RunPending`、cleanupを検証する。
+- F5mv/F5mw回帰、source policy、schedule専用normal compile isolation、trunk/CLI、subagent reviewを通す。F5nzfはF5mx、dispatch、host execution、platform presentationより前で停止する。

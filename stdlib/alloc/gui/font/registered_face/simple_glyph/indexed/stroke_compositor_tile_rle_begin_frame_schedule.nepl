@@ -1,0 +1,77 @@
+//: # registered stroke compositor tile RLE BeginFrame schedule
+//: F5nzeの検証済みBeginFrame virtual drain authorityをF5mw deterministic slice stateへ引き継ぎます。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain" as *
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind: bridge failureの原因
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind:
+    ScheduleAdoptionFailed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner: F5nze authorityとF5mw stepを保持する
+//:
+//: retained command stepを所有するためCopy / Cloneを実装しません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner:
+    virtual_drain_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner
+    schedule_step %GuiRgba8888CompositorTileRlePresentScheduleStep
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleError: failureと元F5nze authorityを保持する
+//:
+//: callerが失敗後にもcommand stepを回収できるようCopy / Cloneを実装しません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleError:
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind
+    virtual_drain_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner
+    schedule_error %Option GuiRgba8888CompositorTileRlePresentScheduleStepError
+
+//: F5nze ownerを消費し、同じF5mv drainをF5mwの最初のslice stateへ一度だけ引き継ぐ
+//:
+//: BeginFrame recordを再投影・再投入せず、F5mx、dispatch、host execution、platform presenterへは進みません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_into_schedule %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleError \policy\virtual_drain_owner:
+    let drain gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_drain &virtual_drain_owner
+    match gui_rgba8888_compositor_tile_rle_present_schedule_adopt_begin_frame_drain policy drain:
+        Result::Ok schedule_step:
+            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner virtual_drain_owner schedule_step
+        Result::Err lower:
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind::ScheduleAdoptionFailed virtual_drain_owner some lower
+
+//: success ownerのF5mw schedule stepをCopy valueとして読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_step %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner GuiRgba8888CompositorTileRlePresentScheduleStep \owner:
+    *field::get_ref owner "schedule_step"
+
+//: success ownerから元F5nze authorityを回収する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_take_virtual_drain_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner \owner:
+    field::get owner "virtual_drain_owner"
+
+//: success ownerが保持するcommand stepを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_take_virtual_drain_owner owner
+
+//: bridge error kindを読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleErrorKind \error:
+    *field::get_ref error "kind"
+
+//: F5mw typed errorをoptional Copy valueとして読む
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_error_schedule_error_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleError Option GuiRgba8888CompositorTileRlePresentScheduleStepError \error:
+    *field::get_ref error "schedule_error"
+
+//: failure ownerから元F5nze authorityを回収する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_error_take_virtual_drain_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner \error:
+    field::get error "virtual_drain_owner"
+
+//: failure ownerが保持するcommand stepを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_error_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameScheduleError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_error_take_virtual_drain_owner error

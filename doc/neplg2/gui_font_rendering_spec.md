@@ -8725,3 +8725,7 @@ F5nzdはpublic F5nyyを1回だけ呼び、第十九層BeginFrame stepをborrow�
 ### F5nze registered BeginFrame F5mv virtual drain owner
 
 F5nze production bridgeは単一のF5nzd ownerを受け、actual typed `Record(BeginFrame)`をempty F5mv target-free virtual drainへ1回だけ渡す。success ownerは元command stepを含むF5nzd ownerとF5mv next drain stateを同居させる。projection variant不一致またはF5mv failureはtyped error ownerとなり、error kind、optional F5mv error、元F5nzd ownerをlosslessに保持する。success/errorはいずれもconsuming recovery/freeを備え、Copy/Cloneにしない。runtime fixtureはpublic F5nzd pipelineの十九層failure authorityを同じ順序で閉じ、最深success ownerだけをproduction bridgeへ渡す。現行resource checkerが証明できない第二十層nested move-only Resultは公開しない。productionはF5mw schedule、host execution、transport、platform presenterへ進まず、fixtureだけがdrain後のtyped BeginFrame stateと元step recoveryを検証する。次のphaseはF5mw deterministic slice schedule接続である。
+
+### F5nzf registered BeginFrame F5mw deterministic schedule owner
+
+F5nzfはF5nzeで既にBeginFrameを消費したF5mv drainをF5mwへ再投入せず引き継ぐ。F5mwのBegin専用adoption APIはpolicyを検査し、drainが`InFrame`かつseen run/pixel count 0/0である場合だけ、同じdrainを持つcommand count 1、pixel count 0のschedule stateを作る。command budget 1では`Yield`、それ以外は`Continue`となる。genericなdrain/counter constructorは公開しない。F5nzf success/error ownerはF5nze owner全体を保持し、recovery/freeをF5nzeへ委譲する。F5mu record replay、F5mv再step、F5mx host continuation、dispatch、host execution、platform presenterへは進まない。

@@ -12,6 +12,7 @@ source policy labels:
 - std_compositor_tile_rle_present_schedule_over_budget_error_ok
 - std_compositor_tile_rle_present_schedule_resume_slice_ok
 - std_compositor_tile_rle_present_schedule_preserves_f5mv_metadata_authority_ok
+- std_compositor_tile_rle_present_schedule_adopt_validated_begin_drain_ok
 - std_compositor_tile_rle_present_schedule_no_lower_cursor_host_platform_fallback
 
 ## policy validation smoke
@@ -36,6 +37,7 @@ exit_code: 0
 // std_compositor_tile_rle_present_schedule_over_budget_error_ok
 // std_compositor_tile_rle_present_schedule_resume_slice_ok
 // std_compositor_tile_rle_present_schedule_preserves_f5mv_metadata_authority_ok
+// std_compositor_tile_rle_present_schedule_adopt_validated_begin_drain_ok
 // std_compositor_tile_rle_present_schedule_no_lower_cursor_host_platform_fallback
 
 fn policy_ok %fn void i32 \void:

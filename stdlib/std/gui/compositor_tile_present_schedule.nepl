@@ -109,6 +109,9 @@ pub enum GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind:
     PolicyMaxPixelsInvalid
     SliceCommandCountInvalid
     SlicePixelCountInvalid
+    AdoptBeginDrainPhaseInvalid
+    AdoptBeginSeenRunCountInvalid
+    AdoptBeginSeenPixelCountInvalid
     CommandCountOverflow
     PixelCountOverflow
     RunPixelCountInvalid
@@ -273,6 +276,37 @@ pub fn gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_cou
 //: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count %fn &GuiRgba8888CompositorTileRlePresentScheduleState i32 \state:
     *field::get_ref state "slice_pixel_count"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_adopt_begin_frame_drain: F5mvで検証済みのBeginFrame drainを最初のslice stateへ引き継ぐ
+//:
+//: [契約/けいやく]:
+//: - F5mvがBeginFrameを消費した`InFrame` stateだけを受け入れます。
+//: - BeginFrame recordを再投入せず、command count 1、pixel count 0を確立します。
+//: - caller supplied counterを受けるgeneric constructorは公開しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_adopt_begin_frame_drain %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy fn GuiRgba8888CompositorTileRlePresentVirtualDrain Result GuiRgba8888CompositorTileRlePresentScheduleStep GuiRgba8888CompositorTileRlePresentScheduleStepError \policy\drain:
+    let previous_state %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_schedule_state_new drain 0 0
+    match gui_rgba8888_compositor_tile_rle_present_schedule_validate_policy_for_step policy:
+        Result::Err kind:
+            Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error kind previous_state
+        Result::Ok _:
+            match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase &drain:
+                GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::InFrame:
+                    let seen_run_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_run_count &drain
+                    if ne seen_run_count 0:
+                        then Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::AdoptBeginSeenRunCountInvalid previous_state
+                        else:
+                            let seen_pixel_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_pixel_count &drain
+                            if ne seen_pixel_count 0:
+                                then Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::AdoptBeginSeenPixelCountInvalid previous_state
+                                else:
+                                    let next_state %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_schedule_state_new drain 1 0
+                                    let max_commands %i32 gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_commands_per_slice policy
+                                    let phase %GuiRgba8888CompositorTileRlePresentSchedulePhase if eq max_commands 1 then GuiRgba8888CompositorTileRlePresentSchedulePhase::Yield else GuiRgba8888CompositorTileRlePresentSchedulePhase::Continue
+                                    Result::Ok gui_rgba8888_compositor_tile_rle_present_schedule_step_new next_state phase
+                _:
+                    Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::AdoptBeginDrainPhaseInvalid previous_state
 
 //: gui_rgba8888_compositor_tile_rle_present_schedule_step_state: step state を[返/かえ]す
 //:

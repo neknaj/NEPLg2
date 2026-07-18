@@ -11156,6 +11156,10 @@ F5nzd adapterはF5nyyの十九層result graphを同じ順序で再包装し、Be
 
 F5nze adapterは単一のF5nzd ownerからprojectionをexactly once borrowし、`Record(BeginFrame)`だけをempty F5mv drainのstepへexactly once渡す。F5mv next stateは元F5nzd ownerと一つのmove-only success ownerへ封入する。`Completed`、`RunRecord`、`EndFrame`は別々のtyped projection error kindとし、F5mv failureはlower typed errorを`Option::Some`で保持する。error ownerも元F5nzd ownerを保持し、borrowed kind/error accessor、consuming record-owner recovery、freeを提供する。runtime fixtureはF5nzdの十九層result graphを既存free APIで閉じ、最深successだけをこのadapterへ渡す。第二十層nested move-only Resultを返すwrapperはresource owner proofが成立しないためpublic surfaceに置かない。production bridgeはF5mw schedule state、host continuation/execution、platform/backend APIを参照せず、target-free drain stateで停止する。
 
+### F5nzf registered BeginFrame F5mw deterministic schedule owner
+
+F5mwへはBegin専用`adopt_begin_frame_drain`を追加し、F5nzeの検証済みdrainをrecord replayなしでschedule stateへ移す。APIはvalid policy、`InFrame`、seen run/pixel 0/0を検査し、counter 1/0とexact command-budget phaseだけを内部constructorで作る。caller supplied counterやgeneric state-from-drainは公開しない。F5nzf ownerはmove-only F5nze ownerとCopy F5mw stepを同居させ、failureでもF5nze ownerとlower typed schedule errorを保持する。fixtureはbudget 2の`Continue`とbudget 1の`Yield`、counter 1/0、F5mv authority、元`RunPending` continuation、cleanupを検証する。F5mx host continuation requestは次phaseに残す。
+
 ### F5nyg registered direct compositor RLE count-start bridge
 
 F5nyg lives in the dedicated `stroke_compositor_tile_rle_count_start.nepl` extension so importing F5mf does not pollute the large stroke module's overload and trait namespace. It consumes the registered completed owner with existing entry/tile configs and tile index. It calls public F5nyf exactly once and passes the untouched payload owner to F5mf `gui_rgba8888_compositor_tile_rle_count_start` exactly once. Success returns the existing count owner with frame/row metadata, zero accumulated runs, pixel cursor zero, and Ready status.

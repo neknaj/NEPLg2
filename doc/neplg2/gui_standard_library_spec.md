@@ -2396,3 +2396,7 @@ F5nzdはF5nyyの十九層Resultをlosslessに保ち、BeginFrame command stepを
 ### Registered stroke compositor F5nze BeginFrame virtual drain boundary
 
 `alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain`はF5nzdのactual typed BeginFrame record authorityをF5mv target-free virtual drainへexactly once接続するalloc owner boundaryである。production APIは単一のF5nzd ownerを受け、successではrecord ownerとnext drain state、failureではtyped projection/F5mv errorとrecord ownerを所有する。runtime fixtureはF5nzdの十九層Resultをlosslessに閉じた最深successでこのbridgeを呼ぶ。現行resource checkerが証明できない第二十層nested move-only Resultはpublic APIにしない。std host import、F5mw schedule、platform presenterはこのmoduleの責務外である。
+
+### Registered stroke compositor F5nzf BeginFrame schedule boundary
+
+`alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_schedule`はF5nzeのvalidated F5mv authorityをF5mw deterministic scheduleへrecord replayなしで接続する。F5mw Begin adoptionは`InFrame`とseen counters 0/0を要求し、同じdrain、slice counters 1/0、exact command-budget phaseを返す。F5nzf owner/errorはF5nze owner全体を保持する。F5mx host continuation、dispatch、host execution、platform presenterはこのmoduleの責務外である。
