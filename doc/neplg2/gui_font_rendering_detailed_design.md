@@ -11207,3 +11207,7 @@ F5nzo consumes the F5nzn success owner through one formal parts handoff and borr
 ### F5nzp registered resumed Run schedule-only transition
 
 F5nzp consumes F5nzo through formal parts and passes its RunRecord to an F5nc schedule-only adapter exactly once. The adapter extracts the existing F5mw state, invokes F5mw/F5mv, and rewraps the successful schedule step through a narrow F5my trusted adopter without creating a host request. Success and failure both retain the cursor step beside updated or rollback loop authority. It stops before EndFrame stepping and host/platform work.
+
+### F5nzq registered resumed EndFrame command transition
+
+F5nzq inspects the F5nzp schedule phase before cursor recovery. Continue alone recovers the retained Run continuation and invokes F5mt once for the next command. Success co-locates updated state, the EndFrame step, and its typed descriptor. Non-Continue phases, lower failure, and unexpected results retain step or lower recovery authority. F5mu record, EndFrame schedule, host request, and host/platform execution remain later boundaries.

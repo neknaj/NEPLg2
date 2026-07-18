@@ -2440,3 +2440,7 @@ registered F5nzo boundaryはF5nzn successをformal partsで消費し、既存F5m
 ### Registered stroke compositor F5nzp resumed Run schedule boundary
 
 F5nc schedule-only adapterは既存loop state内のF5mw/F5mv authorityへrecordを一度だけ反映し、F5my trusted adopterでupdated scheduleをloop stateへ再包装する。registered ownerはcursor stepとupdated state、errorはcursor stepとrollback/lower diagnosticsを同居させる。host request、次command、platform executionは責務外である。
+
+### Registered stroke compositor F5nzq resumed EndFrame command boundary
+
+F5nzqはF5nzpのContinue authorityだけから既存F5mt command cursorを一度進め、updated InFrame loop stateとtyped EndFrame continuationを保持する。非Continue phaseと失敗はcursor/lower recoveryを保持し、F5mu record、host request、host/platform executionを行わない。

@@ -13938,3 +13938,9 @@ git diff --check
 - F5nc schedule-only adapterがloop stateから既存F5mw stateを読み、RunRecordをF5mwへexactly once渡す。
 - F5my trusted adopterでsuccessful schedule stepをloop stateへ再包装し、cursor stepとupdated/rollback authorityを同居させる。
 - actual fixtureはContinue、slice counters 1/16、drain seen 1/16、cleanupを検証する。host request、EndFrame step、platform executionは後続へ残す。
+
+### F5nzq registered resumed EndFrame command transition
+
+- F5nzp successをpartsへ一度だけ移し、phaseをcursor回収前に検査する。ContinueだけがF5mt finish-ownerとstepを各exactly once呼ぶ。
+- successはupdated state、EndFrame step、typed descriptorを同居させる。Yield/Completed、lower error、unexpected resultはstateとstep/lower recovery authorityを保持する。
+- actual fixtureはslice counters 1/16、drain seen 1/16、EndFrame、cleanupを検証する。F5mu EndFrame record、schedule、host request、platform executionは後続へ残す。

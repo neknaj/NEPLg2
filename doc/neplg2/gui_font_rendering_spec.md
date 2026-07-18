@@ -8769,3 +8769,7 @@ F5nzoはF5nzn success ownerをformal partsへ一度だけ移し、既存F5mu pro
 ### F5nzp registered resumed Run schedule-only owner
 
 F5nzpはF5nc schedule-only adapterを通じ、reset済loop state内の既存F5mw/F5mv authorityへRunRecordを一度だけ反映する。F5myのtrusted schedule-step adopterで更新stateを再包装し、successはcursor stepとupdated loop step、failureはcursor stepとrollback/lower diagnosticsを同居させる。host request、次command、platform executionへ進まない。
+
+### F5nzq registered resumed EndFrame command owner
+
+F5nzqはF5nzpのupdated InFrame stateとRun cursor stepを分解し、schedule phaseがContinueの場合だけ既存F5mt finish-ownerとstepを各一度呼ぶ。successはtyped EndFrame descriptor、continuation step、updated stateを同居させる。Yield/Completed、F5mt failure、unexpected resultはcursor/lower authorityをtyped recoveryへ保持する。F5mu EndFrame record、schedule、host request、host/platform executionへ進まない。
