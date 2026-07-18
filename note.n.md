@@ -168763,3 +168763,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - projection recorderの各entry内に残っていた`parameter_sources` membershipと`parameter_return_extents` source lookupの線形探索を、記録期間限定のparallel `BTreeSet<OwnerProjectionSource>` / `BTreeMap<OwnerProjectionSource, usize>`へ置き換えた。新規entry時にsummaryと補助indexを同時追加し、同sourceのextentは従来と同じ`merge_owner_extent_summaries`で既存slotへmergeする。
 - public summaryのfirst-seen順、root summary、global returned source、variant finalizer、canonicalizationは変更しない。専用unitは同じprojection/sourceを複数recordしてparameter source、extent、returned sourceが1件に保たれることとmaybe entryの独立性を検証する。
 - focused Rust回帰、owner-summary回帰、`cargo check`、release CLI buildは通過した。actual evidence 2047 gateは変更後も60秒compile timeoutしたためfixture差分を撤去した。このcheckpointはF5nzu完成・統合条件達成ではなく、issue/todoと全体未完成状態を維持する。次はglobal returned/root sourceまたはfixed-point依存通知の増幅を計測する。`plan.md`は変更していない。
+
+2026-07-19 F5nzu returned source recorder checkpoint
+
+- main owner summaryとvariant local collectorが共有する`returned_sources`はroot/projection/alias経路ごとに全sourceを線形dedupしていた。記録期間だけfirst-seen `Vec`とexact `BTreeSet<OwnerProjectionSource>`を同居させる`OwnerProjectionSourceRecorder`へ置き換え、root/projection record APIの全経路を同じaccumulatorへ接続した。
+- mainはvariant finalizer直前、variant local collectorは返却直前に`into_entries`してmembershipを破棄する。finalizerが行うretain/clear、consumed-owner判定、public summaryのfirst-seen順、parameter source/extentの契約は変更しない。
+- focused Rust回帰、owner-summary回帰、`cargo check`、release CLI buildは通過した。actual evidence 2047は変更後も通常60秒compile timeoutしたためfixture差分を撤去した。このcheckpointもF5nzu完成・統合条件達成ではなく、issue/todoと全体未完成状態を維持する。次はfixed-point依存通知とsummary producer自身の残る増幅をstage timingで分離する。`plan.md`は変更していない。

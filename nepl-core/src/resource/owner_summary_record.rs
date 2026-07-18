@@ -18,7 +18,7 @@ pub(super) fn record_projection_owner_return(
     storage: StorageId,
     fresh_extent: OwnerExtentSummary,
     parameter_storage_sources: &[OwnerParameterStorageSource],
-    returned_sources: &mut Vec<OwnerProjectionSource>,
+    returned_sources: &mut OwnerProjectionSourceRecorder,
 ) {
     let entry_index = projection_return_entry_index(projection_returns, suffix, ty);
     if let Some(source) = owner_source_for_storage(storage, parameter_storage_sources) {
@@ -107,7 +107,7 @@ impl OwnerProjectionReturnRecorder {
     fn record_owner_source(
         &mut self,
         entry_index: usize,
-        returned_sources: &mut Vec<OwnerProjectionSource>,
+        returned_sources: &mut OwnerProjectionSourceRecorder,
         source: &OwnerProjectionSource,
         returned_extent: OwnerExtentSummary,
     ) {
@@ -130,7 +130,7 @@ impl OwnerProjectionReturnRecorder {
                     extent: returned_extent,
                 });
         }
-        push_unique_owner_projection_source(returned_sources, source);
+        returned_sources.push_unique(source);
     }
 }
 
@@ -165,7 +165,7 @@ pub(super) fn record_root_owner_return(
     parameter_indices: &mut Vec<usize>,
     parameter_sources: &mut Vec<OwnerProjectionSource>,
     parameter_return_extents: &mut Vec<OwnerParameterReturnExtent>,
-    returned_sources: &mut Vec<OwnerProjectionSource>,
+    returned_sources: &mut OwnerProjectionSourceRecorder,
     source: &OwnerProjectionSource,
     returned_extent: OwnerExtentSummary,
 ) {
@@ -181,7 +181,7 @@ pub(super) fn record_root_owner_return(
             extent: returned_extent,
         },
     );
-    push_unique_owner_projection_source(returned_sources, source);
+    returned_sources.push_unique(source);
 }
 
 pub(super) fn owner_source_for_storage<'a>(
@@ -236,6 +236,24 @@ pub(super) fn push_or_merge_parameter_return_extent(
     out.push(entry);
 }
 
+#[derive(Default)]
+pub(super) struct OwnerProjectionSourceRecorder {
+    entries: Vec<OwnerProjectionSource>,
+    membership: BTreeSet<OwnerProjectionSource>,
+}
+
+impl OwnerProjectionSourceRecorder {
+    pub(super) fn push_unique(&mut self, source: &OwnerProjectionSource) {
+        if self.membership.insert(source.clone()) {
+            self.entries.push(source.clone());
+        }
+    }
+
+    pub(super) fn into_entries(self) -> Vec<OwnerProjectionSource> {
+        self.entries
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::vec;
@@ -247,7 +265,7 @@ mod tests {
     use super::super::summary::{OwnerExtentSummary, OwnerProjectionSource};
     use super::{
         record_projection_maybe_owner_return, record_projection_owner_return,
-        OwnerParameterStorageSource, OwnerProjectionReturnRecorder,
+        OwnerParameterStorageSource, OwnerProjectionReturnRecorder, OwnerProjectionSourceRecorder,
     };
 
     #[test]
@@ -293,7 +311,7 @@ mod tests {
             source: source.clone(),
             place: Place::local("parameter".into(), TypeId(4)),
         }];
-        let mut returned_sources = Vec::new();
+        let mut returned_sources = OwnerProjectionSourceRecorder::default();
         let mut returns = OwnerProjectionReturnRecorder::default();
 
         record_projection_owner_return(
@@ -325,7 +343,28 @@ mod tests {
             returns[0].parameter_return_extents[0].extent,
             OwnerExtentSummary::Unknown
         );
-        assert_eq!(returned_sources.len(), 1);
+        assert_eq!(returned_sources.into_entries().len(), 1);
         assert!(returns[1].returns_maybe_owner);
+    }
+
+    #[test]
+    fn projection_source_recorder_preserves_first_seen_order() {
+        let first = OwnerProjectionSource {
+            parameter_index: 1,
+            suffix: Vec::new(),
+            ty: TypeId(1),
+        };
+        let second = OwnerProjectionSource {
+            parameter_index: 2,
+            suffix: Vec::new(),
+            ty: TypeId(2),
+        };
+        let mut sources = OwnerProjectionSourceRecorder::default();
+
+        sources.push_unique(&first);
+        sources.push_unique(&second);
+        sources.push_unique(&first);
+
+        assert_eq!(sources.into_entries(), vec![first, second]);
     }
 }
