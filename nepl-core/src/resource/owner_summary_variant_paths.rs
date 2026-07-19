@@ -1248,6 +1248,201 @@ mod tests {
     }
 
     #[test]
+    fn consecutive_recursive_matches_thread_specialized_state_and_effects() {
+        let mut types = TypeCtx::new();
+        let owner_ty = types.box_ty(types.unit());
+        let value = Place::local("value".to_string(), types.unit());
+        let first_value = Place::local("first_value".to_string(), types.unit());
+        let first_retained = Place::local("first_retained".to_string(), types.unit());
+        let second_value = Place::local("second_value".to_string(), types.unit());
+        let second_retained = Place::local("second_retained".to_string(), types.unit());
+        let post_retained = Place::local("post_retained".to_string(), types.unit());
+        let first_scrutinee = Place::local("first_scrutinee".to_string(), types.unit());
+        let second_scrutinee = Place::local("second_scrutinee".to_string(), types.unit());
+        let first_bind = Place::local("first_bind".to_string(), owner_ty);
+        let second_bind = Place::local("second_bind".to_string(), owner_ty);
+        let span = Span::dummy();
+        let arm = |arm_value: Place, retained: Place, bind_local: Place| ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Variant("Ok".to_string()),
+            bind_local: Some(bind_local),
+            bind_source_name: None,
+            bind_mode: Some(crate::resource::model::ResourceMatchBindMode::Owned),
+            ops: vec![
+                ResourceOp::Construct {
+                    output: arm_value.clone(),
+                    kind: AggregateKind::Enum {
+                        name: "Result".to_string(),
+                        variant: "Ok".to_string(),
+                    },
+                    inputs: Vec::new(),
+                    span,
+                },
+                ResourceOp::StorageOrigin {
+                    target: retained,
+                    origin: StorageOrigin::Owned,
+                    span,
+                },
+            ],
+            value: arm_value,
+            span,
+        };
+        let ops = [
+                ResourceOp::Match {
+                    output: value.clone(),
+                    scrutinee: first_scrutinee.clone(),
+                    scrutinee_is_borrow_target: false,
+                    arms: vec![arm(first_value, first_retained.clone(), first_bind)],
+                    span,
+                },
+                ResourceOp::Match {
+                    output: value.clone(),
+                    scrutinee: second_scrutinee.clone(),
+                    scrutinee_is_borrow_target: false,
+                    arms: vec![arm(second_value, second_retained.clone(), second_bind)],
+                    span,
+                },
+                ResourceOp::StorageOrigin {
+                    target: post_retained.clone(),
+                    origin: StorageOrigin::Owned,
+                    span,
+                },
+            ];
+        let mut effects = PendingVariantOwnerEffects::default();
+        for scrutinee in [&first_scrutinee, &second_scrutinee] {
+            effects.consumptions.push(
+                crate::resource::owner_variant::PendingVariantOwnerConsumption {
+                    result: scrutinee.clone(),
+                    variant: "Ok".to_string(),
+                    arg: scrutinee.clone().with_projection(
+                        crate::resource::model::PlaceProjection::EnumPayload {
+                            variant: "Ok".to_string(),
+                        },
+                        owner_ty,
+                    ),
+                    suffix: Vec::new(),
+                    ty: owner_ty,
+                    extent: None,
+                },
+            );
+        }
+        let mut result = run_path_with_match(
+            &types,
+            &ops,
+            &value,
+            &effects,
+            None,
+            None,
+        );
+
+        assert!(result.engine_effects().is_complete());
+        assert_eq!(result.engine_effects().delta_count(), 8);
+        assert_eq!(result.controls.len(), 2);
+        assert_eq!(result.controls[0].op_index, 0);
+        assert_eq!(result.controls[1].op_index, 1);
+        for control in &result.controls {
+            assert_eq!(control.kind, OwnerVariantControlKind::Match);
+            assert_eq!(control.paths.len(), 1);
+            assert_eq!(
+                control.paths[0].selector,
+                OwnerVariantPathSelector::MatchArm(0)
+            );
+            assert!(control.paths[0].result.merge_eligible);
+            assert!(control.paths[0].result.effect_authority_transferred);
+        }
+        assert_eq!(
+            result.controls[0].paths[0]
+                .result
+                .state_snapshot
+                .storage_origin(&first_retained),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            result.controls[0].paths[0]
+                .result
+                .state_snapshot
+                .storage_origin(&second_retained),
+            None
+        );
+        assert_eq!(
+            result.controls[1].paths[0]
+                .result
+                .state_snapshot
+                .storage_origin(&first_retained),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            result.controls[1].paths[0]
+                .result
+                .state_snapshot
+                .storage_origin(&second_retained),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            result.controls[1].paths[0]
+                .result
+                .state_snapshot
+                .storage_origin(&post_retained),
+            None
+        );
+        assert_eq!(
+            result.state.storage_origins.origin(&first_retained),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            result.state.storage_origins.origin(&second_retained),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            result.state.storage_origins.origin(&post_retained),
+            Some(StorageOrigin::Owned)
+        );
+
+        let summaries = Vec::new();
+        let summary_index = OwnerReturnSummaryIndex::new(&summaries);
+        let make_engine = || ResourceOwnerCheckEngine {
+            function: "variant_path_oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let mut generic_state = OwnerMatchPathState::from_parent(
+            &OwnerTable::default(),
+            &FunctionAliasTable::default(),
+            &RawCellAddressAliases::default(),
+            &RawAddressViewTable::default(),
+            &StorageOriginTable::default(),
+            &PendingRawReallocs::default(),
+            &effects,
+        );
+        let mut generic_engine = make_engine();
+        generic_engine.check_ops(
+            &mut generic_state.owners,
+            &mut generic_state.function_aliases,
+            &mut generic_state.raw_aliases,
+            &mut generic_state.raw_views,
+            &mut generic_state.storage_origins,
+            &mut generic_state.pending_reallocs,
+            &mut generic_state.variant_owner_effects,
+            &ops,
+        );
+        let generic_effects = generic_engine.match_oracle_snapshot();
+        let mut absorbed_engine = make_engine();
+        result
+            .take_engine_effects()
+            .absorb_into(&mut absorbed_engine);
+
+        assert_eq!(generic_effects, absorbed_engine.match_oracle_snapshot());
+        assert_eq!(generic_effects.diagnostic_count(), 2);
+        assert_eq!(generic_state.oracle_snapshot(), result.state.oracle_snapshot());
+        assert!(result.engine_effects.is_none());
+    }
+
+    #[test]
     fn recursive_match_transfers_complete_child_effects_once() {
         let mut types = TypeCtx::new();
         let unit = types.unit();
