@@ -19,6 +19,88 @@ use super::raw_realloc::{
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 
+pub(super) struct OwnerMatchPathState {
+    pub(super) owners: OwnerTable,
+    pub(super) function_aliases: FunctionAliasTable,
+    pub(super) raw_aliases: RawCellAddressAliases,
+    pub(super) raw_views: RawAddressViewTable,
+    pub(super) storage_origins: StorageOriginTable,
+    pub(super) pending_reallocs: PendingRawReallocs,
+    pub(super) variant_owner_effects: PendingVariantOwnerEffects,
+}
+
+impl OwnerMatchPathState {
+    pub(super) fn from_parent(
+        owners: &OwnerTable,
+        function_aliases: &FunctionAliasTable,
+        raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        storage_origins: &StorageOriginTable,
+        pending_reallocs: &PendingRawReallocs,
+        variant_owner_effects: &PendingVariantOwnerEffects,
+    ) -> Self {
+        Self {
+            owners: owners.clone(),
+            function_aliases: function_aliases.clone(),
+            raw_aliases: raw_aliases.clone(),
+            raw_views: raw_views.clone(),
+            storage_origins: storage_origins.clone(),
+            pending_reallocs: pending_reallocs.clone(),
+            variant_owner_effects: variant_owner_effects.clone(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub(super) struct OwnerMatchPathStates {
+    owner_paths: Vec<OwnerTable>,
+    function_alias_paths: Vec<FunctionAliasTable>,
+    raw_alias_paths: Vec<RawCellAddressAliases>,
+    raw_view_paths: Vec<RawAddressViewTable>,
+    storage_origin_paths: Vec<StorageOriginTable>,
+    pending_realloc_paths: Vec<PendingRawReallocs>,
+    variant_owner_effect_paths: Vec<PendingVariantOwnerEffects>,
+}
+
+impl OwnerMatchPathStates {
+    pub(super) fn push(&mut self, path: OwnerMatchPathState) {
+        self.owner_paths.push(path.owners);
+        self.function_alias_paths.push(path.function_aliases);
+        self.raw_alias_paths.push(path.raw_aliases);
+        self.raw_view_paths.push(path.raw_views);
+        self.storage_origin_paths.push(path.storage_origins);
+        self.pending_realloc_paths.push(path.pending_reallocs);
+        self.variant_owner_effect_paths
+            .push(path.variant_owner_effects);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn merge_match_path_states(
+    owners: &mut OwnerTable,
+    function_aliases: &mut FunctionAliasTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    raw_views: &mut RawAddressViewTable,
+    storage_origins: &mut StorageOriginTable,
+    pending_reallocs: &mut PendingRawReallocs,
+    variant_owner_effects: &mut PendingVariantOwnerEffects,
+    paths: OwnerMatchPathStates,
+) -> bool {
+    if paths.owner_paths.is_empty() {
+        return false;
+    }
+    let merged_raw_aliases = RawCellAddressAliases::merge_paths(&paths.raw_alias_paths);
+    *owners = OwnerTable::merge_paths_with_raw_aliases(&paths.owner_paths, &merged_raw_aliases);
+    *function_aliases = FunctionAliasTable::merge_paths(&paths.function_alias_paths);
+    *raw_aliases = merged_raw_aliases;
+    *raw_views = RawAddressViewTable::merge_paths(&paths.raw_view_paths);
+    *storage_origins = StorageOriginTable::merge_paths(&paths.storage_origin_paths);
+    *pending_reallocs = PendingRawReallocs::merge_paths(&paths.pending_realloc_paths);
+    *variant_owner_effects =
+        PendingVariantOwnerEffects::merge_paths(&paths.variant_owner_effect_paths);
+    true
+}
+
 impl ResourceOwnerCheckEngine<'_> {
     pub(super) fn check_branch(
         &mut self,
@@ -334,25 +416,30 @@ impl ResourceOwnerCheckEngine<'_> {
         arms: &[ResourceMatchArm],
         span: Span,
     ) {
-        let mut arm_paths = Vec::new();
-        let mut function_alias_paths = Vec::new();
-        let mut raw_alias_paths = Vec::new();
-        let mut raw_view_paths = Vec::new();
-        let mut storage_origin_paths = Vec::new();
-        let mut pending_realloc_paths = Vec::new();
-        let mut variant_owner_effect_paths = Vec::new();
+        let mut arm_paths = OwnerMatchPathStates::default();
 
         for arm in arms {
             if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
                 continue;
             }
-            let mut arm_owners = owners.clone();
-            let mut arm_function_aliases = function_aliases.clone();
-            let mut arm_raw_aliases = raw_aliases.clone();
-            let mut arm_raw_views = raw_views.clone();
-            let mut arm_storage_origins = storage_origins.clone();
-            let mut arm_pending_reallocs = pending_reallocs.clone();
-            let mut arm_variant_owner_effects = variant_owner_effects.clone();
+            let arm_state = OwnerMatchPathState::from_parent(
+                owners,
+                function_aliases,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                pending_reallocs,
+                variant_owner_effects,
+            );
+            let OwnerMatchPathState {
+                owners: mut arm_owners,
+                function_aliases: mut arm_function_aliases,
+                raw_aliases: mut arm_raw_aliases,
+                raw_views: mut arm_raw_views,
+                storage_origins: mut arm_storage_origins,
+                pending_reallocs: mut arm_pending_reallocs,
+                variant_owner_effects: mut arm_variant_owner_effects,
+            } = arm_state;
             if let Some(selected_variant) = match_arm_variant_payload_name(arm) {
                 retire_inactive_enum_payload_owners(
                     &mut arm_owners,
@@ -493,28 +580,28 @@ impl ResourceOwnerCheckEngine<'_> {
                         );
                     }
                 }
-                arm_paths.push(arm_owners);
-                function_alias_paths.push(arm_function_aliases);
-                raw_alias_paths.push(arm_raw_aliases);
-                raw_view_paths.push(arm_raw_views);
-                storage_origin_paths.push(arm_storage_origins);
-                pending_realloc_paths.push(arm_pending_reallocs);
-                variant_owner_effect_paths.push(arm_variant_owner_effects);
+                arm_paths.push(OwnerMatchPathState {
+                    owners: arm_owners,
+                    function_aliases: arm_function_aliases,
+                    raw_aliases: arm_raw_aliases,
+                    raw_views: arm_raw_views,
+                    storage_origins: arm_storage_origins,
+                    pending_reallocs: arm_pending_reallocs,
+                    variant_owner_effects: arm_variant_owner_effects,
+                });
             }
         }
-        if !arm_paths.is_empty() {
-            let merged_raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
-            *owners = OwnerTable::merge_paths_with_raw_aliases(&arm_paths, &merged_raw_aliases);
-            *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
-            *raw_aliases = merged_raw_aliases;
-            *raw_views = RawAddressViewTable::merge_paths(&raw_view_paths);
-            *storage_origins = StorageOriginTable::merge_paths(&storage_origin_paths);
-            *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
-            *variant_owner_effects =
-                PendingVariantOwnerEffects::merge_paths(&variant_owner_effect_paths);
-        }
+        merge_match_path_states(
+            owners,
+            function_aliases,
+            raw_aliases,
+            raw_views,
+            storage_origins,
+            pending_reallocs,
+            variant_owner_effects,
+            arm_paths,
+        );
     }
-
 
     pub(super) fn apply_branch_condition_fact(
         &mut self,
@@ -652,5 +739,32 @@ impl ResourceOwnerCheckEngine<'_> {
             self.types.get_ref(self.types.resolve_id(place.ty)),
             TypeKind::Never
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_match_path_merge_preserves_parent_state() {
+        let mut owners = OwnerTable::default();
+        let mut function_aliases = FunctionAliasTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
+        let mut raw_views = RawAddressViewTable::default();
+        let mut storage_origins = StorageOriginTable::default();
+        let mut pending_reallocs = PendingRawReallocs::default();
+        let mut variant_owner_effects = PendingVariantOwnerEffects::default();
+
+        assert!(!merge_match_path_states(
+            &mut owners,
+            &mut function_aliases,
+            &mut raw_aliases,
+            &mut raw_views,
+            &mut storage_origins,
+            &mut pending_reallocs,
+            &mut variant_owner_effects,
+            OwnerMatchPathStates::default(),
+        ));
     }
 }

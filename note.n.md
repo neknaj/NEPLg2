@@ -168849,3 +168849,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - return-producing Match直前のpending effectsをoutput/scrutinee別、consumption/return source種別、temporary、unreachable、payload/value conditionへ集約した。filter不一致時はeffect Vecを走査しない。F5nzt対照の19 Matchではoutput一致consumption/return/condition/unreachable/temporaryは全て0、scrutinee一致consumption/return entryは合計71件だった。scrutinee側のcondition/unreachableはこの71件に含めず未計測である。
 - fast path不発の原因はoutput effectではなく全19 Matchが非末尾だったことである。generic check_matchがscrutinee owner entriesとcondition/unreachableを各armへ適用して7 state bundleをmergeし、そのstateで後続opsを処理する契約が必要である。次はowner_control::check_matchのarm entry/ops/value-to-output/temporary materialization/mergeを共通helper化できる設計とdifferential oracleを作る。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu canonical Match path-state bundle checkpoint
+
+- generic `check_match`がparallelな7個のVecで保持していたowner、function alias、raw alias/view、storage origin、pending realloc、variant effectを`OwnerMatchPathState`へ束ねた。parent cloneとmergeをcanonical helperへ抽出し、reachable arm順、Never除外、raw alias先行merge、残る6 stateのmerge順と入力集合は変更していない。collector内部は従来と同じ7個のVecへ直接格納するためallocation数を増やさず、reachable pathが空ならparent stateを変更せず`false`を返す契約を直接回帰で固定した。
+- arm entry、arm ops、value-to-output finalization自体は変更せずgeneric実装をoracleとして維持する。transport stateのparent cloneはspecialized traversalから再利用可能にしたが、entry/finalizationはまだ共通化していない。次はcanonical arm entryとfinalizationをそれぞれsemantic-neutral helperへ抽出してからspecialized traversalへowned path stateを返す。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
