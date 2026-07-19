@@ -490,13 +490,17 @@ fn collect_variant_consumed_owner_parameters_from_path(
         #[cfg(test)]
         result.engine_effects.mark_incomplete();
         #[cfg(test)]
-        if let Some(output) = _match_output {
-            result.merge_eligible = path_engine.finalize_match_arm_value(
-                &mut result.state,
-                output,
-                path_value,
-                match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
-            );
+        if match_entry_reachable {
+            if let Some(output) = _match_output {
+                result.merge_eligible = path_engine.finalize_match_arm_value(
+                    &mut result.state,
+                    output,
+                    path_value,
+                    match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
+                );
+            }
+        } else {
+            result.merge_eligible = false;
         }
         return result;
     };
@@ -651,21 +655,21 @@ fn collect_variant_consumed_owner_parameters_from_path(
     #[cfg(test)]
     let mut result = result;
     #[cfg(test)]
-    if !match_entry_reachable {
+    if match_entry_reachable {
+        if let Some(output) = _match_output {
+            let finalize_checkpoint = path_engine.match_engine_effect_checkpoint();
+            result.merge_eligible = path_engine.finalize_match_arm_value(
+                &mut result.state,
+                output,
+                path_value,
+                match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
+            );
+            result
+                .engine_effects
+                .push(path_engine.match_engine_effect_delta(finalize_checkpoint));
+        }
+    } else {
         result.merge_eligible = false;
-    }
-    #[cfg(test)]
-    if let Some(output) = _match_output {
-        let finalize_checkpoint = path_engine.match_engine_effect_checkpoint();
-        result.merge_eligible = path_engine.finalize_match_arm_value(
-            &mut result.state,
-            output,
-            path_value,
-            match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
-        );
-        result
-            .engine_effects
-            .push(path_engine.match_engine_effect_delta(finalize_checkpoint));
     }
     result
 }
@@ -719,11 +723,29 @@ mod tests {
 
     fn run_path(path_ops: &[ResourceOp], path_value: &Place) -> OwnerVariantTraversalResult {
         let types = TypeCtx::new();
+        run_path_with_match(
+            &types,
+            path_ops,
+            path_value,
+            &PendingVariantOwnerEffects::default(),
+            None,
+            None,
+        )
+    }
+
+    fn run_path_with_match(
+        types: &TypeCtx,
+        path_ops: &[ResourceOp],
+        path_value: &Place,
+        variant_owner_effects: &PendingVariantOwnerEffects,
+        match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
+        match_output: Option<&Place>,
+    ) -> OwnerVariantTraversalResult {
         let summaries = Vec::new();
         let summary_index = OwnerReturnSummaryIndex::new(&summaries);
         let engine = ResourceOwnerCheckEngine {
             function: "variant_path_oracle",
-            types: &types,
+            types,
             summaries: &summary_index,
             diagnostics: Vec::new(),
             deferred: ResourceOwnerCheckDeferred::default(),
@@ -755,14 +777,14 @@ mod tests {
             &StorageOriginTable::default(),
             &FunctionAliasTable::default(),
             &PendingRawReallocs::default(),
-            &PendingVariantOwnerEffects::default(),
+            variant_owner_effects,
             &[],
             &[],
             path_ops,
             path_value,
             None,
-            None,
-            None,
+            match_arm,
+            match_output,
             &mut host_size_out,
             &mut type_size_out,
             &mut return_out,
@@ -860,6 +882,91 @@ mod tests {
         let result = run_path(&ops, &value);
 
         assert!(!result.engine_effects.is_complete());
+    }
+
+    #[test]
+    fn constructed_never_match_path_keeps_complete_effects_but_excludes_state() {
+        let types = TypeCtx::new();
+        let value = Place::local("never_value".to_string(), types.never());
+        let output = Place::local("output".to_string(), types.unit());
+        let scrutinee = Place::local("scrutinee".to_string(), types.unit());
+        let span = Span::dummy();
+        let arm = ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Wildcard,
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: Vec::new(),
+            value: value.clone(),
+            span,
+        };
+        let ops = [ResourceOp::Construct {
+            output: value.clone(),
+            kind: AggregateKind::Enum {
+                name: "Result".to_string(),
+                variant: "Ok".to_string(),
+            },
+            inputs: Vec::new(),
+            span,
+        }];
+
+        let result = run_path_with_match(
+            &types,
+            &ops,
+            &value,
+            &PendingVariantOwnerEffects::default(),
+            Some((&scrutinee, &arm, span)),
+            Some(&output),
+        );
+
+        assert!(result.engine_effects.is_complete());
+        assert!(!result.merge_eligible);
+    }
+
+    #[test]
+    fn unreachable_match_path_is_incomplete_and_merge_ineligible() {
+        let types = TypeCtx::new();
+        let value = Place::local("value".to_string(), types.unit());
+        let output = Place::local("output".to_string(), types.unit());
+        let scrutinee = Place::local("scrutinee".to_string(), types.unit());
+        let span = Span::dummy();
+        let arm = ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Variant("Err".to_string()),
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: Vec::new(),
+            value: value.clone(),
+            span,
+        };
+        let ops = [ResourceOp::Construct {
+            output: value.clone(),
+            kind: AggregateKind::Enum {
+                name: "Result".to_string(),
+                variant: "Ok".to_string(),
+            },
+            inputs: Vec::new(),
+            span,
+        }];
+        let mut effects = PendingVariantOwnerEffects::default();
+        effects.unreachable_variants.push(
+            crate::resource::owner_variant::PendingUnreachableVariant {
+                result: scrutinee.clone(),
+                variant: "Err".to_string(),
+            },
+        );
+
+        let result = run_path_with_match(
+            &types,
+            &ops,
+            &value,
+            &effects,
+            Some((&scrutinee, &arm, span)),
+            Some(&output),
+        );
+
+        assert!(!result.engine_effects.is_complete());
+        assert!(!result.merge_eligible);
     }
 
     #[test]

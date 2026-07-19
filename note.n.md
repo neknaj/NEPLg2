@@ -168954,3 +168954,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - これによりConstruct以前のgeneric Branch/Loop/Match replay effectsをcomplete specialized authorityへ誤採用しない。incomplete accumulatorは既存`absorb_into`で拒否される。production code/semanticsは変更していない。
 - focused variant path 4件、owner control 10件、owner-summary filter 36件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent初回reviewのconstructed経路をfixture自身が証明しないblockerは直接classification assertで修正した。
 - 次はcanonical Match entry/finalizeを含むactual delta parity、Never/unreachable fixture、recursive entry→child→finalize合成である。Branch condition/finalization parity、production shared-engine化、full summary parity、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu actual Match terminal effect fixture checkpoint
+
+- actual variant path test helperへ同一`TypeCtx`、variant effects、Match arm/outputを渡すcontext境界を追加し、constructed Never pathがentry/leaf effectをcompleteのまま保持しつつfinalize falseでstate merge対象外になることを直接固定した。pending unreachable armはcanonical prepareがNoneを返し、effect accumulatorをincomplete、stateをmerge非eligibleにする。
+- fixtureにより、prepare None後の`merge_eligible=false`を無条件finalizeが上書きするtest-only shadow欠陥を検出した。constructed/recursive両経路でreachable entryだけをfinalizeし、unreachable entryは明示falseのまま保持するよう根本修正した。変更は`cfg(test)`およびtest module内だけで、production summary/replay/allocation semanticsは不変である。
+- focused variant path 6件、owner control 10件、owner-summary filter 38件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent reviewはblockerなし。synthetic Never Constructとrecursive Never/unreachable直接fixture不足は次段のcoverage debtである。
+- 次はactual canonical delta parityとrecursive entry→child→finalize accumulator合成である。Branch parity、production shared-engine化、full summary parity、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
