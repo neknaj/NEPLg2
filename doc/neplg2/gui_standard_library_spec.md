@@ -2472,3 +2472,7 @@ F5nzwはF5nzl failureのregistered continuationとF5nh/F5ng/F5nf/F5ne lower reco
 ### Registered stroke compositor F5nzx recovered-state scheduler decision boundary
 
 F5nzxはF5nzw RecoveredStateだけをvalue-only ResumeSlice / Abort decisionへ渡す。decisionはstateを変更せずmove-only ResumePending / AbortReadyを返し、ResumePending専用entryだけが既存F5nc slice resume helperへ委譲する。continuation、category、exact diagnostic、stateを保持し、RetryPending再提出、outcome/completion、request生成、scheduler/host/platform executionは行わない。
+
+### Registered stroke compositor F5nzy finite retry policy boundary
+
+F5nzyはF5nzw RetryPendingを有限0/1 budgetで一度だけ分類する。元failureがactual UnsupportedActionで、保持expected actionをcandidate supportが受理する場合だけspent Exhausted budget付きRetryReadyを返す。それ以外は元continuation/category/diagnostic/session pendingとtyped policy reasonを保持するAbortReadyとなる。executor、outcome、completion、scheduler、platform処理は含まない。

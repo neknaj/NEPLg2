@@ -169176,3 +169176,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nzw RecoveredStateをcaller-supplied ResumeSlice / AbortでResumePending / AbortReadyへ分類し、ResumePendingだけがF5nc slice resume helperを一度呼ぶboundaryを追加した。
 - registered continuation、category、exact DriverCompletionFailed diagnostic、stateを保持し、RetryPending、outcome/completion、request、actual scheduler/executor/platformへ進まない。actual fixtureによりF5ne rollback stateはcommand適用前のcanonical slice count 0であり、resume後も0、Abort handoffも0を保持することを確認した。GUI/font全体は未完成である。`plan.md`は変更していない。
 - release runtime fixtureは2/2、resume evidence 124、abort evidence 60、elapsed 4:38.79、最大RSS 375388KiBで通過した。Web source-policy、normal-mode isolation 2件、native/wasm workspace check、release CLI build、trunk build、Playground editor CLI JSON 13/13、issues check、`git diff --check`も通過し、subagent差分reviewはblocker/majorなしだった。次はF5nzyでRetryPendingの有限retry budget、support transition、abort policyを確定する。
+
+2026-07-19 F5nzy registered BeginFrame finite retry policy
+
+- F5nzw RetryPendingを一度だけ消費する0/1 budget policyを追加した。actual SinkRejected UnsupportedActionが保持するexpected actionをcandidate supportが受理する場合だけRetryReadyとし、明示abort、budget exhausted、non-retriable diagnostic、unsupported candidateは元authorityを保持するAbortReadyへ分類する。
+- RetryReadyはspent Exhausted budgetを保持し、後続F5nzzだけがexact session pendingとpreflight済みsupportを消費する。actual lower mismatchもnon-retriable abortへ固定した。F5nzyではexecutor、outcome、completion、request、scheduler、state resume、platform workを実行しない。一般N回retryにはcompletion/recovery全体へ偽造不能budget tokenを通す別設計が必要である。GUI/font全体は未完成で、`plan.md`は変更していない。
+- release runtime fixtureは5/5、evidence 63/23/71/15/17、elapsed 5:18.19、最大RSS 414596KiBで通過した。subagent初回reviewのspent budget欠落、non-retriable未実行、exact diagnostic観測不足を修正し、再reviewはblocker/majorなしとなった。F5nzzではspent Exhausted budgetを再failure policyへ必ず接続する。

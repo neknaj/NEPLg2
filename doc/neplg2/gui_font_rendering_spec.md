@@ -8801,3 +8801,7 @@ F5nzwはF5nzl completion errorを一度だけ消費し、registered dispatch con
 ### F5nzx registered BeginFrame recovered-state scheduler decision boundary
 
 F5nzxはF5nzw `RecoveredState`だけを一度消費し、caller-supplied `ResumeSlice | Abort` decisionで`ResumePending | AbortReady`へ分類する。decision段階ではstateを変更せず、ResumePending専用entryだけがF5nc slice resume helperをexactly once呼ぶ。registered continuation、category、DriverCompletionFailed詳細diagnostic、stateを全handoffで保持し、RetryPending、outcome、completion、host request、actual scheduler/executor、next command、platform workへ進まない。
+
+### F5nzy registered BeginFrame finite retry policy boundary
+
+F5nzyはF5nzw `RetryPending`を一度だけ消費し、`Exhausted | OneRemaining` budgetとcaller decisionをmove-only `RetryReady | AbortReady`へ分類する。retryはactual `SinkRejected(UnsupportedAction)`が保持するexpected actionをcandidate supportが既存validatorで受理する場合だけ許可し、RetryReadyは消費済み`Exhausted` budgetを必ず保持する。mismatch、budget exhausted、明示abort、unsupported candidateは元category、exact diagnostic、session pending、registered continuationを保持したtyped abortとなる。F5nzyはactual executor、outcome、completion、request、scheduler、state resume、platform workを実行しない。一般N回retryは偽造不能budget tokenをcompletion/recovery全体へ通す別設計を必要とする。

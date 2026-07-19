@@ -11239,3 +11239,7 @@ F5nzw consumes the F5nzl error through one formal parts handoff and keeps its re
 ### F5nzx registered BeginFrame recovered-state scheduler decision
 
 F5nzx consumes only the F5nzw recovered-state owner and applies a caller-supplied ResumeSlice or Abort value. The decision transition preserves the registered continuation, category, exact DriverCompletionFailed diagnostic, and unchanged loop state in ResumePending or AbortReady. Only the ResumePending entry invokes the existing F5nc slice-resume helper once and returns a consuming resumed handoff. It does not consume RetryPending, synthesize outcomes, rerun completion, construct requests, or execute scheduler, host, next-command, or platform work.
+
+### F5nzy registered BeginFrame finite retry policy
+
+F5nzy consumes one F5nzw RetryPending owner and applies a finite exhausted/one-remaining budget before any candidate support validation. Only an actual SinkRejected UnsupportedAction diagnostic can become RetryReady, and only when the retained expected action passes the existing executor support validator. RetryReady carries the exact session pending, selected support, original category and diagnostic, registered continuation, and an explicit spent Exhausted budget. Explicit abort, exhausted budget, non-retriable diagnostics, and unsupported candidates become AbortReady with a separate typed policy reason while preserving every original authority. The boundary does not execute an executor, create an outcome, complete a session, resume loop state, schedule work, or present pixels.

@@ -13987,3 +13987,9 @@ git diff --check
 - F5nzw RecoveredState partsを一度だけ消費し、caller-supplied ResumeSlice / AbortをResumePending / AbortReadyへ分類する。
 - ResumePending専用entryだけがF5nc `state_resume_slice`をexactly once呼び、registered continuation、category、詳細diagnosticをreset後stateと再結合する。
 - actual DriverCompletionFailed fixtureでrollback stateのslice command countがresume前後ともcanonical 0、InvalidCommand category、exact diagnostic、cleanupを検証し、Abortはresume helperを呼ばず同じcanonical stateをhandoffする。RetryPending、completion replay、scheduler/executor/platformは後続へ残す。
+
+### F5nzy registered BeginFrame finite retry policy
+
+- F5nzw RetryPendingを一度だけparts化し、有限`Exhausted | OneRemaining` budgetと`RetryWithSupport | Abort` decisionを適用する。actual SinkRejected UnsupportedActionかつ同じexpected actionをcandidate supportが受理する場合だけRetryReadyを作る。
+- RetryReady/AbortReadyはregistered continuation、outer category、元のexact diagnostic、session pendingを保持し、RetryReadyはspent Exhausted budgetを後続へ渡す。AbortReadyはpolicy abort、budget exhausted、non-retriable diagnostic、candidate unsupportedを元diagnosticとは別のreasonで保持する。
+- actual unsupported OffscreenBegin fixtureでOffscreen transition、Window再拒否、budget exhausted、明示abortを検証し、actual lower action mismatchでnon-retriable分岐も検証する。executor、outcome、completion、request、scheduler、state resume、platform workはF5nzz以降へ残す。

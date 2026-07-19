@@ -14,6 +14,7 @@
 #import "core/result" as *
 #import "std/gui/compositor_tile_present_dispatch_loop" as *
 #import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_attempt_driver" as *
 #import "std/gui/compositor_tile_present_host_action_sink" as *
 #import "std/gui/compositor_tile_present_host_execution" as *
 #import "std/gui/compositor_tile_present_host_executor" as *
@@ -30,6 +31,61 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
                         Result::Err _: Result::Err sub 0 1
                         Result::Ok _: Result::Err 0
                 Result::Ok completed: Result::Ok completed
+
+//: actual unsupported support failureからRetryPending ownerを後続fixtureへ渡す
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_retry_pending_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_complete GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Window owner Result::Ok unit:
+                Result::Ok completed:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_free completed:
+                        Result::Err _: Result::Err sub 0 1
+                        Result::Ok _: Result::Err 0
+                Result::Err error:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_recover error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RecoveredState recovered:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_recovered_state_owner_free recovered:
+                                Result::Err _: Result::Err sub 0 1
+                                Result::Ok _: Result::Err 0
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RetryPending retry:
+                            Result::Ok retry
+
+//: actual driver pendingへ異なるactionをattemptし、non-retriable mismatch RetryPendingを作る
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_mismatch_retry_pending_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok owner:
+            let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get owner "dispatch_owner"
+            let session_pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending field::get owner "session_pending"
+            let expected %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action &session_pending
+            let driver %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_driver session_pending
+            match expected:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin descriptor:
+                    let attempted %GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd descriptor
+                    let attempt %GuiRgba8888CompositorTileRlePresentHostActionAttempt gui_rgba8888_compositor_tile_rle_present_host_action_attempt attempted Result::Ok unit
+                    match gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen driver attempt:
+                        Result::Ok _step:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner:
+                                Result::Err _: Result::Err sub 0 1
+                                Result::Ok _: Result::Err 0
+                        Result::Err lower:
+                            let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_error_category_value &lower
+                            let session_error %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError category lower
+                            let registered_error %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError dispatch_owner category session_error
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_recover registered_error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RecoveredState recovered:
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_recovered_state_owner_free recovered:
+                                        Result::Err _: Result::Err sub 0 1
+                                        Result::Ok _: Result::Err 0
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RetryPending retry:
+                                    Result::Ok retry
+                _:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner:
+                        Result::Err _: Result::Err sub 0 1
+                        Result::Ok _: Result::Err 0
 
 //: caller-supplied success outcomeがregistered continuation付きcompletionになることを検証する
 #test
