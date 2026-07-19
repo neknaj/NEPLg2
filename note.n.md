@@ -169110,3 +169110,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - return-producing Matchごとにchild effect accumulatorを局所集約し、全child effectがcompleteな場合だけeligible arm stateをgenericと同じmerge helperで親stateへ採用した。effect deltaはarm順に親engineへ一度absorbし、同じ順序列を上位accumulatorへ保持して当該generic Match replayを省略する。incomplete、reachable arm 0件、Branch/Loopを含むchildはstate/effectをauthority採用せずgeneric replayへフォールバックする。
 - 初回全owner-summary回帰ではincomplete nested Matchのtest oracleがfallback replay前に未採用stateを比較して失敗した。oracle比較と後続oracle chainingを`specialized_authority`成立時だけへ限定し、fallbackは直後のgeneric replayをauthorityとするよう修正した。subagent reviewはeffect二重吸収なし、incomplete上位吸収禁止、merge対象0件の親state保持、後続opsの採用state threadingを確認してblocker-freeとなった。
 - owner control 10件、owner-summary 49件、variant path 16件、native/wasm32 `cargo check -p nepl-core`、release `cargo build -p nepl-cli`、`git diff --check`は通過した。これはMatch production authorityのcheckpointであり、実性能とruntime contractは未確認である。次はF5nzt evidence 1023対照を通常gateで再計測し、改善が確認できた場合にF5nzu 2047 compositeを復元する。Branch/Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu specialized Match 1023 control measurement
+
+- authority切替済みrelease CLIを`--test-mode --run --target wasi`でF5nzt terminal command fixtureへ直接適用した。180秒上限ではcompileが完了せずexit 124、最大RSS 664328KiBとなり、evidence 1023 / failed 0のruntime JSONには未到達だった。
+- 従来約355秒完走からの改善量は180秒timeoutだけでは確定できず、通常gate条件も未達であるためF5nzu 2047 composite復元、issue close、main統合は行わない。specialized child内のBranch/Loopはeffect accumulatorをincompleteにしてgeneric replayへ戻るため、次はgeneric branch condition、両path state/effect、Never eligibilityを同じauthority契約へ接続する。フォントレンダリング/GUI全体も未完成で、`plan.md`は変更していない。
