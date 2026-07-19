@@ -5726,7 +5726,7 @@ assertOrderedFragments(detailedDesign, ["### F5nzn registered resumed next comma
 assertOrderedFragments(implementationPlan, ["### F5nzn registered resumed next command step", "### F5nzo registered resumed Run F5mu record", "F5mu", "既存InFrame"], "F5nzo plan order");
 assertOrderedFragments(guiStandardLibrarySpec, ["### Registered stroke compositor F5nzn resumed next command boundary", "### Registered stroke compositor F5nzo resumed Run record boundary", "F5mu", "empty drain"], "F5nzo stdlib spec order");
 const f5nzpLoopSchedule = functionSlice(stdGuiCompositorTilePresentDispatchLoop, "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_step_record");
-assertOrderedFragments(f5nzpLoopSchedule, ["present_dispatch_loop_state_dispatch &state", "present_dispatch_state_schedule &dispatch", "present_schedule_step_record policy schedule record", "Result::Err lower", "ScheduleOnlyError state lower", "Result::Ok step", "present_dispatch_state_adopt_schedule_step &step", "present_dispatch_loop_state_new next_dispatch", "present_schedule_step_phase &step", "ScheduleOnlyStep next phase"], "F5nzp F5nc schedule-only transition order");
+assertOrderedFragments(f5nzpLoopSchedule, ["present_dispatch_loop_state_dispatch &state", "present_dispatch_state_schedule &dispatch", "present_schedule_step_record policy schedule record", "Result::Err lower", "ScheduleOnlyError state lower", "Result::Ok step", "present_dispatch_state_adopt_schedule_step &step", "present_dispatch_loop_state_new next_dispatch", "present_schedule_step_phase &step", "ScheduleOnlyStep state next phase record"], "F5nzp F5nc schedule-only transition order");
 assert((f5nzpLoopSchedule.match(/present_schedule_step_record policy schedule record/g) || []).length === 1, "F5nzp must invoke F5mw exactly once");
 const f5nzpRegistered = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunSchedule, "gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_into_schedule");
 assertOrderedFragments(f5nzpRegistered, ["resumed_run_record_owner_into_parts owner", "field::get parts \"state\"", "field::get parts \"step\"", "field::get parts \"result\"", "HostCommandStepResult::Record record", "dispatch_loop_schedule_step_record policy state record", "Result::Ok scheduled", "Result::Err lower"], "F5nzp registered ownership transition");
@@ -35022,10 +35022,15 @@ assertMatch(
     /#import "std\/gui\/compositor_tile_present_dispatch" as \*/,
     "std/gui/compositor_tile_present_dispatch_loop F5nc must depend on F5my dispatch boundary",
 );
-const stdGuiCompositorTilePresentDispatchLoopWithoutF5nzp = stdGuiCompositorTilePresentDispatchLoopImpl.replace(
-    /pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_step_record[\s\S]*?(?=pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_pending)/,
-    "",
-);
+const stdGuiCompositorTilePresentDispatchLoopWithoutF5nzp = stdGuiCompositorTilePresentDispatchLoopImpl
+    .replace(
+        /pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_step_record[\s\S]*?(?=pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_pending)/,
+        "",
+    )
+    .replace(
+        /pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_into_host_request_pending[\s\S]*?(?=pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request)/,
+        "",
+    );
 assertNoMatch(
     stdGuiCompositorTilePresentDispatchLoopWithoutF5nzp,
     /#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|\bGuiRgba8888RowTileRlePresent\b|\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_schedule_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_virtual_drain_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_import_request\b|\bcompositor_tile_present_host_execution\b|\bcompositor_tile_present_host_executor\b|\bcompositor_tile_present_host_execution_report\b|\bcompositor_tile_present_host_report_loop_bridge\b|\bcompositor_tile_present_virtual_executor\b|\btile_present_host_execution\b|\btile_present_host_executor\b|\btile_present_host_execution_report\b|\btile_present_host_report_loop_bridge\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
