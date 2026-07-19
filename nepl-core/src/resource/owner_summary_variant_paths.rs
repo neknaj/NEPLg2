@@ -6,6 +6,7 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_control::OwnerMatchPathState;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_consumed::consumed_owner_parameters;
@@ -55,7 +56,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
     profile: &mut OwnerVariantReturnProfile,
     depth: usize,
-) {
+) -> OwnerMatchPathState {
     profile.observe_nested(depth);
     let payload_observations_before = payload_condition_out.observation_count();
     let state_clone_timer = profile.start();
@@ -260,6 +261,15 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     if payload_condition_out.observation_count() == payload_observations_before {
         payload_condition_out.observe_unknown_path();
     }
+    OwnerMatchPathState {
+        owners,
+        function_aliases,
+        raw_aliases,
+        raw_views,
+        storage_origins,
+        pending_reallocs,
+        variant_owner_effects,
+    }
 }
 
 fn collect_variant_consumed_owner_parameters_from_path(
@@ -287,7 +297,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
     profile: &mut OwnerVariantReturnProfile,
     depth: usize,
-) {
+) -> OwnerMatchPathState {
     profile.observe_path(depth);
     let state_clone_timer = profile.start();
     let mut path_engine = ResourceOwnerCheckEngine {
@@ -324,7 +334,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     profile.finish(match_entry_timer, OwnerVariantProfilePhase::MatchEntry);
     let Some(constructed_variant) = construct_variant_for_value(path_ops, path_value) else {
         profile.observe_recursive_path();
-        collect_variant_consumed_owner_parameters_from_nested_return(
+        return collect_variant_consumed_owner_parameters_from_nested_return(
             index_out,
             source_out,
             extent_out,
@@ -348,7 +358,6 @@ fn collect_variant_consumed_owner_parameters_from_path(
             profile,
             depth,
         );
-        return;
     };
     profile.observe_constructed_path();
     profile.observe_path_replay(path_ops.len());
@@ -466,6 +475,15 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
     }
     profile.finish(terminal_timer, OwnerVariantProfilePhase::Terminal);
+    OwnerMatchPathState {
+        owners: path_owners,
+        function_aliases: path_function_aliases,
+        raw_aliases: path_raw_aliases,
+        raw_views: path_raw_views,
+        storage_origins: path_storage_origins,
+        pending_reallocs: path_pending_reallocs,
+        variant_owner_effects: path_variant_owner_effects,
+    }
 }
 
 fn push_unique_variant_parameter_index(

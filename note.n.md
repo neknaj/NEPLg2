@@ -168874,3 +168874,11 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - test-only specialized shadow runnerを追加し、generic `check_match`を呼ばずcanonical prepare、arm ops、finalize、7-state collector merge、同じstateへのpost opsを明示的に実行する。generic/shadowはそれぞれ同一baselineから別engineと別stateをconsumeし、Wildcard非空arm、非空deferred baseline、post StorageOriginを含む結果の7-state/engine snapshot完全一致を固定した。
 - このshadowは目標となるpost-arm state threadingを検証するが、actual `owner_summary_variant_paths`の再帰collectorにはまだ接続しておらず、summary出力比較も未実装である。次はactual specialized traversalからowned post-arm stateを返すshadow接続とnested/unreachable/Never/bind/pending effect回帰を追加する。一致前にproduction generic replayを省略しない。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu actual variant path state return checkpoint
+
+- actual `owner_summary_variant_paths`のnested return collectorとpath collectorが、summary収集と既存replayを終えた時点のowners、function aliases、raw aliases/views、storage origins、pending reallocs、variant effectsを`OwnerMatchPathState`として返す境界を追加した。constructed pathとrecursive pathの両方が実 traversal後の状態を返す。
+- 現在の呼び出し側は返却状態を意図的に破棄し、generic Match replayも変更していない。このcheckpointはsingle traversal接続前の意味中立な境界であり、F5nzu blocker解決やslice完成を意味しない。
+- diagnostics、deferred、owner extent requirements、memory span requirementsなどengine側の副作用は返却bundleに含まれない。7-state parityだけでproduction replayを除去せず、actual specialized traversalとgeneric oracleの差分fixtureでengine副作用、reserved-source rejection、nested Branch/Match、unreachable arm、condition fact、post-control opsを照合してから接続する。`plan.md`は変更していない。
+- pass: owner-summary unit 33件、native `cargo check -p nepl-core`、wasm32 `cargo check -p nepl-core --target wasm32-unknown-unknown`、release `cargo build --release -p nepl-cli`、`git diff --check`。
+- subagent差分・全体整合reviewはこの意味中立checkpointにblockerなしと判定した。single traversal利用前には、recursive child stateが現在未採用であること、engine 4 channelがbundle外であること、constructed/recursive両返却経路の直接回帰が未追加であることをblockerとして維持する。
