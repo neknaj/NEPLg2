@@ -35,6 +35,8 @@ use super::summary::{
     OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
     OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
+#[cfg(test)]
+use super::summary::{OwnerValueCondition, OwnerVariantPayloadCondition};
 use super::variant_name::normalize_variant_name;
 
 pub(super) struct OwnerVariantTraversalResult {
@@ -108,6 +110,19 @@ enum OwnerVariantPathSelector {
     Then,
     Else,
     MatchArm(usize),
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OwnerVariantSummarySnapshot {
+    indices: Vec<OwnerVariantParameterIndex>,
+    sources: Vec<OwnerVariantProjectionSource>,
+    extents: Vec<OwnerVariantConsumedExtentRequirement>,
+    conditions: Vec<OwnerVariantCondition>,
+    payload_conditions: Vec<OwnerVariantPayloadCondition>,
+    host_sizes: Vec<OwnerHostSizeReturn>,
+    type_sizes: Vec<OwnerTypeSizeReturn>,
+    returns: Vec<OwnerVariantProjectionReturn>,
 }
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
@@ -929,6 +944,25 @@ mod tests {
         match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
         match_output: Option<&Place>,
     ) -> OwnerVariantTraversalResult {
+        run_path_with_summary_snapshot(
+            types,
+            path_ops,
+            path_value,
+            variant_owner_effects,
+            match_arm,
+            match_output,
+        )
+        .0
+    }
+
+    fn run_path_with_summary_snapshot(
+        types: &TypeCtx,
+        path_ops: &[ResourceOp],
+        path_value: &Place,
+        variant_owner_effects: &PendingVariantOwnerEffects,
+        match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
+        match_output: Option<&Place>,
+    ) -> (OwnerVariantTraversalResult, OwnerVariantSummarySnapshot) {
         let summaries = Vec::new();
         let summary_index = OwnerReturnSummaryIndex::new(&summaries);
         let engine = ResourceOwnerCheckEngine {
@@ -952,7 +986,7 @@ mod tests {
         let mut return_out = Vec::new();
         let mut profile = OwnerVariantReturnProfile::new("variant_path_oracle");
 
-        collect_variant_consumed_owner_parameters_from_path(
+        let result = collect_variant_consumed_owner_parameters_from_path(
             &mut index_out,
             &mut source_out,
             &mut extent_out,
@@ -978,7 +1012,18 @@ mod tests {
             &mut return_out,
             &mut profile,
             0,
-        )
+        );
+        let snapshot = OwnerVariantSummarySnapshot {
+            indices: index_out,
+            sources: source_out,
+            extents: extent_out,
+            conditions: condition_out,
+            payload_conditions: payload_condition_out.conditions_snapshot(),
+            host_sizes: host_size_out,
+            type_sizes: type_size_out,
+            returns: return_out,
+        };
+        (result, snapshot)
     }
 
     #[test]
@@ -1325,7 +1370,7 @@ mod tests {
                 },
             );
         }
-        let mut result = run_path_with_match(
+        let (mut result, summary_snapshot) = run_path_with_summary_snapshot(
             &types,
             &ops,
             &value,
@@ -1335,6 +1380,22 @@ mod tests {
         );
 
         assert!(result.engine_effects().is_complete());
+        assert_eq!(
+            summary_snapshot,
+            OwnerVariantSummarySnapshot {
+                indices: Vec::new(),
+                sources: Vec::new(),
+                extents: Vec::new(),
+                conditions: vec![OwnerVariantCondition {
+                    variant: "Ok".to_string(),
+                    condition: OwnerValueCondition::Always,
+                }],
+                payload_conditions: Vec::new(),
+                host_sizes: Vec::new(),
+                type_sizes: Vec::new(),
+                returns: Vec::new(),
+            }
+        );
         assert_eq!(result.engine_effects().delta_count(), 8);
         assert_eq!(result.controls.len(), 2);
         assert_eq!(result.controls[0].op_index, 0);

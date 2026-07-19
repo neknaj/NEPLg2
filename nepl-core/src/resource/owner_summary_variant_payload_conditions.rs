@@ -58,6 +58,11 @@ impl OwnerVariantPayloadConditionAccumulator {
     pub(super) fn into_conditions(self) -> Vec<OwnerVariantPayloadCondition> {
         self.conditions
     }
+
+    #[cfg(test)]
+    pub(super) fn conditions_snapshot(&self) -> Vec<OwnerVariantPayloadCondition> {
+        self.conditions.clone()
+    }
 }
 
 pub(super) fn collect_owner_variant_payload_conditions(
