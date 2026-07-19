@@ -44,7 +44,22 @@ pub(super) struct OwnerVariantTraversalResult {
     #[cfg(test)]
     merge_eligible: bool,
     #[cfg(test)]
-    engine_effects: OwnerMatchEngineEffectAccumulator,
+    engine_effects: Option<OwnerMatchEngineEffectAccumulator>,
+}
+
+#[cfg(test)]
+impl OwnerVariantTraversalResult {
+    fn engine_effects(&self) -> &OwnerMatchEngineEffectAccumulator {
+        self.engine_effects
+            .as_ref()
+            .expect("match engine effects were already transferred")
+    }
+
+    fn take_engine_effects(&mut self) -> OwnerMatchEngineEffectAccumulator {
+        self.engine_effects
+            .take()
+            .expect("match engine effects were already transferred")
+    }
 }
 
 #[cfg(test)]
@@ -124,8 +139,6 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     let mut controls = Vec::new();
     #[cfg(test)]
     let mut engine_effects = OwnerMatchEngineEffectAccumulator::default();
-    #[cfg(test)]
-    engine_effects.mark_incomplete();
     profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
     for (index, op) in ops.iter().enumerate() {
         match op {
@@ -228,6 +241,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     depth + 1,
                 );
                 #[cfg(test)]
+                engine_effects.mark_incomplete();
+                #[cfg(test)]
                 controls.push(OwnerVariantControlPaths {
                     op_index: index,
                     kind: OwnerVariantControlKind::Branch,
@@ -263,6 +278,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 }
                 #[cfg(test)]
                 let mut paths = Vec::new();
+                #[cfg(test)]
+                let mut reachable_paths = 0usize;
                 for (_arm_index, arm) in arms.iter().enumerate() {
                     if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
                         continue;
@@ -296,12 +313,24 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         depth + 1,
                     );
                     #[cfg(test)]
+                    let mut result = result;
+                    #[cfg(test)]
+                    {
+                        reachable_paths += 1;
+                        let child_effects = result.take_engine_effects();
+                        engine_effects.extend(child_effects);
+                    }
+                    #[cfg(test)]
                     paths.push(OwnerVariantTraversalPath {
                         selector: OwnerVariantPathSelector::MatchArm(_arm_index),
                         result,
                     });
                     #[cfg(not(test))]
                     let _ = result;
+                }
+                #[cfg(test)]
+                if reachable_paths == 0 {
+                    engine_effects.mark_incomplete();
                 }
                 #[cfg(test)]
                 controls.push(OwnerVariantControlPaths {
@@ -312,6 +341,22 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
             }
             _ => {}
         }
+        #[cfg(test)]
+        let specialized_match = matches!(
+            op,
+            ResourceOp::Match { output, .. } if output == return_value
+        );
+        #[cfg(test)]
+        let captures_sequential_effects = !matches!(
+            op,
+            ResourceOp::Branch { .. } | ResourceOp::Loop { .. } | ResourceOp::Match { .. }
+        );
+        #[cfg(test)]
+        if !specialized_match && !captures_sequential_effects {
+            engine_effects.mark_incomplete();
+        }
+        #[cfg(test)]
+        let replay_checkpoint = engine.match_engine_effect_checkpoint();
         profile.observe_sequential_replay(1);
         let replay_timer = profile.start();
         engine.check_ops(
@@ -324,6 +369,10 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
             &mut variant_owner_effects,
             &ops[index..=index],
         );
+        #[cfg(test)]
+        if captures_sequential_effects {
+            engine_effects.push(engine.match_engine_effect_delta(replay_checkpoint));
+        }
         profile.finish_sequential_replay(replay_timer, op, return_value, depth);
     }
     let terminal_timer = profile.start();
@@ -359,7 +408,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         #[cfg(test)]
         merge_eligible: true,
         #[cfg(test)]
-        engine_effects,
+        engine_effects: Some(engine_effects),
     }
 }
 
@@ -488,16 +537,25 @@ fn collect_variant_consumed_owner_parameters_from_path(
         #[cfg(test)]
         let mut result = result;
         #[cfg(test)]
-        result.engine_effects.mark_incomplete();
+        {
+            engine_effects.extend(result.take_engine_effects());
+            result.engine_effects = Some(engine_effects);
+        }
         #[cfg(test)]
         if match_entry_reachable {
             if let Some(output) = _match_output {
+                let finalize_checkpoint = path_engine.match_engine_effect_checkpoint();
                 result.merge_eligible = path_engine.finalize_match_arm_value(
                     &mut result.state,
                     output,
                     path_value,
                     match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
                 );
+                result
+                    .engine_effects
+                    .as_mut()
+                    .expect("recursive match engine effects must remain owned by the root")
+                    .push(path_engine.match_engine_effect_delta(finalize_checkpoint));
             }
         } else {
             result.merge_eligible = false;
@@ -650,7 +708,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
         #[cfg(test)]
         merge_eligible: true,
         #[cfg(test)]
-        engine_effects,
+        engine_effects: Some(engine_effects),
     };
     #[cfg(test)]
     let mut result = result;
@@ -666,6 +724,8 @@ fn collect_variant_consumed_owner_parameters_from_path(
             );
             result
                 .engine_effects
+                .as_mut()
+                .expect("constructed match engine effects must remain owned by the root")
                 .push(path_engine.match_engine_effect_delta(finalize_checkpoint));
         }
     } else {
@@ -822,7 +882,7 @@ mod tests {
             result.state.storage_origins.origin(&retained),
             Some(StorageOrigin::Owned)
         );
-        assert!(result.engine_effects.is_complete());
+        assert!(result.engine_effects().is_complete());
     }
 
     #[test]
@@ -843,7 +903,7 @@ mod tests {
             result.state.storage_origins.origin(&retained),
             Some(StorageOrigin::Owned)
         );
-        assert!(!result.engine_effects.is_complete());
+        assert!(result.engine_effects().is_complete());
     }
 
     #[test]
@@ -881,7 +941,7 @@ mod tests {
         );
         let result = run_path(&ops, &value);
 
-        assert!(!result.engine_effects.is_complete());
+        assert!(!result.engine_effects().is_complete());
     }
 
     #[test]
@@ -919,7 +979,7 @@ mod tests {
             Some(&output),
         );
 
-        assert!(result.engine_effects.is_complete());
+        assert!(result.engine_effects().is_complete());
         assert!(!result.merge_eligible);
     }
 
@@ -965,8 +1025,69 @@ mod tests {
             Some(&output),
         );
 
-        assert!(!result.engine_effects.is_complete());
+        assert!(!result.engine_effects().is_complete());
         assert!(!result.merge_eligible);
+    }
+
+    #[test]
+    fn recursive_match_transfers_complete_child_effects_once() {
+        let types = TypeCtx::new();
+        let value = Place::local("value".to_string(), types.unit());
+        let child_value = Place::local("child_value".to_string(), types.unit());
+        let output = Place::local("output".to_string(), types.unit());
+        let outer_scrutinee = Place::local("outer_scrutinee".to_string(), types.unit());
+        let nested_scrutinee = Place::local("nested_scrutinee".to_string(), types.unit());
+        let span = Span::dummy();
+        let outer_arm = ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Wildcard,
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: Vec::new(),
+            value: value.clone(),
+            span,
+        };
+        let nested_arm = ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Wildcard,
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: vec![ResourceOp::Construct {
+                output: child_value.clone(),
+                kind: AggregateKind::Enum {
+                    name: "Result".to_string(),
+                    variant: "Ok".to_string(),
+                },
+                inputs: Vec::new(),
+                span,
+            }],
+            value: child_value,
+            span,
+        };
+        let ops = [ResourceOp::Match {
+            output: value.clone(),
+            scrutinee: nested_scrutinee,
+            scrutinee_is_borrow_target: false,
+            arms: vec![nested_arm],
+            span,
+        }];
+
+        let result = run_path_with_match(
+            &types,
+            &ops,
+            &value,
+            &PendingVariantOwnerEffects::default(),
+            Some((&outer_scrutinee, &outer_arm, span)),
+            Some(&output),
+        );
+
+        assert!(result.engine_effects().is_complete());
+        assert_eq!(result.engine_effects().delta_count(), 5);
+        assert!(result.merge_eligible);
+        assert_eq!(result.controls.len(), 1);
+        assert_eq!(result.controls[0].kind, OwnerVariantControlKind::Match);
+        assert_eq!(result.controls[0].paths.len(), 1);
+        assert!(result.controls[0].paths[0].result.engine_effects.is_none());
     }
 
     #[test]

@@ -104,6 +104,10 @@ impl OwnerMatchEngineEffectAccumulator {
         self.complete
     }
 
+    pub(super) fn delta_count(&self) -> usize {
+        self.ordered.len()
+    }
+
     pub(super) fn absorb_into(self, engine: &mut ResourceOwnerCheckEngine<'_>) {
         assert!(
             self.complete,
