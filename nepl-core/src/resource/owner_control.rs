@@ -68,6 +68,29 @@ pub(super) struct OwnerMatchEngineEffectDelta {
     memory_span_requirements: Vec<super::summary::OwnerMemorySpanRequirement>,
 }
 
+#[cfg(test)]
+#[derive(Debug, Default)]
+pub(super) struct OwnerMatchEngineEffectAccumulator {
+    ordered: Vec<OwnerMatchEngineEffectDelta>,
+}
+
+#[cfg(test)]
+impl OwnerMatchEngineEffectAccumulator {
+    pub(super) fn push(&mut self, delta: OwnerMatchEngineEffectDelta) {
+        self.ordered.push(delta);
+    }
+
+    pub(super) fn extend(&mut self, child: Self) {
+        self.ordered.extend(child.ordered);
+    }
+
+    pub(super) fn absorb_into(self, engine: &mut ResourceOwnerCheckEngine<'_>) {
+        for delta in self.ordered {
+            engine.absorb_match_engine_effect_delta(delta);
+        }
+    }
+}
+
 impl OwnerMatchPathState {
     pub(super) fn from_parent(
         owners: &OwnerTable,
@@ -1288,6 +1311,90 @@ mod tests {
         assert_eq!(parent_engine.deferred.match_merges, 18);
         assert_eq!(parent_engine.owner_extent_requirements, vec![extent.clone(), extent]);
         assert_eq!(parent_engine.memory_span_requirements, vec![memory]);
+    }
+
+    #[test]
+    fn match_engine_effect_accumulator_preserves_child_order_and_memory_uniqueness() {
+        let types = TypeCtx::new();
+        let summaries = Vec::new();
+        let summary_index = super::super::summary::OwnerReturnSummaryIndex::new(&summaries);
+        let mut engine = ResourceOwnerCheckEngine {
+            function: "oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: super::super::report::ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let first = Place::local("first".to_string(), TypeId(0));
+        let second = Place::local("second".to_string(), TypeId(0));
+        let diagnostic = |place: Place| {
+            super::super::report::ResourceOwnerDiagnostic::OwnerUnavailable {
+                function: "oracle".to_string(),
+                operation: ResourceOwnerOperation::Read,
+                place,
+                state: OwnerState::Moved,
+                span: Span::empty(crate::span::FileId(0), 0),
+            }
+        };
+        let extent = |owner: Place| {
+            super::super::owner_extent::PendingOwnerExtentRequirement {
+                owner,
+                expected: super::super::model::OwnerStorageExtent::Unknown,
+                operation: ResourceOwnerOperation::Read,
+            }
+        };
+        let memory = super::super::summary::OwnerMemorySpanRequirement {
+            span: super::super::host_memory_contract::HostMemorySpan::IovDescriptor {
+                iovs_arg: 0,
+                iov_count_arg: 1,
+            },
+            args: Vec::new(),
+            operation: ResourceOwnerOperation::Read,
+        };
+        let first_delta = OwnerMatchEngineEffectDelta {
+            diagnostics: vec![diagnostic(first.clone())],
+            deferred: super::super::report::ResourceOwnerCheckDeferred {
+                branch_merges: 1,
+                loop_merges: 2,
+                match_merges: 3,
+            },
+            owner_extent_requirements: vec![extent(first.clone())],
+            memory_span_requirements: vec![memory.clone()],
+        };
+        let second_delta = OwnerMatchEngineEffectDelta {
+            diagnostics: vec![diagnostic(second.clone())],
+            deferred: super::super::report::ResourceOwnerCheckDeferred {
+                branch_merges: 5,
+                loop_merges: 7,
+                match_merges: 11,
+            },
+            owner_extent_requirements: vec![extent(second.clone())],
+            memory_span_requirements: vec![memory.clone()],
+        };
+        let mut effects = OwnerMatchEngineEffectAccumulator::default();
+        effects.push(first_delta);
+        let mut child_effects = OwnerMatchEngineEffectAccumulator::default();
+        child_effects.push(second_delta);
+        effects.extend(child_effects);
+
+        effects.absorb_into(&mut engine);
+
+        assert_eq!(
+            engine.diagnostics,
+            vec![diagnostic(first.clone()), diagnostic(second.clone())]
+        );
+        assert_eq!(engine.deferred.branch_merges, 6);
+        assert_eq!(engine.deferred.loop_merges, 9);
+        assert_eq!(engine.deferred.match_merges, 14);
+        assert_eq!(
+            engine.owner_extent_requirements,
+            vec![extent(first), extent(second)]
+        );
+        assert_eq!(engine.memory_span_requirements, vec![memory]);
     }
 
     #[test]
