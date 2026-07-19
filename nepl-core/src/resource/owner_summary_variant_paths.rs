@@ -1472,6 +1472,83 @@ mod tests {
     }
 
     #[test]
+    fn constructed_path_records_host_and_type_size_payload_returns() {
+        let types = TypeCtx::new();
+        let host_size = Place::local("host_size".to_string(), types.i32());
+        let type_size = Place::local("type_size".to_string(), types.i32());
+        let value = Place::local("value".to_string(), types.unit());
+        let span = Span::dummy();
+        let mut raw_aliases = RawCellAddressAliases::default();
+        raw_aliases.set_host_size_kind(
+            &host_size,
+            crate::resource::host_size_contract::HostSizeKind::ArgsCount,
+        );
+        raw_aliases.set_i32_type_size(&type_size, types.unit());
+        let ops = [ResourceOp::Construct {
+            output: value.clone(),
+            kind: AggregateKind::Enum {
+                name: "Result".to_string(),
+                variant: "Ok".to_string(),
+            },
+            inputs: vec![host_size, type_size],
+            span,
+        }];
+
+        let (result, snapshot) = run_path_with_seeded_extent_summary_snapshot(
+            &types,
+            &OwnerTable::default(),
+            &raw_aliases,
+            &[],
+            &[],
+            &[],
+            &ops,
+            &value,
+            &PendingVariantOwnerEffects::default(),
+            None,
+            None,
+        );
+
+        assert!(result.engine_effects().is_complete());
+        let payload_suffix = crate::resource::model::PlaceProjection::EnumPayload {
+            variant: "Ok".to_string(),
+        };
+        assert_eq!(
+            snapshot.host_sizes,
+            vec![OwnerHostSizeReturn {
+                suffix: vec![payload_suffix.clone()],
+                ty: types.i32(),
+                kind: crate::resource::host_size_contract::HostSizeKind::ArgsCount,
+            }]
+        );
+        assert_eq!(
+            snapshot.type_sizes,
+            vec![OwnerTypeSizeReturn {
+                suffix: vec![
+                    payload_suffix,
+                    crate::resource::model::PlaceProjection::TupleField {
+                        index: 1,
+                        offset_bytes: 0,
+                    },
+                ],
+                ty: types.i32(),
+                element_ty: types.unit(),
+            }]
+        );
+        assert_eq!(
+            snapshot.conditions,
+            vec![OwnerVariantCondition {
+                variant: "Ok".to_string(),
+                condition: OwnerValueCondition::Always,
+            }]
+        );
+        assert!(snapshot.indices.is_empty());
+        assert!(snapshot.sources.is_empty());
+        assert!(snapshot.extents.is_empty());
+        assert!(snapshot.payload_conditions.is_empty());
+        assert!(snapshot.returns.is_empty());
+    }
+
+    #[test]
     fn recursive_path_returns_state_after_final_replay_op() {
         let value = Place::local("value".to_string(), TypeId(0));
         let retained = Place::local("retained".to_string(), TypeId(0));

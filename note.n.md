@@ -169062,3 +169062,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - test-only terminal helperへinitial raw alias stateを注入できるようにし、Positive factを持つi32 inputから`Result::Ok` payloadをproduction `check_ops`でConstructした。terminal payload collectorがdirect Positiveと含意closureのNeZero・NonNegativeを、Ok EnumPayload suffix上のcanonical exact 3件として記録することを固定した。
 - snapshotではpayload以外のindex/source/extent/host/type/returnを空、root variant conditionを正当な`Ok / Always` 1件としてexact検証した。subagent初回reviewでcondition channelまでemptyとした誤assertがblockerになり、既存root terminal契約へ修正した。payload期待は欠落・余分なfactを拒否するintegration assertionであり、condition solverから完全独立のoracleではない。
 - focused fixture 1件、variant path 13件、owner control 10件、owner-summary filter 46件、native/wasm check、release nepl-cli build、`git diff --check`は通過した。次はhost/type size returnまたはprojection return channelをproduction producer順に進める。production authority、Branch/Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu host and type size return checkpoint
+
+- initial raw alias stateへproduction host-size outputとLayoutSizeOfが生成する形式のArgsCount host factとunit type-size factをseedし、2入力の`Result::Ok` Constructをproduction replayした。terminal recorderが第1入力を`EnumPayload(Ok)` host-size return、第2入力を`EnumPayload(Ok) + TupleField(index 1, offset 0)` type-size returnとしてexact singletonで記録することを固定した。
+- root conditionは`Ok / Always`、index/source/extent/payload/projection returnは空とし、host/type間および他channelへの漏れを拒否した。subagent reviewはConstructのscalar fact transfer、enum複数payload suffix、fixture独立性を確認してblockerなし。
+- focused fixture 1件、variant path 14件、owner control 10件、owner-summary filter 47件は通過した。次は残るprojection return channelを非空にし、8 summary channelのproducer別coverageを閉じる。その後full combined parity、production authority、Branch/Loop、1023/2047 runtime gateへ進む。F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
