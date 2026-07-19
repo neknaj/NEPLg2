@@ -8797,3 +8797,7 @@ F5nzvはF5nzt formal partsを一度だけ消費し、retained updated loop state
 ### F5nzw registered BeginFrame host action failure recovery boundary
 
 F5nzwはF5nzl completion errorを一度だけ消費し、registered dispatch continuationとlower recovery authorityを分断せず全域分類する。AttemptActionMismatchとSinkRejectedは回収driverからexpected actionを再導出したF5nh session pendingを持つ`RetryPending`へ、DriverCompletionFailedはF5ne errorが保持するloop stateを持つ`RecoveredState`へ写す。categoryとlower failure kindを保持し、各ownerは後続へauthorityを渡せるconsuming parts handoffを公開する。outcome生成、complete再実行、actual executor、scheduler、next command、platform presentationへ進まない。F5nzv terminal no-request completionとは独立であり、terminal pathからF5nzl errorを生成しない。
+
+### F5nzx registered BeginFrame recovered-state scheduler decision boundary
+
+F5nzxはF5nzw `RecoveredState`だけを一度消費し、caller-supplied `ResumeSlice | Abort` decisionで`ResumePending | AbortReady`へ分類する。decision段階ではstateを変更せず、ResumePending専用entryだけがF5nc slice resume helperをexactly once呼ぶ。registered continuation、category、DriverCompletionFailed詳細diagnostic、stateを全handoffで保持し、RetryPending、outcome、completion、host request、actual scheduler/executor、next command、platform workへ進まない。

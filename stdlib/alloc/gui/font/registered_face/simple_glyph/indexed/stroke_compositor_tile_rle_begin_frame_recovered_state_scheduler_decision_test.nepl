@@ -1,0 +1,109 @@
+//: # registered BeginFrame recovered-state scheduler decision test
+//: actual DriverCompletionFailed authorityのresumeとabort分類を検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_completion_test" as fixture with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_sink" as *
+#import "std/gui/compositor_tile_present_host_action_sink_driver" as *
+#import "std/gui/compositor_tile_present_host_execution_driver" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision_test_slice_command_count %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState i32 \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+    gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule
+
+//: ResumeSliceだけがcounterをresetし、diagnosticとcontinuationを保持することを検証する
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision_test_resume_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_recovered_state_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok recovered:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decide recovered GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateSchedulerDecision::ResumeSlice:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateSchedulerDecisionOwner::AbortReady abort_ready:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_abort_ready_owner_free abort_ready:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateSchedulerDecisionOwner::ResumePending pending:
+                    let before_state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_resume_pending_state &pending
+                    let before %i32 gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision_test_slice_command_count &before_state
+                    let resumed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateResumedOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_resume_slice pending
+                    let after_state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_resumed_state &resumed
+                    let after %i32 gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision_test_slice_command_count &after_state
+                    let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateResumedOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_resumed_owner_into_parts resumed
+                    let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get parts "dispatch_owner"
+                    let category %Option GuiError field::get parts "category"
+                    let diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "diagnostic"
+                    let _state %GuiRgba8888CompositorTileRlePresentDispatchLoopState field::get parts "state"
+                    let category_evidence %i32 match category:
+                        Option::Some category_value:
+                            match category_value:
+                                GuiError::InvalidCommand: 4
+                                _: 0
+                        _: 0
+                    let diagnostic_evidence %i32 match diagnostic:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::DriverCompletionFailed failure:
+                            let sink_step %GuiRgba8888CompositorTileRlePresentHostActionSinkStep gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_completion_failed_sink_step &failure
+                            let driver_error %GuiRgba8888CompositorTileRlePresentHostExecutionDriverError gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_completion_failed_driver_error &failure
+                            let sink_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_host_action_sink_step_outcome &sink_step:
+                                Result::Err sink_category:
+                                    match sink_category:
+                                        GuiError::InvalidCommand: 8
+                                        _: 0
+                                _: 0
+                            let driver_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_category_value &driver_error:
+                                Option::Some driver_category:
+                                    match driver_category:
+                                        GuiError::InvalidCommand: 16
+                                        _: 0
+                                _: 0
+                            add sink_evidence driver_evidence
+                        _: 0
+                    let counter_evidence %i32 if and (eq before 0) (eq after 0): then: 32 else: 0
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: add add add category_evidence diagnostic_evidence counter_evidence 64
+
+//: Abort decisionがresumeせずcontinuationを明示cleanupできることを検証する
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision_test_abort_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_recovered_state_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok recovered:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decide recovered GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateSchedulerDecision::Abort:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateSchedulerDecisionOwner::ResumePending pending:
+                    let resumed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateResumedOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_resume_slice pending
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_resumed_owner_free resumed:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateSchedulerDecisionOwner::AbortReady abort_ready:
+                    let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateAbortReadyOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_abort_ready_owner_into_parts abort_ready
+                    let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get parts "dispatch_owner"
+                    let category %Option GuiError field::get parts "category"
+                    let diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "diagnostic"
+                    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState field::get parts "state"
+                    let category_evidence %i32 match category:
+                        Option::Some category_value:
+                            match category_value:
+                                GuiError::InvalidCommand: 4
+                                _: 0
+                        _: 0
+                    let diagnostic_evidence %i32 match diagnostic:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::DriverCompletionFailed _: 8
+                        _: 0
+                    let state_count %i32 gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision_test_slice_command_count &state
+                    let state_evidence %i32 if eq state_count 0: then: 16 else: 0
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: add add add category_evidence diagnostic_evidence state_evidence 32

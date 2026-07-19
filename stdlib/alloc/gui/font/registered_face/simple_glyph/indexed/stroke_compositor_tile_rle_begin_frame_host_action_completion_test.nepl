@@ -86,3 +86,23 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
                             match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner:
                                 Result::Err _: sub 0 1
                                 Result::Ok _: add add add category_evidence action_evidence diagnostic_evidence 32
+
+//: supported actionへcaller failure outcomeを返し、actual DriverCompletionFailed recovered stateを作る
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_recovered_state_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_complete GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen owner Result::Err GuiError::InvalidCommand:
+                Result::Ok completed:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_free completed:
+                        Result::Err _: Result::Err sub 0 1
+                        Result::Ok _: Result::Err 0
+                Result::Err error:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_recover error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RetryPending retry:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_pending_owner_free retry:
+                                Result::Err _: Result::Err sub 0 1
+                                Result::Ok _: Result::Err 0
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RecoveredState recovered:
+                            Result::Ok recovered

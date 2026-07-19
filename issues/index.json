@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-19T10:12:57.411Z",
+  "generated_at": "2026-07-19T10:46:52.842Z",
   "counts": {
     "total": 1436,
-    "open": 61,
-    "resolved": 1375,
+    "open": 60,
+    "resolved": 1376,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "gui-font": {
-        "total": 22,
-        "open": 1,
-        "resolved": 21
       },
       "RESOURCE": {
         "total": 5,
@@ -100,6 +95,11 @@
         "total": 39,
         "open": 0,
         "resolved": 39
+      },
+      "gui-font": {
+        "total": 22,
+        "open": 0,
+        "resolved": 22
       },
       "nodesrc": {
         "total": 16,
@@ -528,21 +528,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260719T101254107Z-F5NZX-REGISTERED-BEGINFRAME-RECOVERE-8372EE0F",
-      "title": "F5nzx registered BeginFrame recovered-state scheduler decision",
-      "area": "gui-font",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-19",
-      "updated": "2026-07-19",
-      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260719T101254107Z-F5NZX-REGISTERED-BEGINFRAME-RECOVERE-8372EE0F.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -12078,6 +12063,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260719T093510810Z-F5NZW-REGISTERED-BEGINFRAME-HOST-ACT-89795408.md"
+    },
+    {
+      "id": "ISS-20260719T101254107Z-F5NZX-REGISTERED-BEGINFRAME-RECOVERE-8372EE0F",
+      "title": "F5nzx registered BeginFrame recovered-state scheduler decision",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-19",
+      "updated": "2026-07-19",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260719T101254107Z-F5NZX-REGISTERED-BEGINFRAME-RECOVERE-8372EE0F.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

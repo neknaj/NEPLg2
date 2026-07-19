@@ -13981,3 +13981,9 @@ git diff --check
 - F5nzl errorをformal partsへ一度だけ移し、registered dispatch continuation、category、F5nh lower errorを同じtransitionで回収する。
 - AttemptActionMismatch / SinkRejectedはrecovered driverからexpected actionだけを再導出してF5nh session pendingへ戻し、DriverCompletionFailedはF5ne rollback stateへ写す。各lower payloadの詳細診断を保持し、両authorityはregistered continuationと同居させてconsuming partsで後続へ渡す。
 - actual unsupported Window fixtureでOffscreenBegin expected actionとUnsupported categoryを保持したRetryPendingを検証する。outcome生成、complete再実行、actual executor、scheduler、next command、platform executionは禁止する。
+
+### F5nzx registered BeginFrame recovered-state scheduler decision
+
+- F5nzw RecoveredState partsを一度だけ消費し、caller-supplied ResumeSlice / AbortをResumePending / AbortReadyへ分類する。
+- ResumePending専用entryだけがF5nc `state_resume_slice`をexactly once呼び、registered continuation、category、詳細diagnosticをreset後stateと再結合する。
+- actual DriverCompletionFailed fixtureでrollback stateのslice command countがresume前後ともcanonical 0、InvalidCommand category、exact diagnostic、cleanupを検証し、Abortはresume helperを呼ばず同じcanonical stateをhandoffする。RetryPending、completion replay、scheduler/executor/platformは後続へ残す。

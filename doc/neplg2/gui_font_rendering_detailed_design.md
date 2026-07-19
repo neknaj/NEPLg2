@@ -11235,3 +11235,7 @@ F5nzv consumes the same F5nzt formal parts after optional F5nzu borrowed observa
 ### F5nzw registered BeginFrame host action failure recovery
 
 F5nzw consumes the F5nzl error through one formal parts handoff and keeps its registered dispatch continuation beside the lower recovery result. The complete F5nh/F5ng/F5nf graph is classified: action mismatch and sink rejection recover the original F5ne driver and rebuild only its F5nh session pending by rederiving the expected action; driver completion failure preserves the rollback loop state already carried by F5ne. Both outputs retain the original category and exact lower failure kind, and expose consuming parts handoffs for the later retry or scheduler policy. No executor outcome is created, no completion is replayed, and no next-command, scheduler, host, or platform work occurs.
+
+### F5nzx registered BeginFrame recovered-state scheduler decision
+
+F5nzx consumes only the F5nzw recovered-state owner and applies a caller-supplied ResumeSlice or Abort value. The decision transition preserves the registered continuation, category, exact DriverCompletionFailed diagnostic, and unchanged loop state in ResumePending or AbortReady. Only the ResumePending entry invokes the existing F5nc slice-resume helper once and returns a consuming resumed handoff. It does not consume RetryPending, synthesize outcomes, rerun completion, construct requests, or execute scheduler, host, next-command, or platform work.
