@@ -169044,3 +169044,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - terminal summary fixtureへ初期OwnerTableとparameter storage sourceを注入するtest-only helperを追加した。owner parameterをLiveでseedし、production `ResourceOp::Move` replayでMovedへ遷移させた後、unit payloadの`Result::Ok` return terminalでroot parameter index 2が記録されることをexact assertionした。return valueはowner sourceを含まないため、returned-source除外に隠れずconsumption判定を直接通る。
 - snapshotのprojection sourceとconsumed extentが空であることも固定し、root suffix emptyがindex channelだけへ入る境界を確認した。subagent reviewはterminal collectorの実通過、期待値の独立性、現fixtureに必要なseed範囲を確認してblockerなし。`StorageId(0)`自体のmapping検証ではない点と、helperがraw alias/storage originまで汎用seedしない点は非blockerとして残す。
 - focused fixture 1件、variant path 10件、owner control 10件、owner-summary filter 43件は通過した。次はnonempty suffixのprojection source、extent requirement、payload/host/type/return channelをproducer別fixtureで固定する。production authority、Branch/Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu consumed parameter projection source checkpoint
+
+- production parameter leafで生成可能な`(i32, Box<Unit>)`のtuple field 1をowner sourceとしてseedし、layout helper由来offsetを持つ`TupleField` projectionをMoveした。`Result::Ok` terminalでroot indexは空のまま、variant projection sourceへparameter index 3・同suffix・owner typeがexactに記録されることを固定した。
+- subagent初回reviewで`Box<Unit>`への架空Field projection、再reviewでtupleへのField projectionがblockerとなった。実aggregate type、`composite_field_offset_bytes`、productionと同じ`TupleField`へ修正し、最終reviewはproduction owner leaf derivationとの整合およびterminal source/index振り分けを確認してblocker-freeとなった。
+- focused fixture 1件、variant path 11件、owner control 10件、owner-summary filter 44件は通過した。次はconsumed extent requirement channelを非空にし、その後payload/host/type/projection returnを進める。production authority、Branch/Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。

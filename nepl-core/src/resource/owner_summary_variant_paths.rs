@@ -939,6 +939,7 @@ mod tests {
     use crate::types::{TypeCtx, TypeId};
 
     use super::*;
+    use crate::layout::composite_field_offset_bytes;
     use crate::resource::model::{AggregateKind, StorageId, StorageOrigin};
     use crate::resource::summary::{OwnerProjectionSource, OwnerReturnSummaryIndex};
 
@@ -1195,6 +1196,73 @@ mod tests {
             }]
         );
         assert!(snapshot.sources.is_empty());
+        assert!(snapshot.extents.is_empty());
+    }
+
+    #[test]
+    fn constructed_path_records_consumed_parameter_projection_source() {
+        let mut types = TypeCtx::new();
+        let owner_ty = types.box_ty(types.unit());
+        let parameter_fields = [types.i32(), owner_ty];
+        let parameter_ty = types.tuple(parameter_fields.to_vec());
+        let value = Place::local("value".to_string(), types.unit());
+        let parameter = Place::local("parameter".to_string(), parameter_ty);
+        let suffix = vec![crate::resource::model::PlaceProjection::TupleField {
+            index: 1,
+            offset_bytes: composite_field_offset_bytes(&types, &parameter_fields, 1),
+        }];
+        let projected = parameter.clone().with_projection(suffix[0].clone(), owner_ty);
+        let moved = Place::local("moved".to_string(), owner_ty);
+        let span = Span::dummy();
+        let mut owners = OwnerTable::default();
+        owners.allocate(&projected);
+        let source = OwnerProjectionSource {
+            parameter_index: 3,
+            suffix,
+            ty: owner_ty,
+        };
+        let sources = [OwnerParameterStorageSource {
+            storage: StorageId(0),
+            source: source.clone(),
+            place: projected.clone(),
+        }];
+        let ops = [
+            ResourceOp::Move {
+                source: projected,
+                output: moved,
+                span,
+            },
+            ResourceOp::Construct {
+                output: value.clone(),
+                kind: AggregateKind::Enum {
+                    name: "Result".to_string(),
+                    variant: "Ok".to_string(),
+                },
+                inputs: Vec::new(),
+                span,
+            },
+        ];
+
+        let (result, snapshot) = run_path_with_seeded_summary_snapshot(
+            &types,
+            &owners,
+            &sources,
+            &ops,
+            &value,
+            &PendingVariantOwnerEffects::default(),
+            None,
+            None,
+        );
+
+        assert!(result.engine_effects().is_complete());
+        assert!(snapshot.indices.is_empty());
+        assert_eq!(
+            snapshot.sources,
+            vec![OwnerVariantProjectionSource {
+                variant: "Ok".to_string(),
+                source,
+            }]
+        );
         assert!(snapshot.extents.is_empty());
     }
 
