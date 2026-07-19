@@ -1637,6 +1637,166 @@ mod tests {
     }
 
     #[test]
+    fn constructed_path_keeps_all_variant_summary_channels_nonempty() {
+        let mut types = TypeCtx::new();
+        let owner_ty = types.box_ty(types.unit());
+        let payload_fields = [owner_ty, types.i32(), types.i32(), types.i32()];
+        let payload_ty = types.tuple(payload_fields.to_vec());
+        let result_ty = types.register_named(
+            "CombinedVariantSummaryResult".to_string(),
+            TypeKind::Enum {
+                name: "CombinedVariantSummaryResult".to_string(),
+                type_params: Vec::new(),
+                variants: vec![EnumVariantInfo {
+                    name: "Ok".to_string(),
+                    payload: Some(payload_ty),
+                }],
+            },
+        );
+        let returned = Place::local("returned".to_string(), owner_ty);
+        let consumed_root = Place::local("consumed_root".to_string(), owner_ty);
+        let projection_base_ty = types.tuple(vec![types.i32(), owner_ty]);
+        let projection_base = Place::local("projection_base".to_string(), projection_base_ty);
+        let projection_suffix = vec![crate::resource::model::PlaceProjection::TupleField {
+            index: 1,
+            offset_bytes: composite_field_offset_bytes(&types, &[types.i32(), owner_ty], 1),
+        }];
+        let consumed_projection =
+            projection_base
+                .clone()
+                .with_projection(projection_suffix[0].clone(), owner_ty);
+        let host_size = Place::local("host_size".to_string(), types.i32());
+        let type_size = Place::local("type_size".to_string(), types.i32());
+        let conditioned = Place::local("conditioned".to_string(), types.i32());
+        let extent_size = Place::local("extent_size".to_string(), types.i32());
+        let moved_root = Place::local("moved_root".to_string(), owner_ty);
+        let moved_projection = Place::local("moved_projection".to_string(), owner_ty);
+        let payload = Place::local("payload".to_string(), payload_ty);
+        let value = Place::local("value".to_string(), result_ty);
+        let span = Span::dummy();
+        let mut owners = OwnerTable::default();
+        owners.allocate(&returned);
+        owners.allocate(&consumed_root);
+        owners.allocate(&consumed_projection);
+        let returned_source = OwnerProjectionSource {
+            parameter_index: 10,
+            suffix: Vec::new(),
+            ty: owner_ty,
+        };
+        let consumed_root_source = OwnerProjectionSource {
+            parameter_index: 11,
+            suffix: Vec::new(),
+            ty: owner_ty,
+        };
+        let consumed_projection_source = OwnerProjectionSource {
+            parameter_index: 12,
+            suffix: projection_suffix,
+            ty: owner_ty,
+        };
+        let storage_sources = [
+            OwnerParameterStorageSource {
+                storage: StorageId(0),
+                source: returned_source,
+                place: returned.clone(),
+            },
+            OwnerParameterStorageSource {
+                storage: StorageId(1),
+                source: consumed_root_source,
+                place: consumed_root.clone(),
+            },
+            OwnerParameterStorageSource {
+                storage: StorageId(2),
+                source: consumed_projection_source,
+                place: consumed_projection.clone(),
+            },
+        ];
+        let extent_size_source = OwnerProjectionSource {
+            parameter_index: 13,
+            suffix: Vec::new(),
+            ty: types.i32(),
+        };
+        let condition_sources = [OwnerParameterConditionSource {
+            source: extent_size_source,
+            place: extent_size.clone(),
+        }];
+        let extent_requirements = [
+            crate::resource::owner_extent::PendingOwnerExtentRequirement {
+                owner: consumed_projection.clone(),
+                expected: OwnerStorageExtent::PayloadBytes {
+                    bytes: Box::new(extent_size),
+                },
+                operation: crate::resource::report::ResourceOwnerOperation::CallArgument,
+            },
+        ];
+        let mut raw_aliases = RawCellAddressAliases::default();
+        raw_aliases.set_host_size_kind(
+            &host_size,
+            crate::resource::host_size_contract::HostSizeKind::ArgsCount,
+        );
+        raw_aliases.set_i32_type_size(&type_size, types.unit());
+        raw_aliases.add_i32_condition(
+            &conditioned,
+            crate::resource::model::I32ValueCondition::Positive,
+        );
+        let payload_offsets = (0..payload_fields.len())
+            .map(|index| composite_field_offset_bytes(&types, &payload_fields, index))
+            .collect();
+        let ops = [
+            ResourceOp::Move {
+                source: consumed_root,
+                output: moved_root,
+                span,
+            },
+            ResourceOp::Move {
+                source: consumed_projection,
+                output: moved_projection,
+                span,
+            },
+            ResourceOp::Construct {
+                output: payload.clone(),
+                kind: AggregateKind::Tuple {
+                    field_offsets: payload_offsets,
+                },
+                inputs: vec![returned, host_size, type_size, conditioned],
+                span,
+            },
+            ResourceOp::Construct {
+                output: value.clone(),
+                kind: AggregateKind::Enum {
+                    name: "CombinedVariantSummaryResult".to_string(),
+                    variant: "Ok".to_string(),
+                },
+                inputs: vec![payload],
+                span,
+            },
+        ];
+
+        let (result, snapshot) = run_path_with_seeded_extent_summary_snapshot(
+            &types,
+            &owners,
+            &raw_aliases,
+            &storage_sources,
+            &condition_sources,
+            &extent_requirements,
+            &ops,
+            &value,
+            &PendingVariantOwnerEffects::default(),
+            None,
+            None,
+        );
+
+        assert!(result.engine_effects().is_complete());
+        assert_eq!(snapshot.indices.len(), 1);
+        assert_eq!(snapshot.sources.len(), 1);
+        assert_eq!(snapshot.extents.len(), 1);
+        assert_eq!(snapshot.conditions.len(), 1);
+        assert_eq!(snapshot.payload_conditions.len(), 3);
+        assert_eq!(snapshot.host_sizes.len(), 1);
+        assert_eq!(snapshot.type_sizes.len(), 1);
+        assert_eq!(snapshot.returns.len(), 1);
+    }
+
+    #[test]
     fn recursive_path_returns_state_after_final_replay_op() {
         let value = Place::local("value".to_string(), TypeId(0));
         let retained = Place::local("retained".to_string(), TypeId(0));
