@@ -939,8 +939,8 @@ mod tests {
     use crate::types::{TypeCtx, TypeId};
 
     use super::*;
-    use crate::resource::model::{AggregateKind, StorageOrigin};
-    use crate::resource::summary::OwnerReturnSummaryIndex;
+    use crate::resource::model::{AggregateKind, StorageId, StorageOrigin};
+    use crate::resource::summary::{OwnerProjectionSource, OwnerReturnSummaryIndex};
 
     fn run_path(path_ops: &[ResourceOp], path_value: &Place) -> OwnerVariantTraversalResult {
         let types = TypeCtx::new();
@@ -981,6 +981,28 @@ mod tests {
         match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
         match_output: Option<&Place>,
     ) -> (OwnerVariantTraversalResult, OwnerVariantSummarySnapshot) {
+        run_path_with_seeded_summary_snapshot(
+            types,
+            &OwnerTable::default(),
+            &[],
+            path_ops,
+            path_value,
+            variant_owner_effects,
+            match_arm,
+            match_output,
+        )
+    }
+
+    fn run_path_with_seeded_summary_snapshot(
+        types: &TypeCtx,
+        owners: &OwnerTable,
+        parameter_storage_sources: &[OwnerParameterStorageSource],
+        path_ops: &[ResourceOp],
+        path_value: &Place,
+        variant_owner_effects: &PendingVariantOwnerEffects,
+        match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
+        match_output: Option<&Place>,
+    ) -> (OwnerVariantTraversalResult, OwnerVariantSummarySnapshot) {
         let summaries = Vec::new();
         let summary_index = OwnerReturnSummaryIndex::new(&summaries);
         let engine = ResourceOwnerCheckEngine {
@@ -1011,14 +1033,14 @@ mod tests {
             &mut condition_out,
             &mut payload_condition_out,
             &engine,
-            &OwnerTable::default(),
+            owners,
             &RawCellAddressAliases::default(),
             &RawAddressViewTable::default(),
             &StorageOriginTable::default(),
             &FunctionAliasTable::default(),
             &PendingRawReallocs::default(),
             variant_owner_effects,
-            &[],
+            parameter_storage_sources,
             &[],
             path_ops,
             path_value,
@@ -1115,6 +1137,65 @@ mod tests {
             Some(StorageOrigin::Owned)
         );
         assert!(result.engine_effects().is_complete());
+    }
+
+    #[test]
+    fn constructed_path_records_consumed_root_parameter_index() {
+        let mut types = TypeCtx::new();
+        let owner_ty = types.box_ty(types.unit());
+        let value = Place::local("value".to_string(), types.unit());
+        let parameter = Place::local("parameter".to_string(), owner_ty);
+        let moved = Place::local("moved".to_string(), owner_ty);
+        let span = Span::dummy();
+        let mut owners = OwnerTable::default();
+        owners.allocate(&parameter);
+        let sources = [OwnerParameterStorageSource {
+            storage: StorageId(0),
+            source: OwnerProjectionSource {
+                parameter_index: 2,
+                suffix: Vec::new(),
+                ty: owner_ty,
+            },
+            place: parameter.clone(),
+        }];
+        let ops = [
+            ResourceOp::Move {
+                source: parameter,
+                output: moved,
+                span,
+            },
+            ResourceOp::Construct {
+                output: value.clone(),
+                kind: AggregateKind::Enum {
+                    name: "Result".to_string(),
+                    variant: "Ok".to_string(),
+                },
+                inputs: Vec::new(),
+                span,
+            },
+        ];
+
+        let (result, snapshot) = run_path_with_seeded_summary_snapshot(
+            &types,
+            &owners,
+            &sources,
+            &ops,
+            &value,
+            &PendingVariantOwnerEffects::default(),
+            None,
+            None,
+        );
+
+        assert!(result.engine_effects().is_complete());
+        assert_eq!(
+            snapshot.indices,
+            vec![OwnerVariantParameterIndex {
+                variant: "Ok".to_string(),
+                parameter_index: 2,
+            }]
+        );
+        assert!(snapshot.sources.is_empty());
+        assert!(snapshot.extents.is_empty());
     }
 
     #[test]
