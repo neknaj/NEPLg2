@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-19T08:51:59.730Z",
+  "generated_at": "2026-07-19T09:06:16.070Z",
   "counts": {
-    "total": 1433,
-    "open": 60,
+    "total": 1434,
+    "open": 61,
     "resolved": 1373,
     "by_area": {
       "stdlib": {
@@ -15,6 +15,11 @@
         "total": 665,
         "open": 28,
         "resolved": 637
+      },
+      "gui-font": {
+        "total": 20,
+        "open": 1,
+        "resolved": 19
       },
       "RESOURCE": {
         "total": 5,
@@ -95,11 +100,6 @@
         "total": 39,
         "open": 0,
         "resolved": 39
-      },
-      "gui-font": {
-        "total": 19,
-        "open": 0,
-        "resolved": 19
       },
       "nodesrc": {
         "total": 16,
@@ -528,6 +528,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
+    },
+    {
+      "id": "ISS-20260719T090609545Z-F5NZV-REGISTERED-RESUMED-TERMINAL-NO-E143B724",
+      "title": "F5nzv registered resumed terminal no-request completion bridge",
+      "area": "gui-font",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-19",
+      "updated": "2026-07-19",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_completion.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260719T090609545Z-F5NZV-REGISTERED-RESUMED-TERMINAL-NO-E143B724.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
