@@ -43,7 +43,6 @@ pub(super) struct OwnerVariantTraversalResult {
     pub(super) state: OwnerMatchPathState,
     #[cfg(test)]
     controls: Vec<OwnerVariantControlPaths>,
-    #[cfg(test)]
     merge_eligible: bool,
     engine_effects: Option<OwnerMatchEngineEffectAccumulator>,
 }
@@ -553,7 +552,6 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         },
         #[cfg(test)]
         controls,
-        #[cfg(test)]
         merge_eligible: true,
         engine_effects: Some(engine_effects),
     }
@@ -608,23 +606,9 @@ fn collect_variant_consumed_owner_parameters_from_path(
     let mut path_variant_owner_effects = variant_owner_effects.clone();
     let mut engine_effects = OwnerMatchEngineEffectAccumulator::default();
     let entry_checkpoint = path_engine.match_engine_effect_checkpoint();
-    #[cfg(test)]
     let mut match_entry_reachable = true;
     profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
     let match_entry_timer = profile.start();
-    #[cfg(not(test))]
-    super::owner_summary_variant_match::apply_match_arm_entry(
-        &mut path_engine,
-        &mut path_owners,
-        &mut path_raw_aliases,
-        &mut path_raw_views,
-        &mut path_storage_origins,
-        &mut path_function_aliases,
-        &mut path_pending_reallocs,
-        &mut path_variant_owner_effects,
-        match_arm,
-    );
-    #[cfg(test)]
     if let Some((scrutinee, arm, span)) = match_arm {
         if let Some(state) = path_engine.prepare_match_arm_path(
             owners,
@@ -680,15 +664,6 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
         engine_effects.extend(result.take_engine_effects());
         result.engine_effects = Some(engine_effects);
-        #[cfg(not(test))]
-        if _match_output.is_some() {
-            result
-                .engine_effects
-                .as_mut()
-                .expect("recursive match engine effects must remain owned by the root")
-                .mark_incomplete();
-        }
-        #[cfg(test)]
         if match_entry_reachable {
             if let Some(output) = _match_output {
                 let finalize_checkpoint = path_engine.match_engine_effect_checkpoint();
@@ -837,11 +812,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
     }
     profile.finish(terminal_timer, OwnerVariantProfilePhase::Terminal);
-    #[cfg(not(test))]
-    if _match_output.is_some() {
-        engine_effects.mark_incomplete();
-    }
-    let result = OwnerVariantTraversalResult {
+    let mut result = OwnerVariantTraversalResult {
         state: OwnerMatchPathState {
             owners: path_owners,
             function_aliases: path_function_aliases,
@@ -853,13 +824,9 @@ fn collect_variant_consumed_owner_parameters_from_path(
         },
         #[cfg(test)]
         controls: Vec::new(),
-        #[cfg(test)]
         merge_eligible: true,
         engine_effects: Some(engine_effects),
     };
-    #[cfg(test)]
-    let mut result = result;
-    #[cfg(test)]
     if match_entry_reachable {
         if let Some(output) = _match_output {
             let finalize_checkpoint = path_engine.match_engine_effect_checkpoint();

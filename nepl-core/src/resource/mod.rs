@@ -468,7 +468,6 @@ mod owner_summary_variant_conditions;
 mod owner_summary_variant_construct;
 mod owner_summary_variant_i32_conditions;
 mod owner_summary_variant_leaf;
-mod owner_summary_variant_match;
 mod owner_summary_variant_path_conditions;
 mod owner_summary_variant_paths;
 mod owner_summary_variant_payload_conditions;
