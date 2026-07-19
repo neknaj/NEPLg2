@@ -169127,3 +169127,14 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - return-producing Branchのthen/elseへcanonical finalizationを適用し、Branch専用engine clone上でconditionをgenericと同じthen→else順に処理した。condition→then child→else childのeffect列がcompleteな場合だけeligible stateをmergeし、元engineへ一度absorbしてgeneric Branch replayを省略する。incomplete時は元engineを変更せずgeneric replayへフォールバックする。
 - subagent初回reviewでconditionを元engineへ直接適用後に再absorbする二重effect/fallback汚染blockerを受け、専用engineへ分離した。再reviewでstateだけではeffect回帰を検出できないblockerを受け、同一親から実行したgeneric Branchとspecialized採用後のstateおよびdiagnostics/deferred/extent/memory snapshotをexact比較した。最終reviewはcondition→then→else順、Never effect保持/state除外、reserved source、後続ops threadingを確認してblocker-freeとなった。
 - owner control 10件、variant path 16件、owner-summary 49件、修正後variant path 16件、native/wasm32 `cargo check -p nepl-core`、release `cargo build -p nepl-cli`、`git diff --check`は通過した。次はF5nzt 1023対照を再計測し、残るLoop fallbackの寄与を判定する。Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu Branch authority 1023 control measurement
+
+- specialized Branch production authority checkpoint `c4836d61b` 後にF5nzt 1023 control fixtureをrelease CLI、`--test-mode --run --target wasi`、180秒上限で再計測した。結果はexit 124、elapsed 180.06秒、max RSS 664444 KiBで、runtime output生成前にtimeoutした。specialized Match後の180秒計測（664328 KiB）と同水準であり、Branch authority単体ではcontrol gateを解消しない。
+- 1023が未通過のためF5nzu 2047 fixture復元、issue close、main統合には進まない。次はgeneric Loopのcondition/body semanticsを再実装せず、既存generic Loop一回実行のlexical checkpoint deltaをspecialized traversalへ輸送するLoop authority sliceを進める。フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu generic Loop effect authority checkpoint
+
+- nested returnのsequential Loopは既存generic `check_loop`をその場で一度だけ実行し、そのlexical checkpoint deltaをcomplete accumulatorへ保持するようにした。constructed leafもBranch/MatchがなければLoopを含む全path replay deltaをcompleteとして保持する。condition/body state mergeをspecialized collectorで再実装せず、Loop内部のnested controlもgeneric Loop deltaだけがauthorityとなる。
+- 初回reviewで空LoopとLoop後StorageOriginだけでは4-channel effectの欠落・二重吸収を検出できないblockerを受けた。共通fixtureのcondition opsにstate mutation、body ops内nested Matchにpending consumptionのOwned bind reserved-source診断を追加し、constructed/recursive両capture経路で同じinitial state/effectsからのgeneric全ops実行と7-state完全一致、accumulator吸収後4-channel完全一致、diagnostic count 1を固定した。最終reviewは一回性、nested Match非重複、Branch/Match incomplete fallback維持を確認してblockerなし。
+- variant path 18件、owner control 10件、owner-summary 51件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。次はcheckpoint後の1023 controlを再計測する。1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。

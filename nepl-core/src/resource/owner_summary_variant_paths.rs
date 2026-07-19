@@ -555,7 +555,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         );
         let captures_sequential_effects = !matches!(
             op,
-            ResourceOp::Branch { .. } | ResourceOp::Loop { .. } | ResourceOp::Match { .. }
+            ResourceOp::Branch { .. } | ResourceOp::Match { .. }
         );
         if !specialized_match && !captures_sequential_effects {
             engine_effects.mark_incomplete();
@@ -785,7 +785,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     let leaf_effects_complete = !path_ops.iter().any(|op| {
         matches!(
             op,
-            ResourceOp::Branch { .. } | ResourceOp::Loop { .. } | ResourceOp::Match { .. }
+            ResourceOp::Branch { .. } | ResourceOp::Match { .. }
         )
     });
     let leaf_checkpoint = path_engine.match_engine_effect_checkpoint();
@@ -1014,6 +1014,69 @@ mod tests {
             &PendingVariantOwnerEffects::default(),
             None,
             None,
+        )
+    }
+
+    fn loop_with_nested_match_diagnostic(
+        types: &mut TypeCtx,
+        loop_retained: &Place,
+    ) -> (ResourceOp, PendingVariantOwnerEffects) {
+        let owner_ty = types.box_ty(types.unit());
+        let condition = Place::local("loop_condition".to_string(), types.unit());
+        let scrutinee = Place::local("loop_scrutinee".to_string(), types.unit());
+        let bind = Place::local("loop_bind".to_string(), owner_ty);
+        let arm_value = Place::local("loop_arm_value".to_string(), types.unit());
+        let output = Place::local("loop_match_output".to_string(), types.unit());
+        let span = Span::dummy();
+        let mut effects = PendingVariantOwnerEffects::default();
+        effects.consumptions.push(
+            crate::resource::owner_variant::PendingVariantOwnerConsumption {
+                result: scrutinee.clone(),
+                variant: "Ok".to_string(),
+                arg: scrutinee.clone().with_projection(
+                    crate::resource::model::PlaceProjection::EnumPayload {
+                        variant: "Ok".to_string(),
+                    },
+                    owner_ty,
+                ),
+                suffix: Vec::new(),
+                ty: owner_ty,
+                extent: None,
+            },
+        );
+        (
+            ResourceOp::Loop {
+                condition_ops: vec![ResourceOp::StorageOrigin {
+                    target: loop_retained.clone(),
+                    origin: StorageOrigin::Owned,
+                    span,
+                }],
+                condition,
+                condition_fact: None,
+                body_ops: vec![ResourceOp::Match {
+                    output,
+                    scrutinee,
+                    scrutinee_is_borrow_target: false,
+                    arms: vec![ResourceMatchArm {
+                        pattern: crate::resource::model::ResourceMatchPattern::Variant(
+                            "Ok".to_string(),
+                        ),
+                        bind_local: Some(bind),
+                        bind_source_name: None,
+                        bind_mode: Some(crate::resource::model::ResourceMatchBindMode::Owned),
+                        ops: vec![ResourceOp::StorageOrigin {
+                            target: loop_retained.clone(),
+                            origin: StorageOrigin::Owned,
+                            span,
+                        }],
+                        value: arm_value,
+                        span,
+                    }],
+                    span,
+                }],
+                span,
+            },
+            effects,
         )
     }
 
@@ -1915,6 +1978,167 @@ mod tests {
         let result = run_path(&ops, &value);
 
         assert!(!result.engine_effects().is_complete());
+    }
+
+    #[test]
+    fn constructed_path_with_loop_replay_keeps_complete_effects() {
+        let mut types = TypeCtx::new();
+        let value = Place::local("value".to_string(), TypeId(0));
+        let loop_retained = Place::local("loop_retained".to_string(), TypeId(0));
+        let retained = Place::local("retained".to_string(), TypeId(0));
+        let span = Span::dummy();
+        let (loop_op, effects) = loop_with_nested_match_diagnostic(&mut types, &loop_retained);
+        let ops = [
+            loop_op,
+            ResourceOp::Construct {
+                output: value.clone(),
+                kind: AggregateKind::Enum {
+                    name: "Result".to_string(),
+                    variant: "Ok".to_string(),
+                },
+                inputs: Vec::new(),
+                span,
+            },
+            ResourceOp::StorageOrigin {
+                target: retained.clone(),
+                origin: StorageOrigin::Owned,
+                span,
+            },
+        ];
+        let mut result = run_path_with_match(
+            &types,
+            &ops,
+            &value,
+            &effects,
+            None,
+            None,
+        );
+        let summaries = Vec::new();
+        let summary_index = OwnerReturnSummaryIndex::new(&summaries);
+        let make_engine = || ResourceOwnerCheckEngine {
+            function: "variant_path_oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let mut generic_engine = make_engine();
+        let mut generic_state = OwnerMatchPathState::from_parent(
+            &OwnerTable::default(),
+            &FunctionAliasTable::default(),
+            &RawCellAddressAliases::default(),
+            &RawAddressViewTable::default(),
+            &StorageOriginTable::default(),
+            &PendingRawReallocs::default(),
+            &effects,
+        );
+        generic_engine.check_ops(
+            &mut generic_state.owners,
+            &mut generic_state.function_aliases,
+            &mut generic_state.raw_aliases,
+            &mut generic_state.raw_views,
+            &mut generic_state.storage_origins,
+            &mut generic_state.pending_reallocs,
+            &mut generic_state.variant_owner_effects,
+            &ops,
+        );
+        let mut absorbed_engine = make_engine();
+        result.take_engine_effects().absorb_into(&mut absorbed_engine);
+
+        assert_eq!(result.state.oracle_snapshot(), generic_state.oracle_snapshot());
+        assert_eq!(
+            absorbed_engine.match_oracle_snapshot(),
+            generic_engine.match_oracle_snapshot()
+        );
+        assert_eq!(absorbed_engine.match_oracle_snapshot().diagnostic_count(), 1);
+        assert_eq!(
+            result.state.storage_origins.origin(&loop_retained),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            result.state.storage_origins.origin(&retained),
+            Some(StorageOrigin::Owned)
+        );
+    }
+
+    #[test]
+    fn recursive_path_captures_loop_and_post_op_effects_in_order() {
+        let mut types = TypeCtx::new();
+        let value = Place::local("value".to_string(), TypeId(0));
+        let loop_retained = Place::local("loop_retained".to_string(), TypeId(0));
+        let retained = Place::local("retained".to_string(), TypeId(0));
+        let span = Span::dummy();
+        let (loop_op, effects) = loop_with_nested_match_diagnostic(&mut types, &loop_retained);
+        let ops = [
+                loop_op,
+                ResourceOp::StorageOrigin {
+                    target: retained.clone(),
+                    origin: StorageOrigin::Owned,
+                    span,
+                },
+            ];
+        let mut result = run_path_with_match(
+            &types,
+            &ops,
+            &value,
+            &effects,
+            None,
+            None,
+        );
+        let summaries = Vec::new();
+        let summary_index = OwnerReturnSummaryIndex::new(&summaries);
+        let make_engine = || ResourceOwnerCheckEngine {
+            function: "variant_path_oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let mut generic_engine = make_engine();
+        let mut generic_state = OwnerMatchPathState::from_parent(
+            &OwnerTable::default(),
+            &FunctionAliasTable::default(),
+            &RawCellAddressAliases::default(),
+            &RawAddressViewTable::default(),
+            &StorageOriginTable::default(),
+            &PendingRawReallocs::default(),
+            &effects,
+        );
+        generic_engine.check_ops(
+            &mut generic_state.owners,
+            &mut generic_state.function_aliases,
+            &mut generic_state.raw_aliases,
+            &mut generic_state.raw_views,
+            &mut generic_state.storage_origins,
+            &mut generic_state.pending_reallocs,
+            &mut generic_state.variant_owner_effects,
+            &ops,
+        );
+        let mut absorbed_engine = make_engine();
+        result.take_engine_effects().absorb_into(&mut absorbed_engine);
+
+        assert_eq!(result.state.oracle_snapshot(), generic_state.oracle_snapshot());
+        assert_eq!(
+            absorbed_engine.match_oracle_snapshot(),
+            generic_engine.match_oracle_snapshot()
+        );
+        assert_eq!(absorbed_engine.match_oracle_snapshot().diagnostic_count(), 1);
+        assert_eq!(
+            result.state.storage_origins.origin(&loop_retained),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            result.state.storage_origins.origin(&retained),
+            Some(StorageOrigin::Owned)
+        );
     }
 
     #[test]
