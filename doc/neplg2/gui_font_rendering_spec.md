@@ -8805,3 +8805,7 @@ F5nzxはF5nzw `RecoveredState`だけを一度消費し、caller-supplied `Resume
 ### F5nzy registered BeginFrame finite retry policy boundary
 
 F5nzyはF5nzw `RetryPending`を一度だけ消費し、`Exhausted | OneRemaining` budgetとcaller decisionをmove-only `RetryReady | AbortReady`へ分類する。retryはactual `SinkRejected(UnsupportedAction)`が保持するexpected actionをcandidate supportが既存validatorで受理する場合だけ許可し、RetryReadyは消費済み`Exhausted` budgetを必ず保持する。mismatch、budget exhausted、明示abort、unsupported candidateは元category、exact diagnostic、session pending、registered continuationを保持したtyped abortとなる。F5nzyはactual executor、outcome、completion、request、scheduler、state resume、platform workを実行しない。一般N回retryは偽造不能budget tokenをcompletion/recovery全体へ通す別設計を必要とする。
+
+### F5nzz Web registered BeginFrame retry executor
+
+F5nzzはplatform/Web composition boundaryとしてF5nzy RetryReadyを一度消費し、保持session pendingのexpected actionを既存Web executorへexactly once渡す。actual outcomeは保持dispatch ownerとpendingから再結合したregistered F5nzl session ownerへexactly once渡す。successは旧category/diagnostic/spent budgetとcompletion ownerを保持する。failureはF5nzw recovery後、RetryPendingをcarried Exhausted budgetでBudgetExhausted abortへ、RecoveredStateをF5nzx Abortへ閉じる。raw host importは既存Web executorだけに残し、budget再発行、state resume、scheduler loop、next command、fallbackは行わない。

@@ -2,8 +2,8 @@
 id: ISS-20260719T113312984Z-F5NZZ-WEB-REGISTERED-BEGINFRAME-RETR-F01A2B02
 title: "F5nzz Web registered BeginFrame retry executor"
 area: gui-font
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-19
@@ -23,7 +23,9 @@ F5nzy RetryReady is not connected to the existing Web host executor and register
 
 ## 根拠
 
-- 未記入
+- F5nzy `RetryReady` carried the exact pending action, registered dispatch continuation, selected support, prior failure context, and spent budget, but no platform adapter consumed that complete authority.
+- The existing Web executor already owns raw imports and status mapping, while F5nzl owns the registered completion contract; bypassing either boundary would duplicate host policy or lose continuation.
+- Actual Web `Unsupported` is an accepted action's failed outcome, so F5nzl/F5nzw correctly classify it as `DriverCompletionFailed` recovered state rather than a second support-preflight rejection.
 
 ## 問題
 
@@ -39,4 +41,12 @@ Consume RetryReady once in a platform/Web composition adapter, execute its exact
 
 ## 検証
 
-Actual default Web Unsupported host import reaches exhausted typed abort with old and new diagnostics preserved; source policy fixes single-call boundaries; normal compile, release/trunk/CLI gates, and subagent reviews pass.
+Actual default Web Unsupported host import reaches the typed RecoveredState abort with old SinkRejected and new DriverCompletionFailed diagnostics preserved. A repeated RetryPending is separately forced through the carried exhausted budget to BudgetExhausted. Source policy fixes single-call boundaries; normal compile, release/trunk/CLI gates, and subagent reviews pass.
+
+## 検証結果
+
+- WASI/WASM actual Web import fixture: evidence 63, failed 0, exit 0.
+- Web GUI/font source-policy and dedicated normal-mode test-only isolation passed.
+- `cargo check --workspace`, wasm32 workspace check, release CLI build, release trunk build passed.
+- Post-trunk Playground editor CLI JSON passed 13/13; issues check and diff check passed.
+- Subagent diff re-review reported no blocker, major, minor, or cleanup leak.

@@ -49,6 +49,20 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begi
         GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin _: 2
         _: 0
 
+//: actual unsupported recoveryからpreflight済みRetryReadyを後続fixtureへ渡す
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_retry_policy_test_ready_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_retry_pending_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_pending_decide owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::OneRemaining GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecision::RetryWithSupport GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecisionOwner::AbortReady aborted:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_abort_ready_owner_free aborted:
+                        Result::Err _: Result::Err sub 0 1
+                        Result::Ok _: Result::Err 0
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecisionOwner::RetryReady ready:
+                    Result::Ok ready
+
 //: actual Window rejectionをOffscreen supportへ一度だけtransitionできる
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_retry_policy_test_retry_contract %impure fn unit i32 \_unit:

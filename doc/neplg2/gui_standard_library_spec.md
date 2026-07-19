@@ -2476,3 +2476,7 @@ F5nzxはF5nzw RecoveredStateだけをvalue-only ResumeSlice / Abort decisionへ�
 ### Registered stroke compositor F5nzy finite retry policy boundary
 
 F5nzyはF5nzw RetryPendingを有限0/1 budgetで一度だけ分類する。元failureがactual UnsupportedActionで、保持expected actionをcandidate supportが受理する場合だけspent Exhausted budget付きRetryReadyを返す。それ以外は元continuation/category/diagnostic/session pendingとtyped policy reasonを保持するAbortReadyとなる。executor、outcome、completion、scheduler、platform処理は含まない。
+
+### Web registered stroke compositor F5nzz retry executor
+
+`platforms/gui/web/font_registered_begin_frame_retry_executor` はRetryReadyのexact pending actionを既存Web compositor executorへ一回だけ渡し、actual outcomeをregistered completionへ再結合する。再failureはspent budgetまたはRecoveredState Abortでtyped終端し、旧failure contextと新failure authorityを別々に保持する。raw Web imports、action実行本体、status mappingは既存executorに留める。

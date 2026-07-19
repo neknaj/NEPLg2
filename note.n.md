@@ -169182,3 +169182,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nzw RetryPendingを一度だけ消費する0/1 budget policyを追加した。actual SinkRejected UnsupportedActionが保持するexpected actionをcandidate supportが受理する場合だけRetryReadyとし、明示abort、budget exhausted、non-retriable diagnostic、unsupported candidateは元authorityを保持するAbortReadyへ分類する。
 - RetryReadyはspent Exhausted budgetを保持し、後続F5nzzだけがexact session pendingとpreflight済みsupportを消費する。actual lower mismatchもnon-retriable abortへ固定した。F5nzyではexecutor、outcome、completion、request、scheduler、state resume、platform workを実行しない。一般N回retryにはcompletion/recovery全体へ偽造不能budget tokenを通す別設計が必要である。GUI/font全体は未完成で、`plan.md`は変更していない。
 - release runtime fixtureは5/5、evidence 63/23/71/15/17、elapsed 5:18.19、最大RSS 414596KiBで通過した。subagent初回reviewのspent budget欠落、non-retriable未実行、exact diagnostic観測不足を修正し、再reviewはblocker/majorなしとなった。F5nzzではspent Exhausted budgetを再failure policyへ必ず接続する。
+
+2026-07-19 F5nzz Web registered BeginFrame retry executor
+
+- platform/Web composition adapterでF5nzy RetryReadyを一度消費し、exact pending actionを既存Web executorへ一回、actual outcomeをregistered F5nzl completionへ一回渡す境界を追加した。raw host importsとstatus mappingは既存Web executorに留める。
+- 再failureがRetryPendingならcarried Exhausted budgetでBudgetExhausted abortへ、RecoveredStateならF5nzx Abortへ閉じる。旧failure contextと再提出時の新failure authorityは別々に保持し、budget再発行、resume、scheduler/next commandを行わない。GUI/font全体は未完成で、`plan.md`は変更していない。
+- actual Web `-1` Unsupported outcomeはsupport preflight拒否ではなくcompletion済attemptのfailureなので、F5nzwの`DriverCompletionFailed` RecoveredStateへ進む。runtime fixtureは旧SinkRejected、spent Exhausted、新Unsupported/DriverCompletionFailed、cleanupをevidence 63で確認する。RetryPending再failureだけがcarried ExhaustedによるBudgetExhaustedとなる。
+- 修正後WASI/WASM actual fixtureはevidence 63 / failed 0 / exit 0。Web source-policy、専用normal隔離、native/wasm32 workspace check、release CLI build、release trunk build、trunk後Playground editor CLI JSON 13/13、issues/diff checkを通過した。subagent再reviewはblocker/major/minorおよびcleanup漏れなし。F5nzz issueはfixedだが、success status fixture、completion後scheduler continuation、native provider、layout/rasterization/presentationとGUI/font全体は未完成である。

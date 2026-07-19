@@ -13993,3 +13993,9 @@ git diff --check
 - F5nzw RetryPendingを一度だけparts化し、有限`Exhausted | OneRemaining` budgetと`RetryWithSupport | Abort` decisionを適用する。actual SinkRejected UnsupportedActionかつ同じexpected actionをcandidate supportが受理する場合だけRetryReadyを作る。
 - RetryReady/AbortReadyはregistered continuation、outer category、元のexact diagnostic、session pendingを保持し、RetryReadyはspent Exhausted budgetを後続へ渡す。AbortReadyはpolicy abort、budget exhausted、non-retriable diagnostic、candidate unsupportedを元diagnosticとは別のreasonで保持する。
 - actual unsupported OffscreenBegin fixtureでOffscreen transition、Window再拒否、budget exhausted、明示abortを検証し、actual lower action mismatchでnon-retriable分岐も検証する。executor、outcome、completion、request、scheduler、state resume、platform workはF5nzz以降へ残す。
+
+### F5nzz Web registered BeginFrame retry executor
+
+- platform/Web adapterでRetryReadyを一度だけparts化し、exact pending actionを既存Web executorへ一回、actual outcomeをregistered F5nzl completionへ一回渡す。
+- successは旧failure context、spent budget、completion ownerを保持する。再failureのRetryPendingはspent Exhausted budgetでBudgetExhausted AbortReadyへ、RecoveredStateはF5nzx AbortReadyへ閉じる。
+- default Web Unsupported actual fixtureで旧SinkRejected、spent Exhausted、新Unsupported category/DriverCompletionFailed、registered cleanupをevidence 63として検証する。RetryPending再failureのBudgetExhausted経路はsource-policyで固定し、actual success status制御、completion後scheduler/next command、複数command loopは後続へ残す。

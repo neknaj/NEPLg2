@@ -1,0 +1,103 @@
+//: # Web registered BeginFrame retry executor
+//: F5nzy RetryReadyをexisting Web host executorへ一度だけ提出し、registered completionへ再結合します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_completion" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_executor_session" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/compositor_host_executor" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_platform_bridge" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+
+pub struct GuiFontWebRegisteredBeginFrameRetryExecutionSuccess:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    completion_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryExecutionSuccessParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    completion_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryExecutionRetryAbort:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    abort_ready %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryAbortReadyOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryExecutionRetryAbortParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    abort_ready %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryAbortReadyOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbort:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    abort_ready %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateAbortReadyOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbortParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    abort_ready %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateAbortReadyOwner
+
+pub enum GuiFontWebRegisteredBeginFrameRetryExecutionFailure:
+    RetryAbort %GuiFontWebRegisteredBeginFrameRetryExecutionRetryAbort
+    RecoveredAbort %GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbort
+    InvariantViolation %Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind
+
+//: exact pending actionをWeb importへ一度だけ渡し、registered completionとfailure abort authorityへ再結合する
+pub fn gui_font_web_registered_begin_frame_retry_execute %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner Result GuiFontWebRegisteredBeginFrameRetryExecutionSuccess GuiFontWebRegisteredBeginFrameRetryExecutionFailure \ready:
+    let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_ready_owner_into_parts ready
+    let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get parts "dispatch_owner"
+    let previous_category %Option GuiError field::get parts "category"
+    let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "diagnostic"
+    let pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending field::get parts "session_pending"
+    let support %GuiRgba8888CompositorTileRlePresentHostExecutorSupport field::get parts "support"
+    let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+    let action %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_pending_action &pending
+    let outcome %Result unit GuiError gui_web_compositor_host_executor_execute_action action
+    let session_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionExecutorSessionOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionExecutorSessionOwner dispatch_owner pending
+    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_complete support session_owner outcome:
+        Result::Ok completion_owner:
+            Result::Ok GuiFontWebRegisteredBeginFrameRetryExecutionSuccess previous_category previous_diagnostic spent_budget completion_owner
+        Result::Err completion_error:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_recover completion_error:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RetryPending retry_pending:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_pending_decide retry_pending spent_budget GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecision::RetryWithSupport support:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecisionOwner::AbortReady abort_ready:
+                            Result::Err GuiFontWebRegisteredBeginFrameRetryExecutionFailure::RetryAbort GuiFontWebRegisteredBeginFrameRetryExecutionRetryAbort previous_category previous_diagnostic GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::Exhausted abort_ready
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecisionOwner::RetryReady unexpected:
+                            Result::Err GuiFontWebRegisteredBeginFrameRetryExecutionFailure::InvariantViolation gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_ready_owner_free unexpected
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RecoveredState recovered:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decide recovered GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateSchedulerDecision::Abort:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateSchedulerDecisionOwner::AbortReady abort_ready:
+                            Result::Err GuiFontWebRegisteredBeginFrameRetryExecutionFailure::RecoveredAbort GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbort previous_category previous_diagnostic spent_budget abort_ready
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateSchedulerDecisionOwner::ResumePending unexpected:
+                            Result::Err GuiFontWebRegisteredBeginFrameRetryExecutionFailure::InvariantViolation gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_resume_pending_owner_free unexpected
+
+pub fn gui_font_web_registered_begin_frame_retry_execution_success_into_parts %fn GuiFontWebRegisteredBeginFrameRetryExecutionSuccess GuiFontWebRegisteredBeginFrameRetryExecutionSuccessParts \success:
+    GuiFontWebRegisteredBeginFrameRetryExecutionSuccessParts field::get success "previous_category" field::get success "previous_diagnostic" field::get success "spent_budget" field::get success "completion_owner"
+
+pub fn gui_font_web_registered_begin_frame_retry_execution_retry_abort_into_parts %fn GuiFontWebRegisteredBeginFrameRetryExecutionRetryAbort GuiFontWebRegisteredBeginFrameRetryExecutionRetryAbortParts \failure:
+    GuiFontWebRegisteredBeginFrameRetryExecutionRetryAbortParts field::get failure "previous_category" field::get failure "previous_diagnostic" field::get failure "spent_budget" field::get failure "abort_ready"
+
+pub fn gui_font_web_registered_begin_frame_retry_execution_recovered_abort_into_parts %fn GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbort GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbortParts \failure:
+    GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbortParts field::get failure "previous_category" field::get failure "previous_diagnostic" field::get failure "spent_budget" field::get failure "abort_ready"
+
+pub fn gui_font_web_registered_begin_frame_retry_execution_recovered_abort_free %fn GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbort Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \failure:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_abort_ready_owner_free field::get failure "abort_ready"

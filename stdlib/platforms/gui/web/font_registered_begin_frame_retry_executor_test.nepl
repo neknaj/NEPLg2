@@ -1,0 +1,114 @@
+//: # Web registered BeginFrame retry executor test adapter
+//: actual default Web Unsupported statusをspent retryのRecoveredState abortへ再結合します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy_test" as fixture with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_completion" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_recovered_state_scheduler_decision" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_executor" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_sink" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+
+//: default Web hostのUnsupported outcomeをDriverCompletionFailed RecoveredState abortへ閉じる
+#test
+pub fn gui_font_web_registered_begin_frame_retry_executor_test_unsupported_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_retry_policy_test_ready_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok ready:
+            match gui_font_web_registered_begin_frame_retry_execute ready:
+                Result::Ok success:
+                    let parts %GuiFontWebRegisteredBeginFrameRetryExecutionSuccessParts gui_font_web_registered_begin_frame_retry_execution_success_into_parts success
+                    let completion_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner field::get parts "completion_owner"
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_free completion_owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                Result::Err failure:
+                    match failure:
+                        GuiFontWebRegisteredBeginFrameRetryExecutionFailure::InvariantViolation _cleanup:
+                            sub 0 1
+                        GuiFontWebRegisteredBeginFrameRetryExecutionFailure::RecoveredAbort recovered:
+                            let parts %GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbortParts gui_font_web_registered_begin_frame_retry_execution_recovered_abort_into_parts recovered
+                            let previous_category %Option GuiError field::get parts "previous_category"
+                            let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
+                            let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+                            let abort_ready %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateAbortReadyOwner field::get parts "abort_ready"
+                            let abort_parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameRecoveredStateAbortReadyOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_abort_ready_owner_into_parts abort_ready
+                            let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get abort_parts "dispatch_owner"
+                            let next_category %Option GuiError field::get abort_parts "category"
+                            let next_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get abort_parts "diagnostic"
+                            let previous_evidence %i32 match previous_category:
+                                Option::Some value:
+                                    match value:
+                                        GuiError::Unsupported: 1
+                                        _: 0
+                                _: 0
+                            let previous_diagnostic_evidence %i32 match previous_diagnostic:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::SinkRejected _: 2
+                                _: 0
+                            let spent_evidence %i32 match spent_budget:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::Exhausted: 4
+                                _: 0
+                            let next_evidence %i32 match next_category:
+                                Option::Some value:
+                                    match value:
+                                        GuiError::Unsupported: 8
+                                        _: 0
+                                _: 0
+                            let next_diagnostic_evidence %i32 match next_diagnostic:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::DriverCompletionFailed _: 16
+                                _: 0
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: add 32 add add add add previous_evidence previous_diagnostic_evidence spent_evidence next_evidence next_diagnostic_evidence
+                        GuiFontWebRegisteredBeginFrameRetryExecutionFailure::RetryAbort retry_failure:
+                            let parts %GuiFontWebRegisteredBeginFrameRetryExecutionRetryAbortParts gui_font_web_registered_begin_frame_retry_execution_retry_abort_into_parts retry_failure
+                            let previous_category %Option GuiError field::get parts "previous_category"
+                            let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
+                            let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+                            let abort_ready %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryAbortReadyOwner field::get parts "abort_ready"
+                            let abort_parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryAbortReadyOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_abort_ready_owner_into_parts abort_ready
+                            let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get abort_parts "dispatch_owner"
+                            let next_category %Option GuiError field::get abort_parts "category"
+                            let next_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get abort_parts "diagnostic"
+                            let pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending field::get abort_parts "session_pending"
+                            let reason %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryAbortReason field::get abort_parts "reason"
+                            let previous_evidence %i32 match previous_category:
+                                Option::Some value:
+                                    match value:
+                                        GuiError::Unsupported: 1
+                                        _: 0
+                                _: 0
+                            let previous_diagnostic_evidence %i32 match previous_diagnostic:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::SinkRejected _: 2
+                                _: 0
+                            let spent_evidence %i32 match spent_budget:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::Exhausted: 4
+                                _: 0
+                            let next_evidence %i32 match next_category:
+                                Option::Some value:
+                                    match value:
+                                        GuiError::Unsupported: 8
+                                        _: 0
+                                _: 0
+                            let next_diagnostic_evidence %i32 match next_diagnostic:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::SinkRejected _: 16
+                                _: 0
+                            let action_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action &pending:
+                                GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin _: 32
+                                _: 0
+                            let reason_evidence %i32 match reason:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryAbortReason::BudgetExhausted: 64
+                                _: 0
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: add add add add add add previous_evidence previous_diagnostic_evidence spent_evidence next_evidence next_diagnostic_evidence action_evidence reason_evidence

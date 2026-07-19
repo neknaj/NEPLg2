@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-19T11:33:16.890Z",
+  "generated_at": "2026-07-19T12:18:10.416Z",
   "counts": {
     "total": 1438,
-    "open": 61,
-    "resolved": 1377,
+    "open": 60,
+    "resolved": 1378,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "gui-font": {
-        "total": 24,
-        "open": 1,
-        "resolved": 23
       },
       "RESOURCE": {
         "total": 5,
@@ -100,6 +95,11 @@
         "total": 39,
         "open": 0,
         "resolved": 39
+      },
+      "gui-font": {
+        "total": 24,
+        "open": 0,
+        "resolved": 24
       },
       "nodesrc": {
         "total": 16,
@@ -528,21 +528,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260719T113312984Z-F5NZZ-WEB-REGISTERED-BEGINFRAME-RETR-F01A2B02",
-      "title": "F5nzz Web registered BeginFrame retry executor",
-      "area": "gui-font",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-19",
-      "updated": "2026-07-19",
-      "target": "stdlib/platforms/gui/web/font_registered_begin_frame_retry_executor.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260719T113312984Z-F5NZZ-WEB-REGISTERED-BEGINFRAME-RETR-F01A2B02.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -12108,6 +12093,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260719T105145127Z-F5NZY-REGISTERED-BEGINFRAME-RETRY-PO-9656FAB8.md"
+    },
+    {
+      "id": "ISS-20260719T113312984Z-F5NZZ-WEB-REGISTERED-BEGINFRAME-RETR-F01A2B02",
+      "title": "F5nzz Web registered BeginFrame retry executor",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-19",
+      "updated": "2026-07-19",
+      "target": "stdlib/platforms/gui/web/font_registered_begin_frame_retry_executor.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260719T113312984Z-F5NZZ-WEB-REGISTERED-BEGINFRAME-RETR-F01A2B02.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
