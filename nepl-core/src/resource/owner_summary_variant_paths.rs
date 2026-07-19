@@ -933,6 +933,7 @@ fn push_or_merge_variant_extent_requirement(
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
     use alloc::string::ToString;
     use alloc::vec::Vec;
 
@@ -940,8 +941,12 @@ mod tests {
 
     use super::*;
     use crate::layout::composite_field_offset_bytes;
-    use crate::resource::model::{AggregateKind, StorageId, StorageOrigin};
-    use crate::resource::summary::{OwnerProjectionSource, OwnerReturnSummaryIndex};
+    use crate::resource::model::{
+        AggregateKind, OwnerStorageExtent, StorageId, StorageOrigin,
+    };
+    use crate::resource::summary::{
+        OwnerExtentSummary, OwnerProjectionSource, OwnerReturnSummaryIndex,
+    };
 
     fn run_path(path_ops: &[ResourceOp], path_value: &Place) -> OwnerVariantTraversalResult {
         let types = TypeCtx::new();
@@ -1004,6 +1009,32 @@ mod tests {
         match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
         match_output: Option<&Place>,
     ) -> (OwnerVariantTraversalResult, OwnerVariantSummarySnapshot) {
+        run_path_with_seeded_extent_summary_snapshot(
+            types,
+            owners,
+            parameter_storage_sources,
+            &[],
+            &[],
+            path_ops,
+            path_value,
+            variant_owner_effects,
+            match_arm,
+            match_output,
+        )
+    }
+
+    fn run_path_with_seeded_extent_summary_snapshot(
+        types: &TypeCtx,
+        owners: &OwnerTable,
+        parameter_storage_sources: &[OwnerParameterStorageSource],
+        parameter_condition_sources: &[OwnerParameterConditionSource],
+        owner_extent_requirements: &[crate::resource::owner_extent::PendingOwnerExtentRequirement],
+        path_ops: &[ResourceOp],
+        path_value: &Place,
+        variant_owner_effects: &PendingVariantOwnerEffects,
+        match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
+        match_output: Option<&Place>,
+    ) -> (OwnerVariantTraversalResult, OwnerVariantSummarySnapshot) {
         let summaries = Vec::new();
         let summary_index = OwnerReturnSummaryIndex::new(&summaries);
         let engine = ResourceOwnerCheckEngine {
@@ -1012,7 +1043,7 @@ mod tests {
             summaries: &summary_index,
             diagnostics: Vec::new(),
             deferred: ResourceOwnerCheckDeferred::default(),
-            owner_extent_requirements: Vec::new(),
+            owner_extent_requirements: owner_extent_requirements.to_vec(),
             memory_span_requirements: Vec::new(),
             params: &[],
             owner_leaf_projection_cache: Default::default(),
@@ -1042,7 +1073,7 @@ mod tests {
             &PendingRawReallocs::default(),
             variant_owner_effects,
             parameter_storage_sources,
-            &[],
+            parameter_condition_sources,
             path_ops,
             path_value,
             None,
@@ -1264,6 +1295,100 @@ mod tests {
             }]
         );
         assert!(snapshot.extents.is_empty());
+    }
+
+    #[test]
+    fn constructed_path_records_consumed_parameter_extent_requirement() {
+        let mut types = TypeCtx::new();
+        let owner_ty = types.box_ty(types.unit());
+        let parameter_fields = [types.i32(), owner_ty];
+        let parameter_ty = types.tuple(parameter_fields.to_vec());
+        let value = Place::local("value".to_string(), types.unit());
+        let parameter = Place::local("parameter".to_string(), parameter_ty);
+        let suffix = vec![crate::resource::model::PlaceProjection::TupleField {
+            index: 1,
+            offset_bytes: composite_field_offset_bytes(&types, &parameter_fields, 1),
+        }];
+        let projected = parameter.clone().with_projection(suffix[0].clone(), owner_ty);
+        let moved = Place::local("moved".to_string(), owner_ty);
+        let size = Place::local("size".to_string(), types.i32());
+        let span = Span::dummy();
+        let mut owners = OwnerTable::default();
+        owners.allocate(&projected);
+        let source = OwnerProjectionSource {
+            parameter_index: 4,
+            suffix,
+            ty: owner_ty,
+        };
+        let sources = [OwnerParameterStorageSource {
+            storage: StorageId(0),
+            source: source.clone(),
+            place: projected.clone(),
+        }];
+        let size_source = OwnerProjectionSource {
+            parameter_index: 5,
+            suffix: Vec::new(),
+            ty: types.i32(),
+        };
+        let condition_sources = [OwnerParameterConditionSource {
+            source: size_source.clone(),
+            place: size.clone(),
+        }];
+        let requirements = [crate::resource::owner_extent::PendingOwnerExtentRequirement {
+            owner: projected.clone(),
+            expected: OwnerStorageExtent::PayloadBytes {
+                bytes: Box::new(size),
+            },
+            operation: crate::resource::report::ResourceOwnerOperation::CallArgument,
+        }];
+        let ops = [
+            ResourceOp::Move {
+                source: projected,
+                output: moved,
+                span,
+            },
+            ResourceOp::Construct {
+                output: value.clone(),
+                kind: AggregateKind::Enum {
+                    name: "Result".to_string(),
+                    variant: "Ok".to_string(),
+                },
+                inputs: Vec::new(),
+                span,
+            },
+        ];
+
+        let (result, snapshot) = run_path_with_seeded_extent_summary_snapshot(
+            &types,
+            &owners,
+            &sources,
+            &condition_sources,
+            &requirements,
+            &ops,
+            &value,
+            &PendingVariantOwnerEffects::default(),
+            None,
+            None,
+        );
+
+        assert!(result.engine_effects().is_complete());
+        assert!(snapshot.indices.is_empty());
+        assert_eq!(
+            snapshot.sources,
+            vec![OwnerVariantProjectionSource {
+                variant: "Ok".to_string(),
+                source: source.clone(),
+            }]
+        );
+        assert_eq!(
+            snapshot.extents,
+            vec![OwnerVariantConsumedExtentRequirement {
+                variant: "Ok".to_string(),
+                owner: source,
+                extent: OwnerExtentSummary::PayloadBytesParameter(size_source),
+                operation: crate::resource::report::ResourceOwnerOperation::CallArgument,
+            }]
+        );
     }
 
     #[test]
