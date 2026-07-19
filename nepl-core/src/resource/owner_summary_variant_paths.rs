@@ -1158,6 +1158,96 @@ mod tests {
     }
 
     #[test]
+    fn recursive_all_never_match_preserves_parent_state_and_effects() {
+        let types = TypeCtx::new();
+        let value = Place::local("value".to_string(), types.unit());
+        let never_value = Place::local("never_value".to_string(), types.never());
+        let parent_retained = Place::local("parent_retained".to_string(), types.unit());
+        let retained = Place::local("retained".to_string(), types.unit());
+        let scrutinee = Place::local("scrutinee".to_string(), types.unit());
+        let span = Span::dummy();
+        let arm = ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Wildcard,
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: vec![
+                ResourceOp::Construct {
+                    output: never_value.clone(),
+                    kind: AggregateKind::Enum {
+                        name: "Result".to_string(),
+                        variant: "Never".to_string(),
+                    },
+                    inputs: Vec::new(),
+                    span,
+                },
+                ResourceOp::StorageOrigin {
+                    target: never_value.clone(),
+                    origin: StorageOrigin::Owned,
+                    span,
+                },
+            ],
+            value: never_value.clone(),
+            span,
+        };
+        let result = run_path(
+            &[
+                ResourceOp::StorageOrigin {
+                    target: parent_retained.clone(),
+                    origin: StorageOrigin::Owned,
+                    span,
+                },
+                ResourceOp::Match {
+                    output: value.clone(),
+                    scrutinee,
+                    scrutinee_is_borrow_target: false,
+                    arms: vec![arm],
+                    span,
+                },
+                ResourceOp::StorageOrigin {
+                    target: retained.clone(),
+                    origin: StorageOrigin::Owned,
+                    span,
+                },
+            ],
+            &value,
+        );
+
+        assert!(result.engine_effects().is_complete());
+        assert_eq!(result.engine_effects().delta_count(), 6);
+        assert!(result.merge_eligible);
+        assert_eq!(result.controls.len(), 1);
+        assert_eq!(result.controls[0].kind, OwnerVariantControlKind::Match);
+        assert_eq!(result.controls[0].paths.len(), 1);
+        assert_eq!(
+            result.controls[0].paths[0].selector,
+            OwnerVariantPathSelector::MatchArm(0)
+        );
+        assert!(!result.controls[0].paths[0].result.merge_eligible);
+        assert!(
+            result.controls[0].paths[0]
+                .result
+                .effect_authority_transferred
+        );
+        assert_eq!(
+            result.controls[0].paths[0]
+                .result
+                .state_snapshot
+                .storage_origin(&never_value),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(result.state.storage_origins.origin(&never_value), None);
+        assert_eq!(
+            result.state.storage_origins.origin(&parent_retained),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            result.state.storage_origins.origin(&retained),
+            Some(StorageOrigin::Owned)
+        );
+    }
+
+    #[test]
     fn recursive_match_transfers_complete_child_effects_once() {
         let mut types = TypeCtx::new();
         let unit = types.unit();
