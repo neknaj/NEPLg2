@@ -329,7 +329,6 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 }
                 #[cfg(test)]
                 let mut paths = Vec::new();
-                #[cfg(test)]
                 let mut reachable_paths = 0usize;
                 #[cfg(test)]
                 let mut merged_paths = super::owner_control::OwnerMatchPathStates::default();
@@ -387,11 +386,11 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         profile,
                         depth + 1,
                     );
+                    reachable_paths += 1;
                     let child_effects = result.take_engine_effects();
                     engine_effects.extend(child_effects);
                     #[cfg(test)]
                     let evidence = {
-                        reachable_paths += 1;
                         let evidence = OwnerVariantTraversalEvidence {
                             state_snapshot: result.state.oracle_snapshot(),
                             controls: result.controls,
@@ -411,7 +410,6 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     #[cfg(not(test))]
                     let _ = result;
                 }
-                #[cfg(test)]
                 if reachable_paths == 0 {
                     engine_effects.mark_incomplete();
                 }
@@ -457,21 +455,17 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
             }
             _ => {}
         }
-        #[cfg(test)]
         let specialized_match = matches!(
             op,
             ResourceOp::Match { output, .. } if output == return_value
         );
-        #[cfg(test)]
         let captures_sequential_effects = !matches!(
             op,
             ResourceOp::Branch { .. } | ResourceOp::Loop { .. } | ResourceOp::Match { .. }
         );
-        #[cfg(test)]
         if !specialized_match && !captures_sequential_effects {
             engine_effects.mark_incomplete();
         }
-        #[cfg(test)]
         let replay_checkpoint = engine.match_engine_effect_checkpoint();
         profile.observe_sequential_replay(1);
         let replay_timer = profile.start();
@@ -524,7 +518,6 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 );
             }
         }
-        #[cfg(test)]
         if captures_sequential_effects {
             engine_effects.push(engine.match_engine_effect_delta(replay_checkpoint));
         }
@@ -614,7 +607,6 @@ fn collect_variant_consumed_owner_parameters_from_path(
     let mut path_pending_reallocs = pending_reallocs.clone();
     let mut path_variant_owner_effects = variant_owner_effects.clone();
     let mut engine_effects = OwnerMatchEngineEffectAccumulator::default();
-    #[cfg(test)]
     let entry_checkpoint = path_engine.match_engine_effect_checkpoint();
     #[cfg(test)]
     let mut match_entry_reachable = true;
@@ -658,7 +650,6 @@ fn collect_variant_consumed_owner_parameters_from_path(
             engine_effects.mark_incomplete();
         }
     }
-    #[cfg(test)]
     engine_effects.push(path_engine.match_engine_effect_delta(entry_checkpoint));
     profile.finish(match_entry_timer, OwnerVariantProfilePhase::MatchEntry);
     let Some(constructed_variant) = construct_variant_for_value(path_ops, path_value) else {
@@ -689,6 +680,14 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
         engine_effects.extend(result.take_engine_effects());
         result.engine_effects = Some(engine_effects);
+        #[cfg(not(test))]
+        if _match_output.is_some() {
+            result
+                .engine_effects
+                .as_mut()
+                .expect("recursive match engine effects must remain owned by the root")
+                .mark_incomplete();
+        }
         #[cfg(test)]
         if match_entry_reachable {
             if let Some(output) = _match_output {
@@ -713,14 +712,12 @@ fn collect_variant_consumed_owner_parameters_from_path(
     profile.observe_constructed_path();
     profile.observe_path_replay(path_ops.len());
     let path_replay_timer = profile.start();
-    #[cfg(test)]
     let leaf_effects_complete = !path_ops.iter().any(|op| {
         matches!(
             op,
             ResourceOp::Branch { .. } | ResourceOp::Loop { .. } | ResourceOp::Match { .. }
         )
     });
-    #[cfg(test)]
     let leaf_checkpoint = path_engine.match_engine_effect_checkpoint();
     path_engine.check_ops(
         &mut path_owners,
@@ -732,7 +729,6 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &mut path_variant_owner_effects,
         path_ops,
     );
-    #[cfg(test)]
     if leaf_effects_complete {
         engine_effects.push(path_engine.match_engine_effect_delta(leaf_checkpoint));
     } else {
@@ -841,6 +837,10 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
     }
     profile.finish(terminal_timer, OwnerVariantProfilePhase::Terminal);
+    #[cfg(not(test))]
+    if _match_output.is_some() {
+        engine_effects.mark_incomplete();
+    }
     let result = OwnerVariantTraversalResult {
         state: OwnerMatchPathState {
             owners: path_owners,

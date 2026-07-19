@@ -169092,3 +169092,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - `OwnerVariantTraversalResult`のengine effect accumulator所有とrecursive child→root、reachable Match arm→parentの一回限りのtransferを通常buildへ移した。通常buildではcapture、canonical finalize、incomplete判定、generic Match replay authorityを変更していないため、移送内容は空でheap allocationもなく、production解析結果は不変である。
 - subagent reviewは全constructorがaccumulatorを所有し、各childを一度だけtakeした後に破棄するため二重transferやpanic経路がないことを確認してblockerなし。Branch childは今回のMatch限定境界では従来どおり未接続である。次sliceではcapture通常build化、incomplete result吸収禁止、generic replay省略を同じgate境界で扱う。
 - owner control 10件、variant path 16件、owner-summary 49件、native/wasm32 `cargo check -p nepl-core`、release `cargo build -p nepl-cli`、`git diff --check`は通過した。このcheckpointはeffect authority切替ではなく、Branch/Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了である。`plan.md`は変更していない。
+
+2026-07-19 F5nzu normal-build Match effect capture checkpoint
+
+- specialized traversalのentry、controlを含まないleaf、sequential replayでengine effect checkpoint/deltaを通常buildでも収集し、nested childから親accumulatorへ順序付きで移送するようにした。親engineへのabsorbとgeneric Match replay省略はまだ行わず、production解析結果は変更していない。
+- canonical Match finalizeがtest-onlyのproduction child、Branch/Loopを含むreplay、非specialized control、reachable arm 0件をすべてincompleteとして保持する。subagent初回reviewでzero-arm Matchだけcompleteになり得るblockerを受け、reachable countとzero-arm incomplete判定を通常buildへ移した。再reviewは未捕捉effectをcompleteとする経路、二重take/extend、checkpoint境界がないことを確認してblocker-freeとなった。
+- owner control 10件、variant path 16件、owner-summary 49件、修正後variant path 16件、native/wasm32 `cargo check -p nepl-core`、release `cargo build -p nepl-cli`、`git diff --check`は通過した。次はcanonical finalizeとmerge stateを通常buildへ接続し、complete accumulatorだけを一度absorbしてgeneric Match replayを省略するdifferential gateである。Branch/Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
