@@ -169115,3 +169115,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - authority切替済みrelease CLIを`--test-mode --run --target wasi`でF5nzt terminal command fixtureへ直接適用した。180秒上限ではcompileが完了せずexit 124、最大RSS 664328KiBとなり、evidence 1023 / failed 0のruntime JSONには未到達だった。
 - 従来約355秒完走からの改善量は180秒timeoutだけでは確定できず、通常gate条件も未達であるためF5nzu 2047 composite復元、issue close、main統合は行わない。specialized child内のBranch/Loopはeffect accumulatorをincompleteにしてgeneric replayへ戻るため、次はgeneric branch condition、両path state/effect、Never eligibilityを同じauthority契約へ接続する。フォントレンダリング/GUI全体も未完成で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu canonical Branch finalize checkpoint
+
+- generic `check_branch`に埋め込まれていた各pathのvalue-to-output finalizationを`finalize_branch_path`へ抽出し、既存`OwnerMatchPathState`と`OwnerMatchPathStates`で両pathを保持・mergeする共通境界へ置換した。Never除外、reserved-source診断、owner/scalar/raw-view/realloc/variant effect transfer、temporary materialization、then→else effect順、7-state merge順は変更していない。
+- subagent reviewは旧実装との逐語的対応、reserved拒否後もpathをmergeする既存契約、empty pathsの親state保持、function aliasをoutputへcopyしない既存挙動を確認してblockerなし。owner control 10件、owner-summary 49件、native/wasm32 `cargo check -p nepl-core`、release `cargo build -p nepl-cli`、`git diff --check`は通過した。
+- これはspecialized Branch authority接続前の意味中立checkpointである。次はthen/else resultへcanonical finalizeを適用し、両effectがcompleteな場合だけstate/effectをproduction採用してgeneric Branch replayを省略する。Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。

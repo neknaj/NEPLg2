@@ -675,136 +675,102 @@ impl ResourceOwnerCheckEngine<'_> {
             else_ops,
         );
 
-        let mut owner_paths = Vec::new();
-        let mut function_alias_paths = Vec::new();
-        let mut raw_alias_paths = Vec::new();
-        let mut raw_view_paths = Vec::new();
-        let mut storage_origin_paths = Vec::new();
-        let mut pending_realloc_paths = Vec::new();
-        let mut variant_owner_effect_paths = Vec::new();
-        if !self.place_is_never(then_value) {
-            if !then_variant_owner_effects.has_result_effects(then_value) {
-                then_variant_owner_effects.materialize_result_owner_effects(
-                    self,
-                    &mut then_owners,
-                    &mut then_raw_aliases,
-                    &mut then_raw_views,
-                    &mut then_storage_origins,
-                    then_value,
-                    span,
-                );
-            }
-            if !then_variant_owner_effects.reject_reserved_source_use(
+        let mut paths = OwnerMatchPathStates::default();
+        let mut then_state = OwnerMatchPathState {
+            owners: then_owners,
+            function_aliases: then_function_aliases,
+            raw_aliases: then_raw_aliases,
+            raw_views: then_raw_views,
+            storage_origins: then_storage_origins,
+            pending_reallocs: then_pending_reallocs,
+            variant_owner_effects: then_variant_owner_effects,
+        };
+        if self.finalize_branch_path(&mut then_state, output, then_value, span) {
+            paths.push(then_state);
+        }
+        let mut else_state = OwnerMatchPathState {
+            owners: else_owners,
+            function_aliases: else_function_aliases,
+            raw_aliases: else_raw_aliases,
+            raw_views: else_raw_views,
+            storage_origins: else_storage_origins,
+            pending_reallocs: else_pending_reallocs,
+            variant_owner_effects: else_variant_owner_effects,
+        };
+        if self.finalize_branch_path(&mut else_state, output, else_value, span) {
+            paths.push(else_state);
+        }
+        merge_match_path_states(
+            owners,
+            function_aliases,
+            raw_aliases,
+            raw_views,
+            storage_origins,
+            pending_reallocs,
+            variant_owner_effects,
+            paths,
+        );
+    }
+
+    pub(super) fn finalize_branch_path(
+        &mut self,
+        state: &mut OwnerMatchPathState,
+        output: &Place,
+        value: &Place,
+        span: Span,
+    ) -> bool {
+        if self.place_is_never(value) {
+            return false;
+        }
+        if !state.variant_owner_effects.has_result_effects(value) {
+            state.variant_owner_effects.materialize_result_owner_effects(
                 self,
-                &then_owners,
-                &then_raw_aliases,
-                then_value,
+                &mut state.owners,
+                &mut state.raw_aliases,
+                &mut state.raw_views,
+                &mut state.storage_origins,
+                value,
+                span,
+            );
+        }
+        if !state.variant_owner_effects.reject_reserved_source_use(
+            self,
+            &state.owners,
+            &state.raw_aliases,
+            value,
+            ResourceOwnerOperation::BranchValue,
+            span,
+        ) {
+            state.raw_aliases.copy_scalar_facts_if_tracked(value, output);
+            self.transfer_owner(
+                &mut state.owners,
+                &mut state.raw_aliases,
+                &state.raw_views,
+                &mut state.storage_origins,
+                value,
+                output,
                 ResourceOwnerOperation::BranchValue,
                 span,
-            ) {
-                then_raw_aliases.copy_scalar_facts_if_tracked(then_value, output);
-                self.transfer_owner(
-                    &mut then_owners,
-                    &mut then_raw_aliases,
-                    &then_raw_views,
-                    &mut then_storage_origins,
-                    then_value,
-                    output,
-                    ResourceOwnerOperation::BranchValue,
-                    span,
-                );
-                then_raw_views.copy_non_owning(then_value, output);
-                then_pending_reallocs.copy_result(then_value, output);
-                then_variant_owner_effects.copy_result(then_value, output);
-                if then_variant_owner_effects
-                    .result_effects_have_temporary_sources(&then_raw_aliases, output)
-                {
-                    then_variant_owner_effects.materialize_result_owner_effects(
-                        self,
-                        &mut then_owners,
-                        &mut then_raw_aliases,
-                        &mut then_raw_views,
-                        &mut then_storage_origins,
-                        output,
-                        span,
-                    );
-                }
-            }
-            owner_paths.push(then_owners);
-            function_alias_paths.push(then_function_aliases);
-            raw_alias_paths.push(then_raw_aliases);
-            raw_view_paths.push(then_raw_views);
-            storage_origin_paths.push(then_storage_origins);
-            pending_realloc_paths.push(then_pending_reallocs);
-            variant_owner_effect_paths.push(then_variant_owner_effects);
-        }
-        if !self.place_is_never(else_value) {
-            if !else_variant_owner_effects.has_result_effects(else_value) {
-                else_variant_owner_effects.materialize_result_owner_effects(
+            );
+            state.raw_views.copy_non_owning(value, output);
+            state.pending_reallocs.copy_result(value, output);
+            state.variant_owner_effects.copy_result(value, output);
+            if state
+                .variant_owner_effects
+                .result_effects_have_temporary_sources(&state.raw_aliases, output)
+            {
+                state.variant_owner_effects.materialize_result_owner_effects(
                     self,
-                    &mut else_owners,
-                    &mut else_raw_aliases,
-                    &mut else_raw_views,
-                    &mut else_storage_origins,
-                    else_value,
-                    span,
-                );
-            }
-            if !else_variant_owner_effects.reject_reserved_source_use(
-                self,
-                &else_owners,
-                &else_raw_aliases,
-                else_value,
-                ResourceOwnerOperation::BranchValue,
-                span,
-            ) {
-                else_raw_aliases.copy_scalar_facts_if_tracked(else_value, output);
-                self.transfer_owner(
-                    &mut else_owners,
-                    &mut else_raw_aliases,
-                    &else_raw_views,
-                    &mut else_storage_origins,
-                    else_value,
+                    &mut state.owners,
+                    &mut state.raw_aliases,
+                    &mut state.raw_views,
+                    &mut state.storage_origins,
                     output,
-                    ResourceOwnerOperation::BranchValue,
                     span,
                 );
-                else_raw_views.copy_non_owning(else_value, output);
-                else_pending_reallocs.copy_result(else_value, output);
-                else_variant_owner_effects.copy_result(else_value, output);
-                if else_variant_owner_effects
-                    .result_effects_have_temporary_sources(&else_raw_aliases, output)
-                {
-                    else_variant_owner_effects.materialize_result_owner_effects(
-                        self,
-                        &mut else_owners,
-                        &mut else_raw_aliases,
-                        &mut else_raw_views,
-                        &mut else_storage_origins,
-                        output,
-                        span,
-                    );
-                }
             }
-            owner_paths.push(else_owners);
-            function_alias_paths.push(else_function_aliases);
-            raw_alias_paths.push(else_raw_aliases);
-            raw_view_paths.push(else_raw_views);
-            storage_origin_paths.push(else_storage_origins);
-            pending_realloc_paths.push(else_pending_reallocs);
-            variant_owner_effect_paths.push(else_variant_owner_effects);
         }
-        if !owner_paths.is_empty() {
-            let merged_raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
-            *owners = OwnerTable::merge_paths_with_raw_aliases(&owner_paths, &merged_raw_aliases);
-            *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
-            *raw_aliases = merged_raw_aliases;
-            *raw_views = RawAddressViewTable::merge_paths(&raw_view_paths);
-            *storage_origins = StorageOriginTable::merge_paths(&storage_origin_paths);
-            *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
-            *variant_owner_effects =
-                PendingVariantOwnerEffects::merge_paths(&variant_owner_effect_paths);
-        }
+        true
     }
 
     pub(super) fn check_loop(
