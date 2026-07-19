@@ -1031,22 +1031,15 @@ mod tests {
 
     #[test]
     fn recursive_match_transfers_complete_child_effects_once() {
-        let types = TypeCtx::new();
+        let mut types = TypeCtx::new();
+        let unit = types.unit();
+        let owner_ty = types.box_ty(unit);
         let value = Place::local("value".to_string(), types.unit());
         let child_value = Place::local("child_value".to_string(), types.unit());
         let output = Place::local("output".to_string(), types.unit());
         let outer_scrutinee = Place::local("outer_scrutinee".to_string(), types.unit());
         let nested_scrutinee = Place::local("nested_scrutinee".to_string(), types.unit());
         let span = Span::dummy();
-        let outer_arm = ResourceMatchArm {
-            pattern: crate::resource::model::ResourceMatchPattern::Wildcard,
-            bind_local: None,
-            bind_source_name: None,
-            bind_mode: None,
-            ops: Vec::new(),
-            value: value.clone(),
-            span,
-        };
         let nested_arm = ResourceMatchArm {
             pattern: crate::resource::model::ResourceMatchPattern::Wildcard,
             bind_local: None,
@@ -1071,12 +1064,39 @@ mod tests {
             arms: vec![nested_arm],
             span,
         }];
+        let bind_local = Place::local("payload".to_string(), owner_ty);
+        let reserved_source = outer_scrutinee.clone().with_projection(
+            crate::resource::model::PlaceProjection::EnumPayload {
+                variant: "Ok".to_string(),
+            },
+            owner_ty,
+        );
+        let outer_arm = ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Variant("Ok".to_string()),
+            bind_local: Some(bind_local),
+            bind_source_name: None,
+            bind_mode: Some(crate::resource::model::ResourceMatchBindMode::Owned),
+            ops: ops.to_vec(),
+            value: value.clone(),
+            span,
+        };
+        let mut effects = PendingVariantOwnerEffects::default();
+        effects.consumptions.push(
+            crate::resource::owner_variant::PendingVariantOwnerConsumption {
+                result: outer_scrutinee.clone(),
+                variant: "Ok".to_string(),
+                arg: reserved_source,
+                suffix: Vec::new(),
+                ty: owner_ty,
+                extent: None,
+            },
+        );
 
-        let result = run_path_with_match(
+        let mut result = run_path_with_match(
             &types,
             &ops,
             &value,
-            &PendingVariantOwnerEffects::default(),
+            &effects,
             Some((&outer_scrutinee, &outer_arm, span)),
             Some(&output),
         );
@@ -1088,6 +1108,45 @@ mod tests {
         assert_eq!(result.controls[0].kind, OwnerVariantControlKind::Match);
         assert_eq!(result.controls[0].paths.len(), 1);
         assert!(result.controls[0].paths[0].result.engine_effects.is_none());
+
+        let summaries = Vec::new();
+        let summary_index = OwnerReturnSummaryIndex::new(&summaries);
+        let make_engine = || ResourceOwnerCheckEngine {
+            function: "variant_path_oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let generic_state = OwnerMatchPathState::from_parent(
+            &OwnerTable::default(),
+            &FunctionAliasTable::default(),
+            &RawCellAddressAliases::default(),
+            &RawAddressViewTable::default(),
+            &StorageOriginTable::default(),
+            &PendingRawReallocs::default(),
+            &effects,
+        );
+        let (_, generic_effects) = make_engine().run_generic_match_oracle(
+            generic_state,
+            &output,
+            &outer_scrutinee,
+            &[outer_arm],
+            span,
+            &[],
+        );
+        let mut absorbed_engine = make_engine();
+        result
+            .take_engine_effects()
+            .absorb_into(&mut absorbed_engine);
+
+        assert_eq!(generic_effects, absorbed_engine.match_oracle_snapshot());
+        assert_eq!(generic_effects.diagnostic_count(), 1);
+        assert!(result.engine_effects.is_none());
     }
 
     #[test]

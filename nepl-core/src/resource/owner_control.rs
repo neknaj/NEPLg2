@@ -51,6 +51,13 @@ pub(super) struct OwnerMatchEngineOracleSnapshot {
 }
 
 #[cfg(test)]
+impl OwnerMatchEngineOracleSnapshot {
+    pub(super) fn diagnostic_count(&self) -> usize {
+        self.diagnostics.len()
+    }
+}
+
+#[cfg(test)]
 #[derive(Debug, Clone, Copy)]
 pub(super) struct OwnerMatchEngineEffectCheckpoint {
     diagnostics_len: usize,
