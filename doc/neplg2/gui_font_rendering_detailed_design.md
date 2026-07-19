@@ -11263,3 +11263,6 @@ The actual success fixture overrides only the `nepl_gui_web.compositor_tile_pres
 F5nzpのschedule-only stepはprevious/next/phase/exact recordをformal authorityとして保持する。std adopterはrecordからhost import requestを一度だけ生成し、成功時はprevious/next/post phaseとrequestをF5nc pendingへ束ね、失敗時は元schedule stepと`GuiError`を返す。これによりrollbackを独立値から再構築しない。
 
 Web adapterはF5oab next-command ownerをF5nzo、F5nzp、request owner、F5ne driver、F5nh sessionへ線形に移し、既存Web executorを一度だけ呼ぶ。successは旧failure provenance、spent Exhausted budget、Run cursor step、F5nh completionを同居保持する。CompletionFailedはcategory accessorとconsuming partsでcursorおよびowner-bearing F5nh lower recoveryを返し、actual Run failure fixtureがUnsupported、pre-Run rollback 0/0、cleanupを検証する。session start直後のCompletedはfresh pending driverから到達不能であり、型の全域性のためcursorだけを保持するtyped variantとして残す。
+### F5oad Web Run completion to EndFrame command
+
+F5oac successではRun schedule-only ownerがhost requestへ既に消費されているため、F5nzq入力を再構築しない。F5nzqのcursor finish/step本体はmodule-private helperへ分け、旧schedule-owner APIだけがContinue gate後に委譲する。Web wrapperもF5oac typed ownerからだけ到達できるmodule-private遷移で同じfinish/step契約を実行し、異なるstate/cursorの外部pairingを許さずprovenance、spent budget、exact EndFrame ownerを保持する。

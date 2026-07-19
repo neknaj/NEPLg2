@@ -1,0 +1,119 @@
+//: # Web registered EndFrame command transition
+//: actual Run成功のContinue authorityから既存registered EndFrame ownerを一度だけ生成します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_run_executor" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+
+pub struct GuiFontWebRegisteredEndFrameCommandOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner
+
+pub struct GuiFontWebRegisteredEndFrameCommandOwnerParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner
+
+pub struct GuiFontWebRegisteredEndFrameCommandPhaseError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub struct GuiFontWebRegisteredEndFrameCommandLowerError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError
+
+pub struct GuiFontWebRegisteredEndFrameCommandPhaseErrorParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub struct GuiFontWebRegisteredEndFrameCommandLowerErrorParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError
+
+pub enum GuiFontWebRegisteredEndFrameCommandError:
+    ContinueExpected %GuiFontWebRegisteredEndFrameCommandPhaseError
+    TransitionFailed %GuiFontWebRegisteredEndFrameCommandLowerError
+
+pub enum GuiFontWebRegisteredEndFrameCommandErrorRecovery:
+    ContinueExpected %GuiFontWebRegisteredEndFrameCommandPhaseError
+    TransitionFailed %GuiFontWebRegisteredEndFrameCommandLowerError
+
+//: F5oac typed owner内のexact pairだけをEndFrame遷移へ進める
+fn gui_font_web_registered_run_execution_step_end_frame %fn GuiRgba8888CompositorTileRlePresentDispatchLoopState fn GuiRgba8888CompositorTileRlePresentCommandCursorStep Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError \state\run_step:
+    let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner run_step
+    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step cursor:
+        Result::Err lower:
+            let kind gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_kind &lower
+            let category gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_category_value &lower
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Lower lower GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::CursorStepFailed kind category
+        Result::Ok step:
+            match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result &step:
+                GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+                    match command:
+                        GuiRgba8888CompositorTileRlePresentCommand::EndFrame descriptor: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner state step descriptor
+                        _: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Step step GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::EndFrameExpected Option::None
+                GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed:
+                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Step step GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::EndFrameExpected Option::None
+
+//: F5oac successを分解し、Continue stateとexact Run cursorだけをF5nzq遷移へ渡す
+pub fn gui_font_web_registered_run_execution_success_step_end_frame %fn GuiFontWebRegisteredRunExecutionSuccess Result GuiFontWebRegisteredEndFrameCommandOwner GuiFontWebRegisteredEndFrameCommandError \owner:
+    let parts %GuiFontWebRegisteredRunExecutionSuccessParts gui_font_web_registered_run_execution_success_into_parts owner
+    let previous_category field::get parts "previous_category"
+    let previous_diagnostic field::get parts "previous_diagnostic"
+    let spent_budget field::get parts "spent_budget"
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+    let completion field::get parts "completion"
+    match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion &completion:
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Continue state:
+            match gui_font_web_registered_run_execution_step_end_frame state step:
+                Result::Ok lower: Result::Ok GuiFontWebRegisteredEndFrameCommandOwner previous_category previous_diagnostic spent_budget lower
+                Result::Err lower: Result::Err GuiFontWebRegisteredEndFrameCommandError::TransitionFailed GuiFontWebRegisteredEndFrameCommandLowerError previous_category previous_diagnostic spent_budget lower
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Yield state:
+            Result::Err GuiFontWebRegisteredEndFrameCommandError::ContinueExpected GuiFontWebRegisteredEndFrameCommandPhaseError previous_category previous_diagnostic spent_budget state step
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state:
+            Result::Err GuiFontWebRegisteredEndFrameCommandError::ContinueExpected GuiFontWebRegisteredEndFrameCommandPhaseError previous_category previous_diagnostic spent_budget state step
+
+pub fn gui_font_web_registered_end_frame_command_owner_into_parts %fn GuiFontWebRegisteredEndFrameCommandOwner GuiFontWebRegisteredEndFrameCommandOwnerParts \owner:
+    GuiFontWebRegisteredEndFrameCommandOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "lower"
+
+pub fn gui_font_web_registered_end_frame_command_owner_free %fn GuiFontWebRegisteredEndFrameCommandOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_owner_free field::get owner "lower"
+
+pub fn gui_font_web_registered_end_frame_command_error_into_recovery %fn GuiFontWebRegisteredEndFrameCommandError GuiFontWebRegisteredEndFrameCommandErrorRecovery \error:
+    match error:
+        GuiFontWebRegisteredEndFrameCommandError::ContinueExpected payload: GuiFontWebRegisteredEndFrameCommandErrorRecovery::ContinueExpected payload
+        GuiFontWebRegisteredEndFrameCommandError::TransitionFailed payload: GuiFontWebRegisteredEndFrameCommandErrorRecovery::TransitionFailed payload
+
+pub fn gui_font_web_registered_end_frame_command_phase_error_into_parts %fn GuiFontWebRegisteredEndFrameCommandPhaseError GuiFontWebRegisteredEndFrameCommandPhaseErrorParts \error:
+    GuiFontWebRegisteredEndFrameCommandPhaseErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "state" field::get error "step"
+
+pub fn gui_font_web_registered_end_frame_command_lower_error_into_parts %fn GuiFontWebRegisteredEndFrameCommandLowerError GuiFontWebRegisteredEndFrameCommandLowerErrorParts \error:
+    GuiFontWebRegisteredEndFrameCommandLowerErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "lower"
+
+pub fn gui_font_web_registered_end_frame_command_error_free %fn GuiFontWebRegisteredEndFrameCommandError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    match gui_font_web_registered_end_frame_command_error_into_recovery error:
+        GuiFontWebRegisteredEndFrameCommandErrorRecovery::ContinueExpected payload: gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get payload "step"
+        GuiFontWebRegisteredEndFrameCommandErrorRecovery::TransitionFailed payload: gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_error_free field::get payload "lower"

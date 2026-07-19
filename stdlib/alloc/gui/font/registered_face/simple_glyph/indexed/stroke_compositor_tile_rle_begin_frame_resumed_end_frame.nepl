@@ -43,7 +43,26 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFr
     kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind
     category %Option GuiError
 
-//: Continueだけが保持中Run stepからcursorを回収し、次のcommandを一度だけ進める
+//: host成功後のstateと保持中Run stepからcursorを回収し、次のcommandを一度だけ進める
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_completion_step_end_frame %fn GuiRgba8888CompositorTileRlePresentDispatchLoopState fn GuiRgba8888CompositorTileRlePresentCommandCursorStep Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError \state\run_step:
+    let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner run_step
+    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step cursor:
+        Result::Err lower:
+            let kind %GuiRgba8888CompositorTileRlePresentCommandCursorStepErrorKind gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_kind &lower
+            let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_category_value &lower
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Lower lower GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::CursorStepFailed kind category
+        Result::Ok step:
+            match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result &step:
+                GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed:
+                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Step step GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::EndFrameExpected Option::None
+                GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+                    match command:
+                        GuiRgba8888CompositorTileRlePresentCommand::EndFrame descriptor:
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner state step descriptor
+                        _:
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Step step GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::EndFrameExpected Option::None
+
+//: Continueだけがschedule authorityをhost成功後と同じEndFrame遷移へ渡す
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_schedule_owner_step_end_frame %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunScheduleOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError \owner:
     let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunScheduleOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_schedule_owner_into_parts owner
     let scheduled %GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep field::get parts "scheduled"
@@ -56,22 +75,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
         GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed:
             Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Step run_step GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::ContinueExpected phase Option::None
         GuiRgba8888CompositorTileRlePresentSchedulePhase::Continue:
-            let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner run_step
-            match gui_rgba8888_compositor_tile_rle_present_command_cursor_step cursor:
-                Result::Err lower:
-                    let kind %GuiRgba8888CompositorTileRlePresentCommandCursorStepErrorKind gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_kind &lower
-                    let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_category_value &lower
-                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Lower lower GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::CursorStepFailed kind category
-                Result::Ok step:
-                    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result &step:
-                        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed:
-                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Step step GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::EndFrameExpected Option::None
-                        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
-                            match command:
-                                GuiRgba8888CompositorTileRlePresentCommand::EndFrame descriptor:
-                                    Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner state step descriptor
-                                _:
-                                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameError state GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecovery::Step step GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameErrorKind::EndFrameExpected Option::None
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_completion_step_end_frame state run_step
 
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_owner_state %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
     *field::get_ref owner "state"

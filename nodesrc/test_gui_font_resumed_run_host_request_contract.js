@@ -13,13 +13,13 @@ const hostRequest = read("stdlib/alloc/gui/font/registered_face/simple_glyph/ind
 const webExecutor = read("stdlib/platforms/gui/web/font_registered_run_executor.nepl");
 const webRuntime = read("nodesrc/test_gui_font_web_registered_run_executor_runtime.js");
 
-assert.match(dispatchLoop, /GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep:\s*\n\s*previous .*\n\s*state .*\n\s*phase .*\n\s*record /);
+assert.match(dispatchLoop, /GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep:\s*\r?\n\s*previous .*\r?\n\s*state .*\r?\n\s*phase .*\r?\n\s*record /);
 assert.match(dispatchLoop, /schedule_step_record[\s\S]*ScheduleOnlyStep state next phase record/);
 assert.match(dispatchLoop, /schedule_only_step_into_host_request_pending[\s\S]*schedule_only_step_previous[\s\S]*schedule_only_step_record[\s\S]*host_import_request host record[\s\S]*pending_request_new previous next request post_phase/);
 assert.doesNotMatch(dispatchLoop.match(/pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_into_host_request_pending[\s\S]*?(?=\n\/\/:|\n\n\/\/:)/)?.[0] || "", /schedule_step_record|dispatch_step_record|host_executor|#extern/);
 
 assert.match(schedule, /run_record_owner_into_schedule[\s\S]*schedule_step_record policy state record/);
-assert.match(schedule, /RunScheduleOwnerParts[\s\S]*step .*\n\s*scheduled /);
+assert.match(schedule, /RunScheduleOwnerParts[\s\S]*step .*\r?\n\s*scheduled /);
 assert.doesNotMatch(schedule, /impl (Clone|Copy) for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunScheduleOwner/);
 
 assert.match(hostRequest, /run_schedule_owner_into_host_request[\s\S]*run_schedule_owner_into_parts owner[\s\S]*host_command_step_result &step[\s\S]*RunRecord[\s\S]*schedule_only_step_into_host_request_pending host scheduled/);
@@ -34,7 +34,7 @@ assert.match(webExecutor, /yield_next_command_owner_into_parts owner[\s\S]*next_
 assert.match(webExecutor, /host_execution_driver_prepare pending[\s\S]*executor_session_start driver[\s\S]*executor_session_request session[\s\S]*gui_web_compositor_host_executor_step support action_pending/);
 assert.doesNotMatch(webExecutor, /dispatch_loop_step_record|schedule_only_step_into_host_request_pending|host_import_request host|pending_request_new|execute_action|#extern|while|queue|timer|fallback/);
 assert.match(webExecutor, /GuiFontWebRegisteredRunExecutionSuccessParts/);
-assert.match(webExecutor, /GuiFontWebRegisteredRunExecutionCompleteErrorParts:[\s\S]*step .*\n\s*lower /);
+assert.match(webExecutor, /GuiFontWebRegisteredRunExecutionCompleteErrorParts:[\s\S]*step .*\r?\n\s*lower /);
 assert.match(webExecutor, /run_execution_complete_error_into_parts[\s\S]*field::get error "step" field::get error "lower"/);
 assert.doesNotMatch(webExecutor, /run_execution_error_free/);
 assert.doesNotMatch(webExecutor, /impl (Clone|Copy) for GuiFontWebRegisteredRunExecution/);

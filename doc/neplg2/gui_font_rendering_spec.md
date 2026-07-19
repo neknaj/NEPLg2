@@ -8823,3 +8823,7 @@ F5oaa が保持する concrete Yield authority は、caller-supplied `ResumeSlic
 F5nc schedule-only authorityはpre-state、updated state、phase、exact recordを一つのmove-only stepに保持する。host-request adopterはそのstepを一度消費し、同じrecordからrequestを一度だけ作ってrollback付きpendingへ移す。失敗はschedule authorityと`GuiError`を同居保持し、request生成後に元authorityを参照し直さない。
 
 Web adapterはF5oabのRun ownerをF5nzo record、F5nzp schedule、request adopter、F5ne/F5nh sessionの順に一度ずつ渡し、既存Web executorのactual Run outcomeをcompletionへ再結合する。actual fixtureは成功時のBegin 1 / Run 1 / End 0とContinue state 1/16、失敗時のUnsupportedとpre-Run rollback 0/0を検証する。CompletionFailedはcursorとowner-bearing F5nh lower errorをconsuming partsで返す。複数command loop、EndFrame実行、retry budget再発行、native executionは後続境界である。
+
+### F5oad Web Run completion to EndFrame command
+
+Web adapterはF5oac successを一度だけ分解し、F5nh completionがContinueの場合だけpost-Run stateと保持中Run cursorをmodule-private遷移へ渡す。遷移はF5nzqと同じcursor finish/next-step契約をWeb module内で閉じて実行し、既存EndFrame ownerを返す。Yield/Completedはprovenance、spent budget、state、cursorを保持するtyped errorであり、消費済schedule authorityを再構築しない。EndFrame record、schedule、request、Web import execution、terminal completionは後続である。

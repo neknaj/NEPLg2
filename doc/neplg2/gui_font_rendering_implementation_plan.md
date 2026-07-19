@@ -14014,3 +14014,6 @@ F5oaa actual successの未resume Yieldへcaller value decisionを接続し、Res
 ### F5oac Web resumed Run execution
 
 F5nzp schedule-only formal ownerへpre-stateとexact recordを保持し、同じrecordからhost requestを一度だけ作るconsuming adopterを追加する。成功はF5nc pending、失敗は元schedule authorityと`GuiError`を返す。F5oabはF5nzo/F5nzp、adopter、F5ne/F5nh、既存Web executorへ順に渡す。actual runtimeは成功のBegin 1 / Run 1 / End 0 / Continue 1/16と、Run失敗のUnsupported / rollback 0/0 / owner-bearing lower handoffを固定する。次sliceはcompletion authorityからEndFrame commandと実行を接続する。
+### F5oad Web Run completion to EndFrame command
+
+F5oac actual Run successのContinue stateとexact cursorをWeb module-private遷移へ接続し、F5nzqと同じ契約で既存F5nzq output ownerを生成する。schedule-only ownerの再構築、Run replay、EndFrame schedule/request/executionを行わず、既存F5nzq ownerとprovenanceを同居させる。次のF5oaeがF5nzr/F5nzsからactual EndFrame executionへ進む。
