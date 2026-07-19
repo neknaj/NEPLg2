@@ -61,12 +61,18 @@ pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopStep:
     pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest
 
 pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep:
+    previous %GuiRgba8888CompositorTileRlePresentDispatchLoopState
     state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
     phase %GuiRgba8888CompositorTileRlePresentSchedulePhase
+    record %GuiRgba8888CompositorTileRlePresentHostCommandRecord
 
 pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyError:
     state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
     lower %GuiRgba8888CompositorTileRlePresentScheduleStepError
+
+pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyHostRequestError:
+    scheduled %GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep
+    error %GuiError
 
 //: GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion: host outcome [反映/はんえい][後/ご]の loop completion
 //:
@@ -200,13 +206,19 @@ pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_step_reco
             let next_dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_state_adopt_schedule_step &step
             let next %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_new next_dispatch
             let phase %GuiRgba8888CompositorTileRlePresentSchedulePhase gui_rgba8888_compositor_tile_rle_present_schedule_step_phase &step
-            Result::Ok GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep next phase
+            Result::Ok GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep state next phase record
 
 pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_state %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep GuiRgba8888CompositorTileRlePresentDispatchLoopState \step:
     *field::get_ref step "state"
 
 pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_phase %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep GuiRgba8888CompositorTileRlePresentSchedulePhase \step:
     *field::get_ref step "phase"
+
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_previous %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep GuiRgba8888CompositorTileRlePresentDispatchLoopState \step:
+    *field::get_ref step "previous"
+
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_record %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep GuiRgba8888CompositorTileRlePresentHostCommandRecord \step:
+    *field::get_ref step "record"
 
 pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_error_state %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyError GuiRgba8888CompositorTileRlePresentDispatchLoopState \error:
     *field::get_ref error "state"
@@ -340,6 +352,32 @@ pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_adopt_initial_disp
             let request %GuiRgba8888CompositorTileRlePresentHostImportRequest gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_request &ready
             let post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_post_phase &ready
             gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request_new previous next request post_phase
+
+//: schedule-onlyで確定した同一recordのstate遷移からhost requestを一度だけ作りpendingへ束ねる
+//:
+//: schedule-only stepがpre-state、next-state、phase、exact recordを同じformal authorityに保持します。
+//: schedule、dispatch、host executionは再実行しません。
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_into_host_request_pending %fn &GuiHost fn GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep Result GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyHostRequestError \host\scheduled:
+    let previous %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_previous &scheduled
+    let next %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_state &scheduled
+    let phase %GuiRgba8888CompositorTileRlePresentSchedulePhase gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_phase &scheduled
+    let record %GuiRgba8888CompositorTileRlePresentHostCommandRecord gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_record &scheduled
+    let post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase match phase:
+        GuiRgba8888CompositorTileRlePresentSchedulePhase::Continue:
+            GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Continue
+        GuiRgba8888CompositorTileRlePresentSchedulePhase::Yield:
+            GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Yield
+        GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed:
+            GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Completed
+    match gui_rgba8888_compositor_tile_rle_present_host_import_request host record:
+        Result::Err lower: Result::Err GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyHostRequestError scheduled lower
+        Result::Ok request: Result::Ok gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request_new previous next request post_phase
+
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_host_request_error_scheduled %fn GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyHostRequestError GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep \error:
+    field::get error "scheduled"
+
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_host_request_error_value %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyHostRequestError GuiError \error:
+    *field::get_ref error "error"
 
 //: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request: host outcome を 1 [回/かい]だけ loop state に[反映/はんえい]する
 //:
