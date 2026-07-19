@@ -13975,3 +13975,9 @@ git diff --check
 - F5nzt formal partsを一度だけ消費し、retained updated stateを保持してterminal stepを既存F5mt freeへexactly once渡す。
 - cleanup成功後だけF5nc completion enumの`Completed state`を返し、cleanup failureはstateとlower encoded-finish kindをtyped errorへ保持する。
 - actual fixtureはF5nzu borrowed projection後に同じpartsをF5nzvへ渡し、state 2/16、drain Ended、explicit Completed、cleanupを4095で検証する。normal `complete_request`、request/outcome、F5mv/F5mx、executor、host/platform executionは使用しない。
+
+### F5nzw registered BeginFrame host action failure recovery
+
+- F5nzl errorをformal partsへ一度だけ移し、registered dispatch continuation、category、F5nh lower errorを同じtransitionで回収する。
+- AttemptActionMismatch / SinkRejectedはrecovered driverからexpected actionだけを再導出してF5nh session pendingへ戻し、DriverCompletionFailedはF5ne rollback stateへ写す。各lower payloadの詳細診断を保持し、両authorityはregistered continuationと同居させてconsuming partsで後続へ渡す。
+- actual unsupported Window fixtureでOffscreenBegin expected actionとUnsupported categoryを保持したRetryPendingを検証する。outcome生成、complete再実行、actual executor、scheduler、next command、platform executionは禁止する。

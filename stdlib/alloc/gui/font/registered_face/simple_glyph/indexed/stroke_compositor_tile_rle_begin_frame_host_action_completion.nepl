@@ -23,6 +23,11 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFr
     category %Option GuiError
     lower %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError
 
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionErrorParts:
+    dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner
+    category %Option GuiError
+    lower %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError
+
 //: caller-supplied outcomeをF5nhへ一度だけ渡し、success/error authorityをregistered continuationへ再結合する
 //:
 //: outcomeを生成せず、actual executor、platform presentation、次command dispatchへ進みません。
@@ -50,6 +55,9 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
 //: completion failureのtyped categoryを借用する
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_category_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError Option GuiError \error:
     *field::get_ref error "category"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_into_parts %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionErrorParts \error:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionErrorParts field::get error "dispatch_owner" field::get error "category" field::get error "lower"
 
 //: completion failureを閉じ、registered continuation authorityを解放する
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:

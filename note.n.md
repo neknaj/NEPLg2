@@ -169166,3 +169166,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5nzt formal partsを一度だけ消費し、terminal stepを既存F5mt cleanupへexactly once渡した後だけretained stateを明示的`DispatchLoopCompletion::Completed`へ写すproduction boundaryを追加した。
 - cleanup failureはretained stateとlower encoded-finish kindをtyped errorに保持する。F5nzu projectionは同じparts内stepのborrowに限定し、owner再包装、normal `complete_request`、request/outcome、F5mv/F5mx、executor、host/platform executionを追加していない。
 - actual fixtureはstate 2/16、drain Ended、F5mu/loop Completed、cleanupをevidence 4095で検証する。フォントレンダリング/GUI全体は未完成であり、F5nzl failure recovery、actual platform、native provider、layout/rasterization/presentationは後続である。`plan.md`は変更していない。
+2026-07-19 F5nzw registered BeginFrame host action failure recovery
+
+- F5nzl errorを一度だけ消費し、registered continuationを保持したままF5nh/F5ng/F5nf/F5ne lower graphをRetryPendingまたはRecoveredStateへ全域分類するboundaryを追加した。
+- AttemptActionMismatchはexpected/attempted/category、SinkRejectedはsink error全体、DriverCompletionFailedはsink stepとdriver error全体を詳細diagnosticとして保持する。回収driverのexpected actionを再導出したF5nh session pendingまたはF5ne rollback stateとともにconsuming partsで後続へ渡し、outcome生成、complete再実行、actual executor、scheduler、next command、platform workは追加していない。
+- actual unsupported Window fixtureはUnsupported category、SinkRejected/UnsupportedAction、元のOffscreenBegin expected action、cleanupをevidence 60で検証した。release CLI runtimeは2/2、elapsed 5:03.87、最大RSS 399500KiBで通過した。Web source-policy、normal compile、native/wasm check、release CLI build、trunk build、Playground editor CLI JSON 13/13、subagent差分reviewも通過した。GUI/font全体は未完成であり、actual retry/scheduler/platform、native provider、layout/rasterization/presentationは後続である。`plan.md`は変更していない。

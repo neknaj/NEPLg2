@@ -1,0 +1,109 @@
+//: # registered BeginFrame host action failure recovery
+//: F5nzl errorのregistered continuationとlower recovery authorityを分断せず分類します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_completion" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_attempt_driver" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_sink_driver" as *
+#import "std/gui/compositor_tile_present_host_execution_driver" as *
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionMismatchDiagnostic:
+    expected %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+    attempted %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+    category %Option GuiError
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic:
+    AttemptActionMismatch %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionMismatchDiagnostic
+    SinkRejected %GuiRgba8888CompositorTileRlePresentHostActionSinkError
+    DriverCompletionFailed %GuiRgba8888CompositorTileRlePresentHostActionSinkDriverCompletionFailed
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner:
+    dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner
+    category %Option GuiError
+    diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    session_pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwnerParts:
+    dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner
+    category %Option GuiError
+    diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    session_pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwner:
+    dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner
+    category %Option GuiError
+    diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwnerParts:
+    dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner
+    category %Option GuiError
+    diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery:
+    RetryPending %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner
+    RecoveredState %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwner
+
+//: F5nzl lower errorを全域分類し、retry pendingまたはconsumed後loop stateをregistered continuationと再結合する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_recover %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery \error:
+    let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionErrorParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_into_parts error
+    let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get parts "dispatch_owner"
+    let category %Option GuiError field::get parts "category"
+    let lower %GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_lower field::get parts "lower"
+    match lower:
+        GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError::AttemptActionMismatch mismatch:
+            let expected %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_expected &mismatch
+            let attempted %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_attempted &mismatch
+            let mismatch_category %Option GuiError gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_category_value &mismatch
+            let diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::AttemptActionMismatch GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionMismatchDiagnostic expected attempted mismatch_category
+            let driver %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_driver mismatch
+            let session_pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_recover_driver driver
+            GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RetryPending GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner dispatch_owner category diagnostic session_pending
+        GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError::SinkDriverFailed sink_failure:
+            match gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_lower sink_failure:
+                GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError::SinkRejected rejection:
+                    let sink_error %GuiRgba8888CompositorTileRlePresentHostActionSinkError gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_rejected_sink_error &rejection
+                    let diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::SinkRejected sink_error
+                    let driver %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_rejected_driver rejection
+                    let session_pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_recover_driver driver
+                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RetryPending GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner dispatch_owner category diagnostic session_pending
+                GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError::DriverCompletionFailed failure:
+                    let driver_error %GuiRgba8888CompositorTileRlePresentHostExecutionDriverError gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_completion_failed_driver_error &failure
+                    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_state &driver_error
+                    let diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::DriverCompletionFailed failure
+                    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RecoveredState GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwner dispatch_owner category diagnostic state
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_pending_expected_action %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner GuiRgba8888CompositorTileRlePresentHostExecutionAction \owner:
+    gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action field::get_ref owner "session_pending"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_pending_category_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner Option GuiError \owner:
+    *field::get_ref owner "category"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_recovered_state %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
+    *field::get_ref owner "state"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_recovered_state_category_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwner Option GuiError \owner:
+    *field::get_ref owner "category"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_pending_owner_into_parts %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwnerParts \owner:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwnerParts field::get owner "dispatch_owner" field::get owner "category" field::get owner "diagnostic" field::get owner "session_pending"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_recovered_state_owner_into_parts %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwnerParts \owner:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwnerParts field::get owner "dispatch_owner" field::get owner "category" field::get owner "diagnostic" field::get owner "state"
+
+//: retryを明示abortし、session pendingを放棄してからregistered continuationを閉じる
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_pending_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free field::get owner "dispatch_owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_recovered_state_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRecoveredStateOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free field::get owner "dispatch_owner"

@@ -2,8 +2,8 @@
 id: ISS-20260719T093510810Z-F5NZW-REGISTERED-BEGINFRAME-HOST-ACT-89795408
 title: "F5nzw registered BeginFrame host action failure recovery"
 area: gui-font
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-19
@@ -23,7 +23,8 @@ F5nzl completion errors can only be aborted; registered continuation and lower r
 
 ## 根拠
 
-- 未記入
+- F5nzl errorはregistered dispatch owner、category、F5nh lower errorを保持するが、公開操作はabortだけだった。
+- F5ng/F5nf/F5neはretry driverまたはrollback stateを保持しており、破棄せず回収できる。
 
 ## 問題
 
@@ -40,3 +41,9 @@ Consume the F5nzl error once and classify the complete lower graph into move-onl
 ## 検証
 
 Actual unsupported SinkRejected retry recovery, source-policy full lower classification, normal compile isolation, lower regressions, release/trunk/CLI gates, and subagent reviews.
+
+## 完了
+
+- F5nzl errorを一度だけpartsへ分解し、AttemptActionMismatch、SinkRejected、DriverCompletionFailedを詳細lower diagnostic付きRetryPendingまたはRecoveredStateへ全域分類した。
+- retry/recovered ownerはregistered continuation、category、diagnostic、session pendingまたはrollback stateをconsuming partsで後続へ渡す。abort freeはpending放棄後にregistered continuationを閉じる。
+- actual unsupported fixtureはcategory、SinkRejected/UnsupportedAction、OffscreenBegin retry、cleanupをevidence 60で検証した。runtime 2/2、source-policy、normal compile、native/wasm check、release CLI、trunk build、Playground editor 13/13、subagent差分reviewを通過した。

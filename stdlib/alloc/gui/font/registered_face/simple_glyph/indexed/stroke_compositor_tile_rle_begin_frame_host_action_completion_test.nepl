@@ -4,13 +4,18 @@
 #indent 4
 
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_completion" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test" as fixture with tests
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "core/field" as field
 #import "core/gui/error" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "std/gui/compositor_tile_present_dispatch_loop" as *
 #import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_sink" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
 #import "std/gui/compositor_tile_present_host_executor" as *
 
 //: actual F5nzl success ownerを後続fixtureへ渡す
@@ -40,7 +45,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
                 Result::Err _: sub 0 1
                 Result::Ok _: add completion_evidence 2
 
-//: unsupported support preflight failureがregistered continuation付きtyped errorとなり、明示abortで閉じられることを検証する
+//: unsupported support preflight failureからcontinuation、詳細診断、retry pendingを消費handoffで回収する
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_test_unsupported_contract %impure fn unit i32 \_unit:
     match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_test_owner _unit:
@@ -52,12 +57,32 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
                         Result::Err _: sub 0 1
                         Result::Ok _: 0
                 Result::Err error:
-                    let category_evidence %i32 match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_category_value &error:
-                        Option::Some category:
-                            match category:
-                                GuiError::Unsupported: 4
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_recover error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RecoveredState recovered:
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_recovered_state_owner_free recovered:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RetryPending retry:
+                            let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPendingOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_pending_owner_into_parts retry
+                            let dispatch_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner field::get parts "dispatch_owner"
+                            let category %Option GuiError field::get parts "category"
+                            let diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "diagnostic"
+                            let session_pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending field::get parts "session_pending"
+                            let category_evidence %i32 match category:
+                                Option::Some category:
+                                    match category:
+                                        GuiError::Unsupported: 4
+                                        _: 0
                                 _: 0
-                        _: 0
-                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_free error:
-                        Result::Err _: sub 0 1
-                        Result::Ok _: add category_evidence 8
+                            let diagnostic_evidence %i32 match diagnostic:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::SinkRejected sink_error:
+                                    match gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_kind &sink_error:
+                                        GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind::UnsupportedAction _: 16
+                                        _: 0
+                                _: 0
+                            let action_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action &session_pending:
+                                GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin _: 8
+                                _: 0
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_free dispatch_owner:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: add add add category_evidence action_evidence diagnostic_evidence 32

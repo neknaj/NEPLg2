@@ -2464,3 +2464,7 @@ F5nzuは呼び出し側がF5nzt ownerをformal partsで一度だけ消費した�
 ### Registered stroke compositor F5nzv terminal no-request completion boundary
 
 F5nzvはF5nzt formal partsのretained stateとterminal stepを分断せず、stepを既存cleanupへexactly once渡す。cleanup成功後だけ明示的`DispatchLoopCompletion::Completed state`を返し、失敗はstateとlower encoded-finish kindをtyped recoveryとして保持する。normal request completion、pending/request/outcome生成、executor、host/platform executionは責務外である。
+
+### Registered stroke compositor F5nzw host action failure recovery boundary
+
+F5nzwはF5nzl failureのregistered continuationとF5nh/F5ng/F5nf/F5ne lower recoveryを同時に消費し、詳細lower diagnosticを保持したretry可能なsession pendingまたはpending消費後のrollback loop stateへ全域分類する。各ownerはconsuming parts handoffを持ち、retry ownerのfreeはpendingを明示abortしてからregistered continuationを閉じる。F5nh recovery helperは回収driverのactionをexpected actionとして再導出するだけで、outcomeやcompletionを生成しない。actual executor、scheduler、next command、host/platform executionは責務外である。

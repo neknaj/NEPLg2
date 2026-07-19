@@ -8793,3 +8793,7 @@ F5nzuは呼び出し側がF5nzt successをformal partsで一度だけ消費し�
 ### F5nzv registered resumed terminal no-request completion boundary
 
 F5nzvはF5nzt formal partsを一度だけ消費し、retained updated loop stateを読む前後で新しいownerを作らず、同じterminal stepを既存F5mt cleanupへexactly once渡す。cleanup成功後だけ`GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state`を返す。cleanup failureはretained stateとlower `GuiRgba8888CompositorTileRleEncodedFinishErrorKind`をtyped errorへ保持する。normal `complete_request`、pending/request/outcome、F5mv/F5mx、executor、host/platform executionを生成しない。
+
+### F5nzw registered BeginFrame host action failure recovery boundary
+
+F5nzwはF5nzl completion errorを一度だけ消費し、registered dispatch continuationとlower recovery authorityを分断せず全域分類する。AttemptActionMismatchとSinkRejectedは回収driverからexpected actionを再導出したF5nh session pendingを持つ`RetryPending`へ、DriverCompletionFailedはF5ne errorが保持するloop stateを持つ`RecoveredState`へ写す。categoryとlower failure kindを保持し、各ownerは後続へauthorityを渡せるconsuming parts handoffを公開する。outcome生成、complete再実行、actual executor、scheduler、next command、platform presentationへ進まない。F5nzv terminal no-request completionとは独立であり、terminal pathからF5nzl errorを生成しない。

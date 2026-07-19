@@ -11231,3 +11231,7 @@ After the caller consumes F5nzt through its single formal parts handoff, F5nzu b
 ### F5nzv registered resumed terminal no-request completion
 
 F5nzv consumes the same F5nzt formal parts after optional F5nzu borrowed observation. It retains the Copy loop state locally, transfers the terminal step to the existing F5mt free operation exactly once, and constructs `DispatchLoopCompletion::Completed` only after that cleanup succeeds. A cleanup failure keeps the retained state and lower encoded-finish kind in a typed error with borrowed diagnostics and a consuming parts handoff. It never routes terminal completion through F5nc `complete_request`, fabricates a pending request or executor outcome, or invokes F5mv/F5mx, host, presenter, or platform work.
+
+### F5nzw registered BeginFrame host action failure recovery
+
+F5nzw consumes the F5nzl error through one formal parts handoff and keeps its registered dispatch continuation beside the lower recovery result. The complete F5nh/F5ng/F5nf graph is classified: action mismatch and sink rejection recover the original F5ne driver and rebuild only its F5nh session pending by rederiving the expected action; driver completion failure preserves the rollback loop state already carried by F5ne. Both outputs retain the original category and exact lower failure kind, and expose consuming parts handoffs for the later retry or scheduler policy. No executor outcome is created, no completion is replayed, and no next-command, scheduler, host, or platform work occurs.
