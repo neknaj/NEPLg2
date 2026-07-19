@@ -1233,4 +1233,176 @@ mod tests {
 
         assert_eq!(generic, shadow);
     }
+
+    #[test]
+    fn specialized_match_shadow_skips_unreachable_arm_like_generic() {
+        let types = TypeCtx::new();
+        let summaries = Vec::new();
+        let summary_index = super::super::summary::OwnerReturnSummaryIndex::new(&summaries);
+        let make_engine = || ResourceOwnerCheckEngine {
+            function: "oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: super::super::report::ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let output = Place::local("output".to_string(), types.unit());
+        let scrutinee = Place::local("scrutinee".to_string(), types.unit());
+        let unreachable_value = Place::local("unreachable_value".to_string(), types.unit());
+        let retained_value = Place::local("retained_value".to_string(), types.unit());
+        let span = Span::empty(crate::span::FileId(0), 0);
+        let arms = vec![
+            ResourceMatchArm {
+                pattern: super::super::model::ResourceMatchPattern::Variant("Err".to_string()),
+                bind_local: None,
+                bind_source_name: None,
+                bind_mode: None,
+                ops: vec![ResourceOp::StorageOrigin {
+                    target: unreachable_value.clone(),
+                    origin: super::super::model::StorageOrigin::Owned,
+                    span,
+                }],
+                value: unreachable_value,
+                span,
+            },
+            ResourceMatchArm {
+                pattern: super::super::model::ResourceMatchPattern::Wildcard,
+                bind_local: None,
+                bind_source_name: None,
+                bind_mode: None,
+                ops: vec![ResourceOp::StorageOrigin {
+                    target: retained_value.clone(),
+                    origin: super::super::model::StorageOrigin::Owned,
+                    span,
+                }],
+                value: retained_value,
+                span,
+            },
+        ];
+        let mut generic_state = empty_match_state();
+        generic_state
+            .variant_owner_effects
+            .unreachable_variants
+            .push(super::super::owner_variant::PendingUnreachableVariant {
+                result: scrutinee.clone(),
+                variant: "Err".to_string(),
+            });
+        assert!(make_engine()
+            .prepare_match_arm_path(
+                &generic_state.owners,
+                &generic_state.function_aliases,
+                &generic_state.raw_aliases,
+                &generic_state.raw_views,
+                &generic_state.storage_origins,
+                &generic_state.pending_reallocs,
+                &generic_state.variant_owner_effects,
+                &scrutinee,
+                &arms[0],
+                span,
+            )
+            .is_none());
+        assert!(make_engine()
+            .prepare_match_arm_path(
+                &generic_state.owners,
+                &generic_state.function_aliases,
+                &generic_state.raw_aliases,
+                &generic_state.raw_views,
+                &generic_state.storage_origins,
+                &generic_state.pending_reallocs,
+                &generic_state.variant_owner_effects,
+                &scrutinee,
+                &arms[1],
+                span,
+            )
+            .is_some());
+        let shadow_state = clone_match_state(&generic_state);
+
+        let generic = make_engine().run_generic_match_oracle(
+            generic_state,
+            &output,
+            &scrutinee,
+            &arms,
+            span,
+            &[],
+        );
+        let shadow = make_engine().run_specialized_match_shadow_oracle(
+            shadow_state,
+            &output,
+            &scrutinee,
+            &arms,
+            span,
+            &[],
+        );
+
+        assert_eq!(generic, shadow);
+    }
+
+    #[test]
+    fn specialized_match_shadow_excludes_never_arm_like_generic() {
+        let types = TypeCtx::new();
+        let summaries = Vec::new();
+        let summary_index = super::super::summary::OwnerReturnSummaryIndex::new(&summaries);
+        let make_engine = || ResourceOwnerCheckEngine {
+            function: "oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: super::super::report::ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let output = Place::local("output".to_string(), types.unit());
+        let scrutinee = Place::local("scrutinee".to_string(), types.unit());
+        let value = Place::local("never_value".to_string(), types.never());
+        let retained = Place::local("retained".to_string(), types.unit());
+        let span = Span::empty(crate::span::FileId(0), 0);
+        let arms = vec![ResourceMatchArm {
+            pattern: super::super::model::ResourceMatchPattern::Wildcard,
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: Vec::new(),
+            value,
+            span,
+        }];
+        let post_ops = vec![ResourceOp::StorageOrigin {
+            target: retained,
+            origin: super::super::model::StorageOrigin::Owned,
+            span,
+        }];
+        let generic_state = empty_match_state();
+        let mut direct_state = clone_match_state(&generic_state);
+        assert!(!make_engine().finalize_match_arm_value(
+            &mut direct_state,
+            &output,
+            &arms[0].value,
+            span,
+        ));
+        let shadow_state = clone_match_state(&generic_state);
+
+        let generic = make_engine().run_generic_match_oracle(
+            generic_state,
+            &output,
+            &scrutinee,
+            &arms,
+            span,
+            &post_ops,
+        );
+        let shadow = make_engine().run_specialized_match_shadow_oracle(
+            shadow_state,
+            &output,
+            &scrutinee,
+            &arms,
+            span,
+            &post_ops,
+        );
+
+        assert_eq!(generic, shadow);
+    }
 }

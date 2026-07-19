@@ -168913,3 +168913,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - bind reserved-source rejectionを含むcanonical entryはshadowへ接続したが、specialized production helper自体のparity、path-local engine 4 channel返却、full summary parity、production merge、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
 - pass: focused actual path/control tree 3件、owner-summary 36件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
 - subagent差分・全体整合reviewは現test-only checkpointにblockerなし。canonical prepareが返す7-stateを同じpath-local engineでops/finalizationへ渡し、unreachable armの事前skip、Never非merge、通常/予約source拒否のgeneric契約を保持する。bind reserved-source、prepare None、Neverの直接fixtureは非blocker coverage gapとして残す。
+
+2026-07-19 F5nzu unreachable / Never Match oracle checkpoint
+
+- canonical Match single traversal接続前の直接契約として、pending unreachable `Err` armが`prepare_match_arm_path`でNone、同じinventoryのWildcard armがSomeになることを固定した。さらにNever型arm valueが`finalize_match_arm_value`でfalseとなりmerge pathへ入らないことを直接固定した。
+- 両fixtureは直接assert後もgeneric Matchとspecialized shadowのstate 7 channelおよびengine diagnostics/deferred/owner extent/memory 4 channel全体を比較する。Neverで全armが非mergeでもpost-Match opsは親state上で継続する。production処理は変更していない。
+- pass: focused specialized Match oracle 3件、owner-summary filter 35件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
+- subagent初回reviewで最終snapshot一致だけでは共有helperの同一誤動作を検出できないblockerを受け、prepare None/Someとfinalize falseの直接assertへ修正した。再reviewはblocker解消・commit可。engine 4 channel mutation、bind reserved-source直接fixture、full summary parity、production merge、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
