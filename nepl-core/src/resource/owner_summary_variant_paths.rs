@@ -37,6 +37,8 @@ use super::summary::{
 };
 #[cfg(test)]
 use super::summary::{OwnerValueCondition, OwnerVariantPayloadCondition};
+#[cfg(test)]
+use super::owner_summary_canonicalize::canonicalize_variant_summary_channels;
 use super::variant_name::normalize_variant_name;
 
 pub(super) struct OwnerVariantTraversalResult {
@@ -123,6 +125,22 @@ struct OwnerVariantSummarySnapshot {
     host_sizes: Vec<OwnerHostSizeReturn>,
     type_sizes: Vec<OwnerTypeSizeReturn>,
     returns: Vec<OwnerVariantProjectionReturn>,
+}
+
+#[cfg(test)]
+impl OwnerVariantSummarySnapshot {
+    fn canonicalize(&mut self) {
+        canonicalize_variant_summary_channels(
+            &mut self.indices,
+            &mut self.sources,
+            &mut self.extents,
+            &mut self.conditions,
+            &mut self.payload_conditions,
+            &mut self.host_sizes,
+            &mut self.type_sizes,
+            &mut self.returns,
+        );
+    }
 }
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
@@ -1013,7 +1031,7 @@ mod tests {
             &mut profile,
             0,
         );
-        let snapshot = OwnerVariantSummarySnapshot {
+        let mut snapshot = OwnerVariantSummarySnapshot {
             indices: index_out,
             sources: source_out,
             extents: extent_out,
@@ -1023,6 +1041,7 @@ mod tests {
             type_sizes: type_size_out,
             returns: return_out,
         };
+        snapshot.canonicalize();
         (result, snapshot)
     }
 

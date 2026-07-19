@@ -5,10 +5,12 @@ use alloc::vec::Vec;
 
 use super::owner_extent::merge_owner_extent_summaries;
 use super::summary::{
-    OwnerConsumedExtentRequirement, OwnerExtentSummary, OwnerParameterReturnExtent,
+    OwnerConsumedExtentRequirement, OwnerExtentSummary, OwnerHostSizeReturn,
+    OwnerParameterReturnExtent,
     OwnerProjectionReturnOwner, OwnerProjectionReturnSummary, OwnerReturnSummary,
-    OwnerValueCondition, OwnerVariantCondition, OwnerVariantConsumedExtentRequirement,
-    OwnerVariantProjectionReturn,
+    OwnerTypeSizeReturn, OwnerValueCondition, OwnerVariantCondition,
+    OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
+    OwnerVariantPayloadCondition, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
 pub(super) fn canonicalize_owner_return_summary(summary: &mut OwnerReturnSummary) {
@@ -19,17 +21,17 @@ pub(super) fn canonicalize_owner_return_summary(summary: &mut OwnerReturnSummary
     canonicalize_ord_vec(&mut summary.consumed_parameter_sources);
     canonicalize_consumed_extent_requirements(&mut summary.consumed_extent_requirements);
     canonicalize_ord_vec(&mut summary.memory_span_requirements);
-    canonicalize_ord_vec(&mut summary.host_size_returns);
-    canonicalize_ord_vec(&mut summary.type_size_returns);
-    canonicalize_ord_vec(&mut summary.variant_consumed_parameter_indices);
-    canonicalize_ord_vec(&mut summary.variant_consumed_parameter_sources);
-    canonicalize_variant_consumed_extent_requirements(
+    canonicalize_variant_summary_channels(
+        &mut summary.variant_consumed_parameter_indices,
+        &mut summary.variant_consumed_parameter_sources,
         &mut summary.variant_consumed_extent_requirements,
+        &mut summary.variant_conditions,
+        &mut summary.variant_payload_conditions,
+        &mut summary.host_size_returns,
+        &mut summary.type_size_returns,
+        &mut summary.variant_projection_returns,
     );
-    canonicalize_variant_projection_returns(&mut summary.variant_projection_returns);
     canonicalize_ord_vec(&mut summary.resolved_parameter_variants);
-    canonicalize_variant_conditions(&mut summary.variant_conditions);
-    canonicalize_ord_vec(&mut summary.variant_payload_conditions);
     canonicalize_ord_vec(&mut summary.non_owning_raw_view_returns);
     canonicalize_owner_extent_summary(&mut summary.returns_fresh_owner_extent);
     canonicalize_projection_return_summaries(&mut summary.projection_returns);
@@ -167,6 +169,26 @@ fn canonicalize_variant_conditions(conditions: &mut Vec<OwnerVariantCondition>) 
         push_grouped_variant_condition(&mut grouped, variant, current_conditions);
     }
     *conditions = grouped;
+}
+
+pub(super) fn canonicalize_variant_summary_channels(
+    indices: &mut Vec<OwnerVariantParameterIndex>,
+    sources: &mut Vec<OwnerVariantProjectionSource>,
+    extents: &mut Vec<OwnerVariantConsumedExtentRequirement>,
+    conditions: &mut Vec<OwnerVariantCondition>,
+    payload_conditions: &mut Vec<OwnerVariantPayloadCondition>,
+    host_sizes: &mut Vec<OwnerHostSizeReturn>,
+    type_sizes: &mut Vec<OwnerTypeSizeReturn>,
+    returns: &mut Vec<OwnerVariantProjectionReturn>,
+) {
+    canonicalize_ord_vec(indices);
+    canonicalize_ord_vec(sources);
+    canonicalize_variant_consumed_extent_requirements(extents);
+    canonicalize_variant_conditions(conditions);
+    canonicalize_ord_vec(payload_conditions);
+    canonicalize_ord_vec(host_sizes);
+    canonicalize_ord_vec(type_sizes);
+    canonicalize_variant_projection_returns(returns);
 }
 
 fn push_grouped_variant_condition(

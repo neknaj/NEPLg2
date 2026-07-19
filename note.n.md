@@ -169024,3 +169024,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - consecutive Match fixtureをsnapshot helperへ接続し、既存2 armの`Result::Ok`が重複排除された`Ok / Always` condition 1件を生成し、他7 channelを汚染しないことをexact snapshotで固定した。最初のempty期待はfocused testで実際のcondition生成を検出し、期待値を明示entryへ修正した。
 - focused fixture 1件、variant path 9件、owner control 10件、owner-summary filter 42件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent reviewはroot完了境界、payload ownership、expected conditionを妥当としblockerなし。通常buildのtest-only型import警告指摘は`#[cfg(test)]` importへ移して修正した。
 - これはsummary全field parityの観測境界であり、parity完成ではない。既存generic engineは8 summary channelを生成しないため、次はgeneric `check_ops`を使う独立reference DFS、本番同等canonicalization、8 channel全てを非空にするexact fixtureを追加する。production semanticsは不変で、F5nzu issue close/main統合、Branch/Loop、1023/2047 runtime gate、フォントレンダリング/GUI全体はいずれも未完了である。`plan.md`は変更していない。
+
+2026-07-19 F5nzu variant summary canonicalization boundary checkpoint
+
+- full `OwnerReturnSummary` canonicalizerに埋め込まれていたvariant 8 channel処理を`canonicalize_variant_summary_channels`へ抽出し、test-only root snapshotへ同じ正規化境界を接続した。indices/sources/payload/host/typeのsort+dedup、extentのvariant/owner/operation単位merge、conditionの正規化・variant grouping、projection return owner extent正規化・sort+dedupを従来順序のまま共有する。
+- consecutive Match snapshotはcanonicalization後も`Ok / Always` condition 1件を保持する。既存owner-summary updateの順序非依存・nested condition・alternative path回帰も通過し、共有関数抽出がfull summaryの結果を変えないことを確認した。
+- focused fixture 1件、variant path 9件、owner control 10件、owner-summary filter 42件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent reviewは8 channel全ての旧処理との同値、channel間非依存、variant return extentとroot fresh extentの維持を確認しfindingsなし。
+- 次はこの共有正規形を使う独立reference DFSと8 channel全非空exact fixtureでsummary parityを完成させる。F5nzu production authority、Branch/Loop、1023/2047 runtime gate、issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了である。`plan.md`は変更していない。
