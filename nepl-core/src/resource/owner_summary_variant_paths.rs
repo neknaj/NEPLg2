@@ -191,6 +191,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     let mut generic_oracle = None;
     profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
     for (index, op) in ops.iter().enumerate() {
+        let mut specialized_authority = false;
         match op {
             ResourceOp::Branch {
                 output,
@@ -329,8 +330,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 #[cfg(test)]
                 let mut paths = Vec::new();
                 let mut reachable_paths = 0usize;
-                #[cfg(test)]
                 let mut merged_paths = super::owner_control::OwnerMatchPathStates::default();
+                let mut match_effects = OwnerMatchEngineEffectAccumulator::default();
                 #[cfg(test)]
                 let mut generic_state = OwnerMatchPathState::from_parent(
                     &owners,
@@ -387,7 +388,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     );
                     reachable_paths += 1;
                     let child_effects = result.take_engine_effects();
-                    engine_effects.extend(child_effects);
+                    match_effects.extend(child_effects);
                     #[cfg(test)]
                     let evidence = {
                         let evidence = OwnerVariantTraversalEvidence {
@@ -396,9 +397,6 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                             merge_eligible: result.merge_eligible,
                             effect_authority_transferred: result.engine_effects.is_none(),
                         };
-                        if result.merge_eligible {
-                            merged_paths.push(result.state);
-                        }
                         evidence
                     };
                     #[cfg(test)]
@@ -406,14 +404,14 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         selector: OwnerVariantPathSelector::MatchArm(_arm_index),
                         result: evidence,
                     });
-                    #[cfg(not(test))]
-                    let _ = result;
+                    if result.merge_eligible {
+                        merged_paths.push(result.state);
+                    }
                 }
                 if reachable_paths == 0 {
-                    engine_effects.mark_incomplete();
+                    match_effects.mark_incomplete();
                 }
-                #[cfg(test)]
-                {
+                if match_effects.is_complete() {
                     super::owner_control::merge_match_path_states(
                         &mut owners,
                         &mut function_aliases,
@@ -424,6 +422,12 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         &mut variant_owner_effects,
                         merged_paths,
                     );
+                    match_effects = match_effects.absorb_into_and_retain(&mut engine);
+                    specialized_authority = true;
+                }
+                engine_effects.extend(match_effects);
+                #[cfg(test)]
+                if specialized_authority {
                     generic_engine.check_ops(
                         &mut generic_state.owners,
                         &mut generic_state.function_aliases,
@@ -468,19 +472,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         let replay_checkpoint = engine.match_engine_effect_checkpoint();
         profile.observe_sequential_replay(1);
         let replay_timer = profile.start();
-        #[cfg(not(test))]
-        engine.check_ops(
-            &mut owners,
-            &mut function_aliases,
-            &mut raw_aliases,
-            &mut raw_views,
-            &mut storage_origins,
-            &mut pending_reallocs,
-            &mut variant_owner_effects,
-            &ops[index..=index],
-        );
-        #[cfg(test)]
-        if !specialized_match {
+        if !specialized_authority {
             engine.check_ops(
                 &mut owners,
                 &mut function_aliases,
@@ -491,6 +483,9 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 &mut variant_owner_effects,
                 &ops[index..=index],
             );
+        }
+        #[cfg(test)]
+        if !specialized_match {
             if let Some((oracle_engine, oracle_state)) = generic_oracle.as_mut() {
                 oracle_engine.check_ops(
                     &mut oracle_state.owners,

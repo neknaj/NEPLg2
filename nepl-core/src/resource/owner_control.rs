@@ -134,6 +134,20 @@ impl OwnerMatchEngineEffectAccumulator {
             engine.absorb_match_engine_effect_delta(delta);
         }
     }
+
+    pub(super) fn absorb_into_and_retain(
+        self,
+        engine: &mut ResourceOwnerCheckEngine<'_>,
+    ) -> Self {
+        assert!(
+            self.complete,
+            "incomplete match engine effects must not become traversal authority"
+        );
+        for delta in &self.ordered {
+            engine.absorb_match_engine_effect_delta(delta.clone());
+        }
+        self
+    }
 }
 
 impl OwnerMatchPathState {
