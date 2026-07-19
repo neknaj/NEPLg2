@@ -1012,6 +1012,7 @@ mod tests {
         run_path_with_seeded_extent_summary_snapshot(
             types,
             owners,
+            &RawCellAddressAliases::default(),
             parameter_storage_sources,
             &[],
             &[],
@@ -1026,6 +1027,7 @@ mod tests {
     fn run_path_with_seeded_extent_summary_snapshot(
         types: &TypeCtx,
         owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
         parameter_storage_sources: &[OwnerParameterStorageSource],
         parameter_condition_sources: &[OwnerParameterConditionSource],
         owner_extent_requirements: &[crate::resource::owner_extent::PendingOwnerExtentRequirement],
@@ -1066,7 +1068,7 @@ mod tests {
             &mut payload_condition_out,
             &engine,
             owners,
-            &RawCellAddressAliases::default(),
+            raw_aliases,
             &RawAddressViewTable::default(),
             &StorageOriginTable::default(),
             &FunctionAliasTable::default(),
@@ -1361,6 +1363,7 @@ mod tests {
         let (result, snapshot) = run_path_with_seeded_extent_summary_snapshot(
             &types,
             &owners,
+            &RawCellAddressAliases::default(),
             &sources,
             &condition_sources,
             &requirements,
@@ -1389,6 +1392,83 @@ mod tests {
                 operation: crate::resource::report::ResourceOwnerOperation::CallArgument,
             }]
         );
+    }
+
+    #[test]
+    fn constructed_path_records_known_variant_payload_conditions() {
+        let types = TypeCtx::new();
+        let payload = Place::local("payload".to_string(), types.i32());
+        let value = Place::local("value".to_string(), types.unit());
+        let span = Span::dummy();
+        let mut raw_aliases = RawCellAddressAliases::default();
+        raw_aliases.add_i32_condition(
+            &payload,
+            crate::resource::model::I32ValueCondition::Positive,
+        );
+        let ops = [ResourceOp::Construct {
+            output: value.clone(),
+            kind: AggregateKind::Enum {
+                name: "Result".to_string(),
+                variant: "Ok".to_string(),
+            },
+            inputs: vec![payload],
+            span,
+        }];
+
+        let (result, snapshot) = run_path_with_seeded_extent_summary_snapshot(
+            &types,
+            &OwnerTable::default(),
+            &raw_aliases,
+            &[],
+            &[],
+            &[],
+            &ops,
+            &value,
+            &PendingVariantOwnerEffects::default(),
+            None,
+            None,
+        );
+
+        assert!(result.engine_effects().is_complete());
+        let payload_suffix = vec![crate::resource::model::PlaceProjection::EnumPayload {
+            variant: "Ok".to_string(),
+        }];
+        assert_eq!(
+            snapshot.payload_conditions,
+            vec![
+                OwnerVariantPayloadCondition {
+                    variant: "Ok".to_string(),
+                    suffix: payload_suffix.clone(),
+                    ty: types.i32(),
+                    condition: crate::resource::model::I32ValueCondition::NeZero,
+                },
+                OwnerVariantPayloadCondition {
+                    variant: "Ok".to_string(),
+                    suffix: payload_suffix.clone(),
+                    ty: types.i32(),
+                    condition: crate::resource::model::I32ValueCondition::Positive,
+                },
+                OwnerVariantPayloadCondition {
+                    variant: "Ok".to_string(),
+                    suffix: payload_suffix,
+                    ty: types.i32(),
+                    condition: crate::resource::model::I32ValueCondition::NonNegative,
+                },
+            ]
+        );
+        assert!(snapshot.indices.is_empty());
+        assert!(snapshot.sources.is_empty());
+        assert!(snapshot.extents.is_empty());
+        assert_eq!(
+            snapshot.conditions,
+            vec![OwnerVariantCondition {
+                variant: "Ok".to_string(),
+                condition: OwnerValueCondition::Always,
+            }]
+        );
+        assert!(snapshot.host_sizes.is_empty());
+        assert!(snapshot.type_sizes.is_empty());
+        assert!(snapshot.returns.is_empty());
     }
 
     #[test]
