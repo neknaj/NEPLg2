@@ -1,0 +1,194 @@
+//: # Web registered resumed Run executor test adapter
+//: actual Begin成功からRun成功までのexactly-once platform chainを検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_run_host_request" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_run_schedule" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler_test" as fixture with tests
+#import "platforms/gui/web/font_registered_run_executor" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_attempt_driver" as *
+#import "std/gui/compositor_tile_present_host_action_sink" as *
+#import "std/gui/compositor_tile_present_host_action_sink_driver" as *
+#import "std/gui/compositor_tile_present_host_execution_driver" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/compositor_tile_present_virtual_drain" as *
+#import "std/gui/host" as *
+
+fn gui_font_web_registered_run_executor_test_provenance %fn Option GuiError fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget i32 \category\diagnostic\budget:
+    let category_evidence %i32 match category:
+        Option::Some value:
+            match value:
+                GuiError::Unsupported: 1
+                _: 0
+        _: 0
+    let diagnostic_evidence %i32 match diagnostic:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::SinkRejected payload:
+            match gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_kind &payload:
+                GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind::UnsupportedAction _: 2
+                _: 0
+        _: 0
+    let budget_evidence %i32 match budget:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::Exhausted: 4
+        _: 0
+    add add category_evidence diagnostic_evidence budget_evidence
+
+fn gui_font_web_registered_run_executor_test_state_evidence %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState i32 \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+    let drain %GuiRgba8888CompositorTileRlePresentVirtualDrain gui_rgba8888_compositor_tile_rle_present_schedule_state_drain &schedule
+    let evidence1 %i32 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 1 then 16 else 0
+    let evidence2 %i32 add evidence1 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 16 then 32 else 0
+    let evidence3 %i32 add evidence2 if eq gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_run_count &drain 1 then 64 else 0
+    add evidence3 if eq gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_pixel_count &drain 16 then 128 else 0
+
+#test
+pub fn gui_font_web_registered_run_executor_test_success_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_begin_frame_retry_yield_scheduler_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok yield_owner:
+            match gui_font_web_registered_begin_frame_retry_yield_scheduler_decide yield_owner GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::ResumeSlice:
+                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::AbortReady abort_ready:
+                    match gui_font_web_registered_begin_frame_retry_yield_abort_ready_owner_free abort_ready:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::ResumePending pending:
+                    match gui_font_web_registered_begin_frame_retry_yield_resume_and_step_next_command pending:
+                        Result::Err error:
+                            match gui_font_web_registered_begin_frame_retry_yield_next_command_error_free error:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        Result::Ok next:
+                            match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:
+                                Result::Err _:
+                                    match gui_font_web_registered_begin_frame_retry_yield_next_command_owner_free next:
+                                        Result::Err _: sub 0 1
+                                        Result::Ok _: 0
+                                Result::Ok policy:
+                                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                                    match gui_font_web_registered_retry_yield_next_command_execute_run &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen next:
+                                        Result::Err error:
+                                            gui_font_web_registered_run_executor_test_error_evidence error
+                                        Result::Ok success:
+                                            let parts %GuiFontWebRegisteredRunExecutionSuccessParts gui_font_web_registered_run_execution_success_into_parts success
+                                            let provenance %i32 gui_font_web_registered_run_executor_test_provenance field::get parts "previous_category" field::get parts "previous_diagnostic" field::get parts "spent_budget"
+                                            let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+                                            let command_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result &step:
+                                                GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+                                                    match command:
+                                                        GuiRgba8888CompositorTileRlePresentCommand::Run _: 512
+                                                        _: 0
+                                                _: 0
+                                            let completion field::get parts "completion"
+                                            let phase_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion &completion:
+                                                GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Continue state:
+                                                    add 8 gui_font_web_registered_run_executor_test_state_evidence &state
+                                                _: 0
+                                            match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free step:
+                                                Result::Err _: sub 0 1
+                                                Result::Ok _: add add add 256 command_evidence provenance phase_evidence
+
+fn gui_font_web_registered_run_executor_test_failure_evidence %fn GuiFontWebRegisteredRunExecutionCompleteError i32 \error:
+    let category_evidence %i32 match gui_font_web_registered_run_execution_complete_error_category_value &error:
+        Option::Some value:
+            match value:
+                GuiError::Unsupported: 1
+                _: 0
+        _: 0
+    let parts %GuiFontWebRegisteredRunExecutionCompleteErrorParts gui_font_web_registered_run_execution_complete_error_into_parts error
+    let provenance %i32 gui_font_web_registered_run_executor_test_provenance field::get parts "previous_category" field::get parts "previous_diagnostic" field::get parts "spent_budget"
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+    let lower %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError field::get parts "lower"
+    let lower_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_lower lower:
+        GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError::SinkDriverFailed sink_failure:
+            match gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_lower sink_failure:
+                GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError::DriverCompletionFailed failure:
+                    let driver_error %GuiRgba8888CompositorTileRlePresentHostExecutionDriverError gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_completion_failed_driver_error &failure
+                    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_state &driver_error
+                    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch &state
+                    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+                    if and eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 0 eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 0 then 6 else 4
+                _: 0
+        _: 0
+    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free step:
+        Result::Err _: sub 0 1
+        Result::Ok _: if eq provenance 7 then add 8 add category_evidence lower_evidence else 0
+
+fn gui_font_web_registered_run_executor_test_error_evidence %fn GuiFontWebRegisteredRunExecutionError i32 \error:
+    match error:
+        GuiFontWebRegisteredRunExecutionError::CompletionFailed payload:
+            gui_font_web_registered_run_executor_test_failure_evidence payload
+        GuiFontWebRegisteredRunExecutionError::ScheduleFailed payload:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_schedule_error_free field::get payload "lower":
+                Result::Err _: sub 0 1
+                Result::Ok _: 0
+        GuiFontWebRegisteredRunExecutionError::HostRequestFailed payload:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_host_request_error_free field::get payload "lower":
+                Result::Err _: sub 0 1
+                Result::Ok _: 0
+        GuiFontWebRegisteredRunExecutionError::UnexpectedSessionCompleted payload:
+            match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get payload "step":
+                Result::Err _: sub 0 1
+                Result::Ok _: 0
+
+//: actual Web Run failureがpre-Run rollback authorityをowner-bearing handoffで返すことを検証する
+#test
+pub fn gui_font_web_registered_run_executor_test_failure_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_begin_frame_retry_yield_scheduler_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok yield_owner:
+            match gui_font_web_registered_begin_frame_retry_yield_scheduler_decide yield_owner GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::ResumeSlice:
+                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::AbortReady abort_ready:
+                    match gui_font_web_registered_begin_frame_retry_yield_abort_ready_owner_free abort_ready:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::ResumePending pending:
+                    match gui_font_web_registered_begin_frame_retry_yield_resume_and_step_next_command pending:
+                        Result::Err error:
+                            match gui_font_web_registered_begin_frame_retry_yield_next_command_error_free error:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        Result::Ok next:
+                            match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:
+                                Result::Err _:
+                                    match gui_font_web_registered_begin_frame_retry_yield_next_command_owner_free next:
+                                        Result::Err _: sub 0 1
+                                        Result::Ok _: 0
+                                Result::Ok policy:
+                                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                                    match gui_font_web_registered_retry_yield_next_command_execute_run &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen next:
+                                        Result::Ok success:
+                                            match gui_font_web_registered_run_execution_success_free success:
+                                                Result::Err _: sub 0 1
+                                                Result::Ok _: 0
+                                        Result::Err result_error:
+                                            match result_error:
+                                                GuiFontWebRegisteredRunExecutionError::CompletionFailed error:
+                                                    gui_font_web_registered_run_executor_test_failure_evidence error
+                                                GuiFontWebRegisteredRunExecutionError::ScheduleFailed payload:
+                                                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_schedule_error_free field::get payload "lower":
+                                                        Result::Err _: sub 0 1
+                                                        Result::Ok _: 0
+                                                GuiFontWebRegisteredRunExecutionError::HostRequestFailed payload:
+                                                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_host_request_error_free field::get payload "lower":
+                                                        Result::Err _: sub 0 1
+                                                        Result::Ok _: 0
+                                                GuiFontWebRegisteredRunExecutionError::UnexpectedSessionCompleted payload:
+                                                    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get payload "step":
+                                                        Result::Err _: sub 0 1
+                                                        Result::Ok _: 0

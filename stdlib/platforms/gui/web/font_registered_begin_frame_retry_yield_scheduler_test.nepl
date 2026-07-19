@@ -42,7 +42,8 @@ fn gui_font_web_registered_begin_frame_retry_yield_scheduler_test_provenance %fn
     add add category_evidence diagnostic_evidence budget_evidence
 
 //: status 0のactual F5nzz実行からconcrete Yieldだけを回収する
-fn gui_font_web_registered_begin_frame_retry_yield_scheduler_test_owner %impure fn unit Result GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner i32 \_unit:
+#test
+pub fn gui_font_web_registered_begin_frame_retry_yield_scheduler_test_owner %impure fn unit Result GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner i32 \_unit:
     match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_retry_policy_test_ready_owner _unit:
         Result::Err evidence: Result::Err evidence
         Result::Ok ready:

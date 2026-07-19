@@ -34,12 +34,15 @@ assert.match(webExecutor, /yield_next_command_owner_into_parts owner[\s\S]*next_
 assert.match(webExecutor, /host_execution_driver_prepare pending[\s\S]*executor_session_start driver[\s\S]*executor_session_request session[\s\S]*gui_web_compositor_host_executor_step support action_pending/);
 assert.doesNotMatch(webExecutor, /dispatch_loop_step_record|schedule_only_step_into_host_request_pending|host_import_request host|pending_request_new|execute_action|#extern|while|queue|timer|fallback/);
 assert.match(webExecutor, /GuiFontWebRegisteredRunExecutionSuccessParts/);
-assert.match(webExecutor, /run_execution_error_free/);
+assert.match(webExecutor, /GuiFontWebRegisteredRunExecutionCompleteErrorParts:[\s\S]*step .*\n\s*lower /);
+assert.match(webExecutor, /run_execution_complete_error_into_parts[\s\S]*field::get error "step" field::get error "lower"/);
+assert.doesNotMatch(webExecutor, /run_execution_error_free/);
 assert.doesNotMatch(webExecutor, /impl (Clone|Copy) for GuiFontWebRegisteredRunExecution/);
 
 assert.match(webRuntime, /compositor_tile_present_begin\(\)[\s\S]*return 0/);
-assert.match(webRuntime, /compositor_tile_present_run\(\)[\s\S]*return 0/);
+assert.match(webRuntime, /compositor_tile_present_run\(\)[\s\S]*return runStatus/);
 assert.match(webRuntime, /compositor_tile_present_end\(\)[\s\S]*return -1/);
 assert.match(webRuntime, /begin: 1, run: 1, end: 0/);
+assert.match(webRuntime, /success[\s\S]*1023[\s\S]*failure[\s\S]*-1, 15/);
 
 console.log("registered resumed Run host request contract passed");

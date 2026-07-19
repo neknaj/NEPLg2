@@ -8817,3 +8817,9 @@ F5oaaはF5nzz successだけを一度消費し、旧category、exact diagnostic�
 ### F5oab Web retry Yield scheduler handoff
 
 F5oaa が保持する concrete Yield authority は、caller-supplied `ResumeSlice` または `Abort` の値決定へ一度だけ渡す。`ResumeSlice` だけが既存 F5nzm resume helper と F5nzn next-command helper を順に一度ずつ呼び、旧 category、exact failure diagnostic、spent retry budget と次 command owner または完全な lower error を同じ provenance wrapper に保持する。`Abort` は未resume Yieldをそのまま回収可能に保つ。この境界はqueue、timer、actual scheduler loop、Run host execution、二つ目のcommandを実行しない。
+
+### F5oac Web resumed Run execution and completion rejoin
+
+F5nc schedule-only authorityはpre-state、updated state、phase、exact recordを一つのmove-only stepに保持する。host-request adopterはそのstepを一度消費し、同じrecordからrequestを一度だけ作ってrollback付きpendingへ移す。失敗はschedule authorityと`GuiError`を同居保持し、request生成後に元authorityを参照し直さない。
+
+Web adapterはF5oabのRun ownerをF5nzo record、F5nzp schedule、request adopter、F5ne/F5nh sessionの順に一度ずつ渡し、既存Web executorのactual Run outcomeをcompletionへ再結合する。actual fixtureは成功時のBegin 1 / Run 1 / End 0とContinue state 1/16、失敗時のUnsupportedとpre-Run rollback 0/0を検証する。CompletionFailedはcursorとowner-bearing F5nh lower errorをconsuming partsで返す。複数command loop、EndFrame実行、retry budget再発行、native executionは後続境界である。

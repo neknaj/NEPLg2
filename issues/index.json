@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-19T14:26:48.255Z",
+  "generated_at": "2026-07-19T15:50:50.405Z",
   "counts": {
     "total": 1441,
-    "open": 61,
-    "resolved": 1380,
+    "open": 60,
+    "resolved": 1381,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "gui-font": {
-        "total": 27,
-        "open": 1,
-        "resolved": 26
       },
       "RESOURCE": {
         "total": 5,
@@ -100,6 +95,11 @@
         "total": 39,
         "open": 0,
         "resolved": 39
+      },
+      "gui-font": {
+        "total": 27,
+        "open": 0,
+        "resolved": 27
       },
       "nodesrc": {
         "total": 16,
@@ -528,21 +528,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260719T142644710Z-F5OAC-WEB-RESUMED-RUN-EXECUTION-AND--1D6B381A",
-      "title": "F5oac Web resumed Run execution and completion rejoin",
-      "area": "gui-font",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-19",
-      "updated": "2026-07-19",
-      "target": "stdlib/platforms/gui/web/font_registered_run_executor.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260719T142644710Z-F5OAC-WEB-RESUMED-RUN-EXECUTION-AND--1D6B381A.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -12153,6 +12138,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260719T132057568Z-F5OAB-WEB-RETRY-YIELD-SCHEDULER-NEXT-2DCFEB5C.md"
+    },
+    {
+      "id": "ISS-20260719T142644710Z-F5OAC-WEB-RESUMED-RUN-EXECUTION-AND--1D6B381A",
+      "title": "F5oac Web resumed Run execution and completion rejoin",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-19",
+      "updated": "2026-07-19",
+      "target": "stdlib/platforms/gui/web/font_registered_run_executor.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260719T142644710Z-F5OAC-WEB-RESUMED-RUN-EXECUTION-AND--1D6B381A.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

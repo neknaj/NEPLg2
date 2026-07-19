@@ -1,3 +1,9 @@
+# 2026-07-19 GUI font F5oac Web resumed Run execution
+
+- F5nzp schedule-only authorityへpre-stateとexact recordを追加し、same-record host request adopterの成功pending/失敗rollback所有権を線形化した。
+- F5oabのactual resumed RunをF5nzo/F5nzp/F5ne/F5nh経由で既存Web executorへ一度渡し、Continue completionへ再結合した。runtime evidenceは下位30、上位成功/失敗合計1038、importsは各ケースBegin 1 / Run 1 / End 0。
+- 最終目標は未完了。次はRun completionからEndFrameを回収・実行してterminal completionへ接続し、その後に複数command loop、native、layout、rasterization、presentationへ進む。
+
 # 2026-07-15 Selfhost generic Match arm inference transaction
 
 - `SelfhostTypeRecord::InferenceVariable` と arena-local fresh ID producer を追加し、generic enum の先頭 direct variant armから `Applied<Enum, fresh...>` expected型を生成するようにした。期待型無しのscrutinee検査が失敗した場合だけ既存arena forkから一度再試行する。

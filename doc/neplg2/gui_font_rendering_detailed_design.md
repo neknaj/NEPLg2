@@ -11257,3 +11257,9 @@ The actual success fixture overrides only the `nepl_gui_web.compositor_tile_pres
 ### F5oab concrete Yield decision and one-command continuation
 
 `GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner` は generic phase owner を再包装せず、F5oaa の concrete Yield ownerを `ResumePending` または `AbortReady` に移す。Resume entryはF5nzmでslice counterをresetしてからF5nznでcursorを一回だけ進める。成功とerrorはいずれもprevious category、exact diagnostic、spent Exhausted budgetをlower authorityと同居保持し、consuming parts/freeで閉じる。Abort pathはresumeとnext-commandのどちらも呼ばない。
+
+### F5oac Web resumed Run executor
+
+F5nzpのschedule-only stepはprevious/next/phase/exact recordをformal authorityとして保持する。std adopterはrecordからhost import requestを一度だけ生成し、成功時はprevious/next/post phaseとrequestをF5nc pendingへ束ね、失敗時は元schedule stepと`GuiError`を返す。これによりrollbackを独立値から再構築しない。
+
+Web adapterはF5oab next-command ownerをF5nzo、F5nzp、request owner、F5ne driver、F5nh sessionへ線形に移し、既存Web executorを一度だけ呼ぶ。successは旧failure provenance、spent Exhausted budget、Run cursor step、F5nh completionを同居保持する。CompletionFailedはcategory accessorとconsuming partsでcursorおよびowner-bearing F5nh lower recoveryを返し、actual Run failure fixtureがUnsupported、pre-Run rollback 0/0、cleanupを検証する。session start直後のCompletedはfresh pending driverから到達不能であり、型の全域性のためcursorだけを保持するtyped variantとして残す。

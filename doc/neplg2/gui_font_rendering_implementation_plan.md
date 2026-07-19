@@ -14010,3 +14010,7 @@ git diff --check
 ### F5oab Web successful retry Yield scheduler decision
 
 F5oaa actual successの未resume Yieldへcaller value decisionを接続し、ResumeSliceだけを既存F5nzm、F5nznへ順に渡す。actual status 0 fixtureでdecision前slice 1/0、resume後0/0、次command Run、Abort時1/0保持、旧diagnostic/budget、cleanupを固定する。次段は得たRun commandのregistered Web executionとcompletion rejoinであり、actual scheduler backendや複数command loopはさらに後段とする。
+
+### F5oac Web resumed Run execution
+
+F5nzp schedule-only formal ownerへpre-stateとexact recordを保持し、同じrecordからhost requestを一度だけ作るconsuming adopterを追加する。成功はF5nc pending、失敗は元schedule authorityと`GuiError`を返す。F5oabはF5nzo/F5nzp、adopter、F5ne/F5nh、既存Web executorへ順に渡す。actual runtimeは成功のBegin 1 / Run 1 / End 0 / Continue 1/16と、Run失敗のUnsupported / rollback 0/0 / owner-bearing lower handoffを固定する。次sliceはcompletion authorityからEndFrame commandと実行を接続する。
