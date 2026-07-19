@@ -1,5 +1,5 @@
 use super::timing::ResourceFunctionStageTimer;
-use super::{model::ResourceOp, model::Place};
+use super::{model::Place, model::ResourceOp, owner_variant::PendingVariantOwnerEffectProfile};
 
 #[derive(Clone, Copy)]
 pub(super) enum OwnerVariantProfilePhase {
@@ -42,6 +42,17 @@ pub(super) struct OwnerVariantReturnProfile {
     sequential_return_control_ns: u128,
     sequential_max_op_ns: u128,
     sequential_max_op_depth: usize,
+    effect_consumptions: usize,
+    effect_returns: usize,
+    effect_parameter_returns: usize,
+    effect_fresh_returns: usize,
+    effect_unknown_returns: usize,
+    effect_maybe_returns: usize,
+    effect_temporary_sources: usize,
+    effect_unreachable_variants: usize,
+    effect_payload_conditions: usize,
+    effect_value_conditions: usize,
+    effect_scrutinee_owner_entries: usize,
     path_replay_ns: u128,
     terminal_ns: u128,
 }
@@ -67,6 +78,10 @@ impl OwnerVariantReturnProfile {
 
     pub(super) fn into_enabled(self) -> Option<Self> {
         self.enabled.then_some(self)
+    }
+
+    pub(super) fn is_enabled(&self) -> bool {
+        self.enabled
     }
 
     pub(super) fn finish(
@@ -181,13 +196,30 @@ impl OwnerVariantReturnProfile {
         }
     }
 
+    pub(super) fn observe_pending_effects(&mut self, effects: PendingVariantOwnerEffectProfile) {
+        if !self.enabled {
+            return;
+        }
+        self.effect_consumptions += effects.consumptions;
+        self.effect_returns += effects.returns;
+        self.effect_parameter_returns += effects.parameter_returns;
+        self.effect_fresh_returns += effects.fresh_returns;
+        self.effect_unknown_returns += effects.unknown_returns;
+        self.effect_maybe_returns += effects.maybe_returns;
+        self.effect_temporary_sources += effects.temporary_sources;
+        self.effect_unreachable_variants += effects.unreachable_variants;
+        self.effect_payload_conditions += effects.payload_conditions;
+        self.effect_value_conditions += effects.value_conditions;
+        self.effect_scrutinee_owner_entries += effects.scrutinee_owner_entries;
+    }
+
     pub(super) fn log(self, function_name: &str) {
         if !self.enabled {
             return;
         }
         #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
         std::eprintln!(
-            "[resource-owner-variant-profile] function={} nested_calls={} path_calls={} branch_forks={} match_arms={} recursive_paths={} constructed_paths={} max_depth={} sequential_replay_ops={} sequential_branch_ops={} sequential_match_ops={} sequential_other_ops={} sequential_return_control_ops={} path_replay_ops={} state_clone_us={} branch_fork_us={} match_entry_us={} sequential_replay_us={} sequential_branch_us={} sequential_match_us={} sequential_other_us={} sequential_return_control_us={} sequential_max_op_us={} sequential_max_op_depth={} path_replay_us={} terminal_us={}",
+            "[resource-owner-variant-profile] function={} nested_calls={} path_calls={} branch_forks={} match_arms={} recursive_paths={} constructed_paths={} max_depth={} sequential_replay_ops={} sequential_branch_ops={} sequential_match_ops={} sequential_other_ops={} sequential_return_control_ops={} effect_consumptions={} effect_returns={} effect_parameter_returns={} effect_fresh_returns={} effect_unknown_returns={} effect_maybe_returns={} effect_temporary_sources={} effect_unreachable_variants={} effect_payload_conditions={} effect_value_conditions={} effect_scrutinee_owner_entries={} path_replay_ops={} state_clone_us={} branch_fork_us={} match_entry_us={} sequential_replay_us={} sequential_branch_us={} sequential_match_us={} sequential_other_us={} sequential_return_control_us={} sequential_max_op_us={} sequential_max_op_depth={} path_replay_us={} terminal_us={}",
             function_name,
             self.nested_calls,
             self.path_calls,
@@ -201,6 +233,17 @@ impl OwnerVariantReturnProfile {
             self.sequential_match_ops,
             self.sequential_other_ops,
             self.sequential_return_control_ops,
+            self.effect_consumptions,
+            self.effect_returns,
+            self.effect_parameter_returns,
+            self.effect_fresh_returns,
+            self.effect_unknown_returns,
+            self.effect_maybe_returns,
+            self.effect_temporary_sources,
+            self.effect_unreachable_variants,
+            self.effect_payload_conditions,
+            self.effect_value_conditions,
+            self.effect_scrutinee_owner_entries,
             self.path_replay_ops,
             self.state_clone_ns / 1_000,
             self.branch_fork_ns / 1_000,

@@ -184,6 +184,15 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 span,
                 ..
             } if output == return_value => {
+                if profile.is_enabled() {
+                    profile.observe_pending_effects(
+                        variant_owner_effects.profile_result_effects(
+                            &raw_aliases,
+                            output,
+                            scrutinee,
+                        ),
+                    );
+                }
                 for arm in arms {
                     if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
                         continue;

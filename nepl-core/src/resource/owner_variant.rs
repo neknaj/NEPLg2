@@ -106,7 +106,56 @@ pub(super) struct PendingVariantOwnerEffects {
     pub(super) value_conditions: Vec<PendingVariantValueCondition>,
 }
 
+#[derive(Default)]
+pub(super) struct PendingVariantOwnerEffectProfile {
+    pub(super) consumptions: usize,
+    pub(super) returns: usize,
+    pub(super) parameter_returns: usize,
+    pub(super) fresh_returns: usize,
+    pub(super) unknown_returns: usize,
+    pub(super) maybe_returns: usize,
+    pub(super) temporary_sources: usize,
+    pub(super) unreachable_variants: usize,
+    pub(super) payload_conditions: usize,
+    pub(super) value_conditions: usize,
+    pub(super) scrutinee_owner_entries: usize,
+}
+
 impl PendingVariantOwnerEffects {
+    pub(super) fn profile_result_effects(
+        &self,
+        raw_aliases: &RawCellAddressAliases,
+        result: &Place,
+        scrutinee: &Place,
+    ) -> PendingVariantOwnerEffectProfile {
+        let mut profile = PendingVariantOwnerEffectProfile::default();
+        for entry in self.consumptions.iter().filter(|entry| entry.result == *result) {
+            profile.consumptions += 1;
+            let source = pending_consumption_source(entry, raw_aliases);
+            profile.temporary_sources += usize::from(matches!(source.root, PlaceRoot::Temporary(_)));
+        }
+        for entry in self.returns.iter().filter(|entry| entry.result == *result) {
+            profile.returns += 1;
+            match &entry.source {
+                PendingVariantOwnerReturnSource::Parameter { .. } => profile.parameter_returns += 1,
+                PendingVariantOwnerReturnSource::Fresh { .. } => profile.fresh_returns += 1,
+                PendingVariantOwnerReturnSource::UnknownSource { .. } => profile.unknown_returns += 1,
+                PendingVariantOwnerReturnSource::Maybe => profile.maybe_returns += 1,
+            }
+            if pending_return_source(entry, raw_aliases)
+                .is_some_and(|source| matches!(source.root, PlaceRoot::Temporary(_)))
+            {
+                profile.temporary_sources += 1;
+            }
+        }
+        profile.unreachable_variants = self.unreachable_variants.iter().filter(|entry| entry.result == *result).count();
+        profile.payload_conditions = self.payload_conditions.iter().filter(|entry| entry.result == *result).count();
+        profile.value_conditions = self.value_conditions.iter().filter(|entry| entry.result == *result).count();
+        profile.scrutinee_owner_entries = self.consumptions.iter().filter(|entry| entry.result == *scrutinee).count()
+            + self.returns.iter().filter(|entry| entry.result == *scrutinee).count();
+        profile
+    }
+
     pub(super) fn reject_reserved_source_use(
         &self,
         engine: &mut ResourceOwnerCheckEngine<'_>,

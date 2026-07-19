@@ -168843,4 +168843,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - root profileのsequential replayをBranch/Match/other、return-producing control、最大単体opとdepthへ分解した。同じF5nzt 1023対照では127 ops約30.95秒のうち、19個のreturn-producing Matchが約30.84秒、その他108 opsが約0.11秒だった。最大単体はdepth 0のMatch約3.56秒で、Branchは存在しない。terminal aggregationは約6.78秒、variant return全体は約37.92秒だった。
 - specialized traversalとgeneric Match subtree replayの重複が支配することを確定した。単純skipは行わず、post-control owner/raw/function alias/storage/pending/variant effect stateを既存merge semanticsへ返す設計と、nested Branch/Match、unreachable arm、condition fact、post-control ops、variant effectのdifferential oracleを次の修正条件とする。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
-- terminal位置、reachable armあり、Match outputのpre-existing pending effectなしに限定したgeneric replay省略を試作したが、actual 19 Matchは全てoutput effectを既に持つため一度も発火しなかった。compileは完走しruntime evidence 1023 / failed 0を維持したが、variant return約38.70秒、Match replay約31.89秒で改善せず、fast path差分は撤去した。pending effectを捨てずspecialized traversalへ引き継ぐstate/effect mergeが必須である。
+- terminal位置、reachable armあり、Match outputのpre-existing pending effectなしに限定したgeneric replay省略を試作したが、actual 19 Matchは全て非末尾だったため一度も発火しなかった。compileは完走しruntime evidence 1023 / failed 0を維持したが、variant return約38.70秒、Match replay約31.89秒で改善せず、fast path差分は撤去した。後続opsへ渡すpost-Match state/effect mergeが必須である。
+
+2026-07-19 F5nzu return Match effect provenance profile
+
+- return-producing Match直前のpending effectsをoutput/scrutinee別、consumption/return source種別、temporary、unreachable、payload/value conditionへ集約した。filter不一致時はeffect Vecを走査しない。F5nzt対照の19 Matchではoutput一致consumption/return/condition/unreachable/temporaryは全て0、scrutinee一致consumption/return entryは合計71件だった。scrutinee側のcondition/unreachableはこの71件に含めず未計測である。
+- fast path不発の原因はoutput effectではなく全19 Matchが非末尾だったことである。generic check_matchがscrutinee owner entriesとcondition/unreachableを各armへ適用して7 state bundleをmergeし、そのstateで後続opsを処理する契約が必要である。次はowner_control::check_matchのarm entry/ops/value-to-output/temporary materialization/mergeを共通helper化できる設計とdifferential oracleを作る。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
