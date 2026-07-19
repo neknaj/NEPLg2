@@ -68,7 +68,7 @@ impl OwnerMatchEngineOracleSnapshot {
     }
 }
 
-#[cfg(test)]
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub(super) struct OwnerMatchEngineEffectCheckpoint {
     diagnostics_len: usize,
@@ -77,7 +77,7 @@ pub(super) struct OwnerMatchEngineEffectCheckpoint {
     memory_span_requirements_len: usize,
 }
 
-#[cfg(test)]
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct OwnerMatchEngineEffectDelta {
     diagnostics: Vec<super::report::ResourceOwnerDiagnostic>,
@@ -86,14 +86,13 @@ pub(super) struct OwnerMatchEngineEffectDelta {
     memory_span_requirements: Vec<super::summary::OwnerMemorySpanRequirement>,
 }
 
-#[cfg(test)]
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(super) struct OwnerMatchEngineEffectAccumulator {
     ordered: Vec<OwnerMatchEngineEffectDelta>,
     complete: bool,
 }
 
-#[cfg(test)]
 impl Default for OwnerMatchEngineEffectAccumulator {
     fn default() -> Self {
         Self {
@@ -103,7 +102,7 @@ impl Default for OwnerMatchEngineEffectAccumulator {
     }
 }
 
-#[cfg(test)]
+#[allow(dead_code)]
 impl OwnerMatchEngineEffectAccumulator {
     pub(super) fn push(&mut self, delta: OwnerMatchEngineEffectDelta) {
         self.ordered.push(delta);
@@ -233,7 +232,7 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
-    #[cfg(test)]
+    #[allow(dead_code)]
     pub(super) fn match_engine_effect_checkpoint(&self) -> OwnerMatchEngineEffectCheckpoint {
         OwnerMatchEngineEffectCheckpoint {
             diagnostics_len: self.diagnostics.len(),
@@ -243,7 +242,7 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
-    #[cfg(test)]
+    #[allow(dead_code)]
     pub(super) fn match_engine_effect_delta(
         &self,
         checkpoint: OwnerMatchEngineEffectCheckpoint,
@@ -288,7 +287,7 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
-    #[cfg(test)]
+    #[allow(dead_code)]
     pub(super) fn absorb_match_engine_effect_delta(
         &mut self,
         delta: OwnerMatchEngineEffectDelta,
