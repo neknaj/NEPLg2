@@ -169031,3 +169031,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - consecutive Match snapshotはcanonicalization後も`Ok / Always` condition 1件を保持する。既存owner-summary updateの順序非依存・nested condition・alternative path回帰も通過し、共有関数抽出がfull summaryの結果を変えないことを確認した。
 - focused fixture 1件、variant path 9件、owner control 10件、owner-summary filter 42件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent reviewは8 channel全ての旧処理との同値、channel間非依存、variant return extentとroot fresh extentの維持を確認しfindingsなし。
 - 次はこの共有正規形を使う独立reference DFSと8 channel全非空exact fixtureでsummary parityを完成させる。F5nzu production authority、Branch/Loop、1023/2047 runtime gate、issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了である。`plan.md`は変更していない。
+
+2026-07-19 F5nzu explicit Match condition reference checkpoint
+
+- summary parityの最初の独立channelとして、linear ops列からreturn-producing Matchだけを選び、明示Variant armとpending unreachable tableを直接照合して`Always` condition集合を作るtest-only referenceを追加した。productionの`match_arm_reachable`、variant normalization、condition terminal helperは呼ばず、sort/dedupした結果をcanonicalized root snapshotのconditionsと比較する。
+- consecutive fixtureの第一Matchをunreachable Err index 0 + reachable Ok index 1、第二Matchをduplicate Ok index 0とした。actual control treeの元arm index、reference側のErr除外、2個のOk重複排除、最終`Ok / Always` 1件を別々に固定する。unreachable armはdeltaを増やさず、従来のstate/effect連鎖とgeneric全ops parityも維持する。
+- focused fixture 1件、variant path 9件、owner control 10件、owner-summary filter 42件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent初回reviewのproduction reachability/normalization共有によるcommon-mode blockerは直接table照合とmixed-arm fixtureで修正し、再reviewはblockerなし。
+- このreferenceはexplicit Variant + Always condition限定であり、複合condition groupingや残り7 summary channelの独立oracleではない。次はcondition fact一般形を拡張しつつ、indices/sources/extents/host/type/returns/payloadのproducer別referenceと全非空fixtureを進める。F5nzu issue close/main統合、production authority、Branch/Loop、1023/2047 runtime gate、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。

@@ -1045,6 +1045,46 @@ mod tests {
         (result, snapshot)
     }
 
+    fn linear_match_condition_reference(
+        ops: &[ResourceOp],
+        return_value: &Place,
+        effects: &PendingVariantOwnerEffects,
+    ) -> Vec<OwnerVariantCondition> {
+        let mut conditions = Vec::new();
+        for op in ops {
+            let ResourceOp::Match {
+                output,
+                scrutinee,
+                arms,
+                ..
+            } = op
+            else {
+                continue;
+            };
+            if output != return_value {
+                continue;
+            }
+            for arm in arms {
+                let crate::resource::model::ResourceMatchPattern::Variant(variant) = &arm.pattern
+                else {
+                    panic!("condition reference requires an explicit variant pattern");
+                };
+                if effects.unreachable_variants.iter().any(|entry| {
+                    entry.result == *scrutinee && entry.variant == *variant
+                }) {
+                    continue;
+                }
+                conditions.push(OwnerVariantCondition {
+                    variant: variant.clone(),
+                    condition: OwnerValueCondition::Always,
+                });
+            }
+        }
+        conditions.sort_unstable();
+        conditions.dedup();
+        conditions
+    }
+
     #[test]
     fn constructed_path_returns_state_after_final_replay_op() {
         let value = Place::local("value".to_string(), TypeId(0));
@@ -1316,6 +1356,7 @@ mod tests {
         let mut types = TypeCtx::new();
         let owner_ty = types.box_ty(types.unit());
         let value = Place::local("value".to_string(), types.unit());
+        let first_unreachable = Place::local("first_unreachable".to_string(), types.unit());
         let first_value = Place::local("first_value".to_string(), types.unit());
         let first_retained = Place::local("first_retained".to_string(), types.unit());
         let second_value = Place::local("second_value".to_string(), types.unit());
@@ -1350,27 +1391,47 @@ mod tests {
             value: arm_value,
             span,
         };
+        let unreachable_arm = ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Variant("Err".to_string()),
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: vec![ResourceOp::Construct {
+                output: first_unreachable.clone(),
+                kind: AggregateKind::Enum {
+                    name: "Result".to_string(),
+                    variant: "Err".to_string(),
+                },
+                inputs: Vec::new(),
+                span,
+            }],
+            value: first_unreachable,
+            span,
+        };
         let ops = [
-                ResourceOp::Match {
-                    output: value.clone(),
-                    scrutinee: first_scrutinee.clone(),
-                    scrutinee_is_borrow_target: false,
-                    arms: vec![arm(first_value, first_retained.clone(), first_bind)],
-                    span,
-                },
-                ResourceOp::Match {
-                    output: value.clone(),
-                    scrutinee: second_scrutinee.clone(),
-                    scrutinee_is_borrow_target: false,
-                    arms: vec![arm(second_value, second_retained.clone(), second_bind)],
-                    span,
-                },
-                ResourceOp::StorageOrigin {
-                    target: post_retained.clone(),
-                    origin: StorageOrigin::Owned,
-                    span,
-                },
-            ];
+            ResourceOp::Match {
+                output: value.clone(),
+                scrutinee: first_scrutinee.clone(),
+                scrutinee_is_borrow_target: false,
+                arms: vec![
+                    unreachable_arm,
+                    arm(first_value, first_retained.clone(), first_bind),
+                ],
+                span,
+            },
+            ResourceOp::Match {
+                output: value.clone(),
+                scrutinee: second_scrutinee.clone(),
+                scrutinee_is_borrow_target: false,
+                arms: vec![arm(second_value, second_retained.clone(), second_bind)],
+                span,
+            },
+            ResourceOp::StorageOrigin {
+                target: post_retained.clone(),
+                origin: StorageOrigin::Owned,
+                span,
+            },
+        ];
         let mut effects = PendingVariantOwnerEffects::default();
         for scrutinee in [&first_scrutinee, &second_scrutinee] {
             effects.consumptions.push(
@@ -1389,6 +1450,12 @@ mod tests {
                 },
             );
         }
+        effects.unreachable_variants.push(
+            crate::resource::owner_variant::PendingUnreachableVariant {
+                result: first_scrutinee.clone(),
+                variant: "Err".to_string(),
+            },
+        );
         let (mut result, summary_snapshot) = run_path_with_summary_snapshot(
             &types,
             &ops,
@@ -1399,6 +1466,10 @@ mod tests {
         );
 
         assert!(result.engine_effects().is_complete());
+        assert_eq!(
+            summary_snapshot.conditions,
+            linear_match_condition_reference(&ops, &value, &effects)
+        );
         assert_eq!(
             summary_snapshot,
             OwnerVariantSummarySnapshot {
@@ -1422,13 +1493,17 @@ mod tests {
         for control in &result.controls {
             assert_eq!(control.kind, OwnerVariantControlKind::Match);
             assert_eq!(control.paths.len(), 1);
-            assert_eq!(
-                control.paths[0].selector,
-                OwnerVariantPathSelector::MatchArm(0)
-            );
             assert!(control.paths[0].result.merge_eligible);
             assert!(control.paths[0].result.effect_authority_transferred);
         }
+        assert_eq!(
+            result.controls[0].paths[0].selector,
+            OwnerVariantPathSelector::MatchArm(1)
+        );
+        assert_eq!(
+            result.controls[1].paths[0].selector,
+            OwnerVariantPathSelector::MatchArm(0)
+        );
         assert_eq!(
             result.controls[0].paths[0]
                 .result
