@@ -169148,3 +169148,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - 既存`NEPL_RESOURCE_PER_FUNCTION_TIMING=1`と`NEPL_RESOURCE_TIMING_FUNCTION=record_budget`を使い、コード変更なしで1023 controlのauthority到達を再計測した。180秒内に対象owner-summaryの`resource-owner-variant-profile`完了ログへ到達せず、得られたのは同対象functionの前段`i32_scalar_summary` 539msだけだった。全体はexit 124、elapsed 180.06秒、max RSS 664536 KiBである。
 - 既存profileだけではMatch/Branch authority採用数とfallback reasonを判定できない。次はnative opt-in時だけdecision直後にattempted/adopted/fallback reason、reachable paths、generic replay executed/skippedをcontrol kind別に出す意味中立instrumentationを追加し、summary完了前timeoutでも到達を証明する。1023/2047、issue close/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu immediate authority trace checkpoint
+
+- `NEPL_RESOURCE_AUTHORITY_TRACE=1`専用opt-inと既存`NEPL_RESOURCE_TIMING_FUNCTION` filterを組み合わせ、対象functionのreturn-producing Branch/Match decisionをsummary完了前に即時出力するtraceを追加した。decisionはadopted/fallback、reasonはcomplete/incomplete effectsまたはzero reachable paths、さらにreachable path数、function、op index、depthを保持する。sequential Branch/Match/Loop replayはstarting、正常return後completed、authority省略時skippedを出し、other opは同期I/O対象外とした。
+- subagent初回reviewのpre-call `executed`誤表示、全op大量I/O、function/op識別欠落、timing opt-inとの不必要な連動を修正した。専用var単独+一致filterのsmokeはLoop starting/completed各1件、other 0件、不一致filterはtrace 0件を確認した。専用var判定は`OnceLock`で保持し、通常buildの各profile生成で環境変数を再読込しない。最終reviewはblockerなし。
+- variant path 18件、owner control 10件、owner-summary 51件、native/wasm32 check、release CLI build、`git diff --check`は通過した。次はcheckpoint後の1023 controlに専用traceを適用し、authority adoption/fallback実数から次の性能sliceを決める。1023/2047、issue close/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。

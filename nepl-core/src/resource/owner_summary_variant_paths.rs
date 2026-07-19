@@ -341,7 +341,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 if else_result.merge_eligible {
                     branch_paths.push(else_result.state);
                 }
-                if branch_effects.is_complete() {
+                let branch_effects_complete = branch_effects.is_complete();
+                if branch_effects_complete {
                     super::owner_control::merge_match_path_states(
                         &mut owners,
                         &mut function_aliases,
@@ -355,6 +356,19 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     branch_effects = branch_effects.absorb_into_and_retain(&mut engine);
                     specialized_authority = true;
                 }
+                profile.trace_control_authority(
+                    engine.function,
+                    index,
+                    "branch",
+                    specialized_authority,
+                    if branch_effects_complete {
+                        "complete_effects"
+                    } else {
+                        "incomplete_effects"
+                    },
+                    2,
+                    depth,
+                );
                 engine_effects.extend(branch_effects);
                 #[cfg(test)]
                 if specialized_authority {
@@ -502,7 +516,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 if reachable_paths == 0 {
                     match_effects.mark_incomplete();
                 }
-                if match_effects.is_complete() {
+                let match_effects_complete = match_effects.is_complete();
+                if match_effects_complete {
                     super::owner_control::merge_match_path_states(
                         &mut owners,
                         &mut function_aliases,
@@ -516,6 +531,21 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     match_effects = match_effects.absorb_into_and_retain(&mut engine);
                     specialized_authority = true;
                 }
+                profile.trace_control_authority(
+                    engine.function,
+                    index,
+                    "match",
+                    specialized_authority,
+                    if reachable_paths == 0 {
+                        "zero_reachable_paths"
+                    } else if match_effects_complete {
+                        "complete_effects"
+                    } else {
+                        "incomplete_effects"
+                    },
+                    reachable_paths,
+                    depth,
+                );
                 engine_effects.extend(match_effects);
                 #[cfg(test)]
                 if specialized_authority {
@@ -563,7 +593,24 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         let replay_checkpoint = engine.match_engine_effect_checkpoint();
         profile.observe_sequential_replay(1);
         let replay_timer = profile.start();
-        if !specialized_authority {
+        if specialized_authority {
+            profile.trace_sequential_replay(
+                engine.function,
+                index,
+                op,
+                "skipped",
+                return_value,
+                depth,
+            );
+        } else {
+            profile.trace_sequential_replay(
+                engine.function,
+                index,
+                op,
+                "starting",
+                return_value,
+                depth,
+            );
             engine.check_ops(
                 &mut owners,
                 &mut function_aliases,
@@ -573,6 +620,14 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 &mut pending_reallocs,
                 &mut variant_owner_effects,
                 &ops[index..=index],
+            );
+            profile.trace_sequential_replay(
+                engine.function,
+                index,
+                op,
+                "completed",
+                return_value,
+                depth,
             );
         }
         #[cfg(test)]

@@ -1,6 +1,21 @@
 use super::timing::ResourceFunctionStageTimer;
 use super::{model::Place, model::ResourceOp, owner_variant::PendingVariantOwnerEffectProfile};
 
+fn authority_trace_requested(function_name: &str) -> bool {
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    {
+        static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        return *ENABLED.get_or_init(|| {
+            std::env::var("NEPL_RESOURCE_AUTHORITY_TRACE").as_deref() == Ok("1")
+        }) && super::timing::resource_timing_function_matches(function_name);
+    }
+    #[cfg(any(target_os = "none", target_arch = "wasm32"))]
+    {
+        let _ = function_name;
+        false
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum OwnerVariantProfilePhase {
     StateClone,
@@ -19,6 +34,7 @@ pub(super) struct OwnerVariantProfileTimer {
 #[derive(Default)]
 pub(super) struct OwnerVariantReturnProfile {
     enabled: bool,
+    authority_trace_enabled: bool,
     nested_calls: usize,
     path_calls: usize,
     branch_forks: usize,
@@ -59,8 +75,10 @@ pub(super) struct OwnerVariantReturnProfile {
 
 impl OwnerVariantReturnProfile {
     pub(super) fn new(function_name: &str) -> Self {
+        let enabled = ResourceFunctionStageTimer::measurements_enabled(function_name);
         Self {
-            enabled: ResourceFunctionStageTimer::measurements_enabled(function_name),
+            enabled,
+            authority_trace_enabled: authority_trace_requested(function_name),
             ..Self::default()
         }
     }
@@ -82,6 +100,79 @@ impl OwnerVariantReturnProfile {
 
     pub(super) fn is_enabled(&self) -> bool {
         self.enabled
+    }
+
+    pub(super) fn trace_control_authority(
+        &self,
+        function_name: &str,
+        op_index: usize,
+        kind: &'static str,
+        adopted: bool,
+        reason: &'static str,
+        reachable_paths: usize,
+        depth: usize,
+    ) {
+        #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+        if self.authority_trace_enabled {
+            std::eprintln!(
+                "[resource-owner-variant-authority] function={} op_index={} kind={} decision={} reason={} reachable_paths={} depth={}",
+                function_name,
+                op_index,
+                kind,
+                if adopted { "adopted" } else { "fallback" },
+                reason,
+                reachable_paths,
+                depth,
+            );
+        }
+        #[cfg(any(target_os = "none", target_arch = "wasm32"))]
+        {
+            let _ = kind;
+            let _ = function_name;
+            let _ = op_index;
+            let _ = adopted;
+            let _ = reason;
+            let _ = reachable_paths;
+            let _ = depth;
+        }
+    }
+
+    pub(super) fn trace_sequential_replay(
+        &self,
+        function_name: &str,
+        op_index: usize,
+        op: &ResourceOp,
+        action: &'static str,
+        return_value: &Place,
+        depth: usize,
+    ) {
+        #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+        if self.authority_trace_enabled {
+            let (kind, return_control) = match op {
+                ResourceOp::Branch { output, .. } => ("branch", output == return_value),
+                ResourceOp::Loop { .. } => ("loop", false),
+                ResourceOp::Match { output, .. } => ("match", output == return_value),
+                _ => return,
+            };
+            std::eprintln!(
+                "[resource-owner-variant-replay] function={} op_index={} kind={} action={} return_control={} depth={}",
+                function_name,
+                op_index,
+                kind,
+                action,
+                return_control,
+                depth,
+            );
+        }
+        #[cfg(any(target_os = "none", target_arch = "wasm32"))]
+        {
+            let _ = op;
+            let _ = function_name;
+            let _ = op_index;
+            let _ = action;
+            let _ = return_value;
+            let _ = depth;
+        }
     }
 
     pub(super) fn finish(
