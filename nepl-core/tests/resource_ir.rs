@@ -26811,6 +26811,91 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_moves_named_struct_fields_independently() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let owners_ty = types.register_named(
+        "Owners".to_string(),
+        TypeKind::Struct {
+            name: "Owners".to_string(),
+            type_params: vec![],
+            fields: vec![owned_ty, owned_ty],
+            field_names: vec!["left".to_string(), "right".to_string()],
+        },
+    );
+    let span = Span::dummy();
+    let left = Place::temporary(ResourceId(0), owned_ty);
+    let right = Place::temporary(ResourceId(1), owned_ty);
+    let parts = Place::local("parts".to_string(), owners_ty);
+    let left_field = parts.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        owned_ty,
+    );
+    let right_field = parts.clone().with_projection(
+        PlaceProjection::Field {
+            index: 1,
+            offset_bytes: 4,
+        },
+        owned_ty,
+    );
+    let moved_left = Place::temporary(ResourceId(2), owned_ty);
+    let moved_right = Place::temporary(ResourceId(3), owned_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Construct {
+                output: left.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Owned".to_string(),
+                    field_offsets: vec![],
+                },
+                inputs: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: right.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Owned".to_string(),
+                    field_offsets: vec![],
+                },
+                inputs: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: parts,
+                kind: AggregateKind::Struct {
+                    name: "Owners".to_string(),
+                    field_offsets: vec![0, 4],
+                },
+                inputs: vec![left, right],
+                span,
+            },
+            ResourceOp::Move {
+                source: left_field,
+                output: moved_left,
+                span,
+            },
+            ResourceOp::Move {
+                source: right_field,
+                output: moved_right,
+                span,
+            },
+        ],
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "named struct get must move only the selected field, not the whole struct: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_result_payload_raw_address_field() {
     let source = r#"
 #entry main

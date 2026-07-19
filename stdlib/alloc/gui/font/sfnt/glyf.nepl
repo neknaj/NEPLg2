@@ -19836,6 +19836,14 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar %fn &
 //: neplg2:test[skip]
 
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_push_edge_advance %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner impure fn GuiSfntSimpleGlyphRasterEdge impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn bool impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner\edge\next_scalar_index\next_edge_count\next_line_edge_count\next_quadratic_edge_count\next_move_to_count\next_has_current_point\next_current_x2\next_current_y2:
+    let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+    let edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count &owner
+    let line_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count &owner
+    let quadratic_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count &owner
+    let move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count &owner
+    let has_current_point %bool gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point &owner
+    let current_x2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_x2 &owner
+    let current_y2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_y2 &owner
     let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
     let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext field::get owner "context"
     let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
@@ -19846,14 +19854,6 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_push_edge_advance
         Result::Err push_error:
             let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
             let returned_edges %Vec GuiSfntSimpleGlyphRasterEdge vec::vec_push_error_vec push_error
-            let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
-            let edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count &owner
-            let line_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count &owner
-            let quadratic_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count &owner
-            let move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count &owner
-            let has_current_point %bool gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point &owner
-            let current_x2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_x2 &owner
-            let current_y2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_y2 &owner
             let returned_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner writer context returned_edges scalar_index edge_count line_edge_count quadratic_edge_count move_to_count has_current_point current_x2 current_y2
             Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_push_failed returned_owner storage_error_value
 
