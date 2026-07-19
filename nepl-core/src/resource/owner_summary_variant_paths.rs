@@ -231,7 +231,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
             &mut variant_owner_effects,
             &ops[index..=index],
         );
-        profile.finish(replay_timer, OwnerVariantProfilePhase::SequentialReplay);
+        profile.finish_sequential_replay(replay_timer, op, return_value, depth);
     }
     let terminal_timer = profile.start();
     variant_owner_effects.collect_result_owner_effect_summaries(

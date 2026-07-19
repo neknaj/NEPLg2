@@ -1,11 +1,11 @@
 use super::timing::ResourceFunctionStageTimer;
+use super::{model::ResourceOp, model::Place};
 
 #[derive(Clone, Copy)]
 pub(super) enum OwnerVariantProfilePhase {
     StateClone,
     BranchFork,
     MatchEntry,
-    SequentialReplay,
     PathReplay,
     Terminal,
 }
@@ -32,6 +32,16 @@ pub(super) struct OwnerVariantReturnProfile {
     branch_fork_ns: u128,
     match_entry_ns: u128,
     sequential_replay_ns: u128,
+    sequential_branch_ops: usize,
+    sequential_match_ops: usize,
+    sequential_other_ops: usize,
+    sequential_return_control_ops: usize,
+    sequential_branch_ns: u128,
+    sequential_match_ns: u128,
+    sequential_other_ns: u128,
+    sequential_return_control_ns: u128,
+    sequential_max_op_ns: u128,
+    sequential_max_op_depth: usize,
     path_replay_ns: u128,
     terminal_ns: u128,
 }
@@ -71,9 +81,6 @@ impl OwnerVariantReturnProfile {
                 OwnerVariantProfilePhase::StateClone => self.state_clone_ns += elapsed_ns,
                 OwnerVariantProfilePhase::BranchFork => self.branch_fork_ns += elapsed_ns,
                 OwnerVariantProfilePhase::MatchEntry => self.match_entry_ns += elapsed_ns,
-                OwnerVariantProfilePhase::SequentialReplay => {
-                    self.sequential_replay_ns += elapsed_ns
-                }
                 OwnerVariantProfilePhase::PathReplay => self.path_replay_ns += elapsed_ns,
                 OwnerVariantProfilePhase::Terminal => self.terminal_ns += elapsed_ns,
             }
@@ -121,6 +128,53 @@ impl OwnerVariantReturnProfile {
         }
     }
 
+    pub(super) fn finish_sequential_replay(
+        &mut self,
+        timer: OwnerVariantProfileTimer,
+        op: &ResourceOp,
+        return_value: &Place,
+        depth: usize,
+    ) {
+        #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+        if let Some(start) = timer.start {
+            let elapsed_ns = start.elapsed().as_nanos();
+            self.sequential_replay_ns += elapsed_ns;
+            match op {
+                ResourceOp::Branch { output, .. } => {
+                    self.sequential_branch_ops += 1;
+                    self.sequential_branch_ns += elapsed_ns;
+                    if output == return_value {
+                        self.sequential_return_control_ops += 1;
+                        self.sequential_return_control_ns += elapsed_ns;
+                    }
+                }
+                ResourceOp::Match { output, .. } => {
+                    self.sequential_match_ops += 1;
+                    self.sequential_match_ns += elapsed_ns;
+                    if output == return_value {
+                        self.sequential_return_control_ops += 1;
+                        self.sequential_return_control_ns += elapsed_ns;
+                    }
+                }
+                _ => {
+                    self.sequential_other_ops += 1;
+                    self.sequential_other_ns += elapsed_ns;
+                }
+            }
+            if elapsed_ns > self.sequential_max_op_ns {
+                self.sequential_max_op_ns = elapsed_ns;
+                self.sequential_max_op_depth = depth;
+            }
+        }
+        #[cfg(any(target_os = "none", target_arch = "wasm32"))]
+        {
+            let _ = timer;
+            let _ = op;
+            let _ = return_value;
+            let _ = depth;
+        }
+    }
+
     pub(super) fn observe_path_replay(&mut self, op_count: usize) {
         if self.enabled {
             self.path_replay_ops += op_count;
@@ -133,7 +187,7 @@ impl OwnerVariantReturnProfile {
         }
         #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
         std::eprintln!(
-            "[resource-owner-variant-profile] function={} nested_calls={} path_calls={} branch_forks={} match_arms={} recursive_paths={} constructed_paths={} max_depth={} sequential_replay_ops={} path_replay_ops={} state_clone_us={} branch_fork_us={} match_entry_us={} sequential_replay_us={} path_replay_us={} terminal_us={}",
+            "[resource-owner-variant-profile] function={} nested_calls={} path_calls={} branch_forks={} match_arms={} recursive_paths={} constructed_paths={} max_depth={} sequential_replay_ops={} sequential_branch_ops={} sequential_match_ops={} sequential_other_ops={} sequential_return_control_ops={} path_replay_ops={} state_clone_us={} branch_fork_us={} match_entry_us={} sequential_replay_us={} sequential_branch_us={} sequential_match_us={} sequential_other_us={} sequential_return_control_us={} sequential_max_op_us={} sequential_max_op_depth={} path_replay_us={} terminal_us={}",
             function_name,
             self.nested_calls,
             self.path_calls,
@@ -143,11 +197,21 @@ impl OwnerVariantReturnProfile {
             self.constructed_paths,
             self.max_depth,
             self.sequential_replay_ops,
+            self.sequential_branch_ops,
+            self.sequential_match_ops,
+            self.sequential_other_ops,
+            self.sequential_return_control_ops,
             self.path_replay_ops,
             self.state_clone_ns / 1_000,
             self.branch_fork_ns / 1_000,
             self.match_entry_ns / 1_000,
             self.sequential_replay_ns / 1_000,
+            self.sequential_branch_ns / 1_000,
+            self.sequential_match_ns / 1_000,
+            self.sequential_other_ns / 1_000,
+            self.sequential_return_control_ns / 1_000,
+            self.sequential_max_op_ns / 1_000,
+            self.sequential_max_op_depth,
             self.path_replay_ns / 1_000,
             self.terminal_ns / 1_000,
         );
