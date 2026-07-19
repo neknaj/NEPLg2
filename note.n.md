@@ -169143,3 +169143,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - generic Loop effect authority checkpoint `5b2b9e0ec` 後にF5nzt 1023 control fixtureをrelease CLI、`--test-mode --run --target wasi`、180秒上限で再計測した。結果はexit 124、elapsed 180.05秒、max RSS 664688 KiBで、runtime output生成前にtimeoutした。Match後664328 KiB、Branch後664444 KiBと同水準で、control authority三種の切替だけでは通常gateを解消しない。
 - 1023未通過のため2047復元、issue close、main統合は引き続き禁止する。次はfixtureでspecialized authorityが実際に何回成立し、どのfallback/return collectionが残るかをopt-in instrumentationで再計測し、推測で追加最適化しない。フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu post-authority profile availability gate
+
+- 既存`NEPL_RESOURCE_PER_FUNCTION_TIMING=1`と`NEPL_RESOURCE_TIMING_FUNCTION=record_budget`を使い、コード変更なしで1023 controlのauthority到達を再計測した。180秒内に対象owner-summaryの`resource-owner-variant-profile`完了ログへ到達せず、得られたのは同対象functionの前段`i32_scalar_summary` 539msだけだった。全体はexit 124、elapsed 180.06秒、max RSS 664536 KiBである。
+- 既存profileだけではMatch/Branch authority採用数とfallback reasonを判定できない。次はnative opt-in時だけdecision直後にattempted/adopted/fallback reason、reachable paths、generic replay executed/skippedをcontrol kind別に出す意味中立instrumentationを追加し、summary完了前timeoutでも到達を証明する。1023/2047、issue close/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
