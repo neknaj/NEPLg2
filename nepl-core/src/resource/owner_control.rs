@@ -1405,4 +1405,75 @@ mod tests {
 
         assert_eq!(generic, shadow);
     }
+
+    #[test]
+    fn prepare_match_arm_path_rejects_reserved_bind_source() {
+        let mut types = TypeCtx::new();
+        let unit = types.unit();
+        let owner_ty = types.box_ty(unit);
+        let summaries = Vec::new();
+        let summary_index = super::super::summary::OwnerReturnSummaryIndex::new(&summaries);
+        let mut engine = ResourceOwnerCheckEngine {
+            function: "oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: super::super::report::ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let scrutinee = Place::local("scrutinee".to_string(), unit);
+        let bind_local = Place::local("payload".to_string(), owner_ty);
+        let reserved_source = scrutinee.clone().with_projection(
+            super::super::model::PlaceProjection::EnumPayload {
+                variant: "Ok".to_string(),
+            },
+            owner_ty,
+        );
+        let arm = ResourceMatchArm {
+            pattern: super::super::model::ResourceMatchPattern::Variant("Ok".to_string()),
+            bind_local: Some(bind_local),
+            bind_source_name: None,
+            bind_mode: Some(super::super::model::ResourceMatchBindMode::Owned),
+            ops: Vec::new(),
+            value: Place::local("value".to_string(), unit),
+            span: Span::empty(crate::span::FileId(0), 0),
+        };
+        let mut state = empty_match_state();
+        state.variant_owner_effects.consumptions.push(
+            super::super::owner_variant::PendingVariantOwnerConsumption {
+                result: scrutinee.clone(),
+                variant: "Ok".to_string(),
+                arg: reserved_source.clone(),
+                suffix: Vec::new(),
+                ty: owner_ty,
+                extent: None,
+            },
+        );
+
+        assert!(engine
+            .prepare_match_arm_path(
+                &state.owners,
+                &state.function_aliases,
+                &state.raw_aliases,
+                &state.raw_views,
+                &state.storage_origins,
+                &state.pending_reallocs,
+                &state.variant_owner_effects,
+                &scrutinee,
+                &arm,
+                arm.span,
+            )
+            .is_some());
+        assert!(matches!(
+            engine.diagnostics.as_slice(),
+            [super::super::report::ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::MatchValue,
+                place,
+                ..
+            }] if *place == reserved_source
+        ));
+    }
 }

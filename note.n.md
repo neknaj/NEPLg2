@@ -168920,3 +168920,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 両fixtureは直接assert後もgeneric Matchとspecialized shadowのstate 7 channelおよびengine diagnostics/deferred/owner extent/memory 4 channel全体を比較する。Neverで全armが非mergeでもpost-Match opsは親state上で継続する。production処理は変更していない。
 - pass: focused specialized Match oracle 3件、owner-summary filter 35件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
 - subagent初回reviewで最終snapshot一致だけでは共有helperの同一誤動作を検出できないblockerを受け、prepare None/Someとfinalize falseの直接assertへ修正した。再reviewはblocker解消・commit可。engine 4 channel mutation、bind reserved-source直接fixture、full summary parity、production merge、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu canonical Match bind reserved-source checkpoint
+
+- canonical `prepare_match_arm_path`のOwned variant bindについて、non-Copy `Box<Unit>` payloadをpending consumption sourceとして予約し、prepareがreachable pathをSomeで返しながら`MatchValue`の`OwnerUnavailable`を元payload sourceへ記録する直接回帰を追加した。reserved-source拒否のない旧specialized helperでは診断が空になるため、production parityに必要な差を固定する。
+- focused owner control 8件、owner-summary filter 35件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent差分reviewはblockerなし・checkpoint可。Reserved state値とbind非転送の直接assertは非blocker coverage gapとして残す。
+- engine 4 channelはpath stateとしてmergeせずgenericと同じDFS順のshared mutable engine authorityへ累積する。安全な中間段階ではbaseline-free test-only deltaでdiagnostics順序append、deferred加算、owner extent順序append、memory requirement重複排除をoracle比較し、Never effectsを保持してunreachable effectsを生成しない。full cloned engine返却は禁止する。delta oracle、production helper置換、full summary parity、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
