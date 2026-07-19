@@ -168889,3 +168889,11 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - この回帰は7-state transportの返却時点だけを証明する。recursive Branch/Match child stateの採用、engine diagnostics/deferred/owner extent/memory span authority、generic oracleとの全field summary parity、1023/2047 runtime gateは未完了である。F5nzu issue、main統合、フォントレンダリング/GUI全体も未完了として維持し、`plan.md`は変更していない。
 - pass: focused actual path 2件、owner-summary 35件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
 - subagent差分・全体整合reviewはblockerなし。両fixtureの分岐選択はops構文とoutput一致で確定し、最後のStorageOriginは空tableからactual replay後stateへ追加されるため直接証拠となる。空TypeCtxは今回の型非依存transport検証を偽陽性化せず、production visibility/semanticsも不変である。
+
+2026-07-19 F5nzu recursive control path tree checkpoint
+
+- actual nested variant traversalが返す7-stateに、test build限定でcontrol op index、Branch/Match種別、Then/Else/元Match arm index、再帰child resultを保持するtreeを追加した。flatな`OwnerMatchPathStates`へ異なるcontrol nodeを混在させず、nested Matchは親BranchのThen child配下に保持する。
+- release buildではcontrol treeの型field、Vec、path result保持を`cfg(test)`で除去し、既存generic sequential replay、summary accumulator、production allocationと意味論を変更しない。既存`owner_control::OwnerMatchPathStates`は将来も1 control node直下だけをmergeする一時collectorとして扱う。
+- nested Branch→Then Match fixtureはroot Branch、Then/Else順、nested Match、元arm index 0、Then/Else各childの最終StorageOriginを固定した。engine 4 channel、reserved-source rejection、summary全field parity、single traversal採用、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+- pass: focused control tree 3件、owner-summary 36件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
+- subagent差分・全体整合reviewは現test-only checkpointにblockerなし。将来のproduction mergeにはgeneric reserved-source rejection、Match value-to-output finalization、engine 4 channelが欠けるため、現child stateからgeneric replayを除去してはならない。unreachable armを先にskipして元index 1を保持する直接回帰は非blocker coverage gapとして残す。

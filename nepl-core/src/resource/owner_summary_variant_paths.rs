@@ -1,4 +1,6 @@
 use alloc::vec::Vec;
+#[cfg(test)]
+use alloc::vec;
 
 use crate::span::Span;
 
@@ -33,6 +35,40 @@ use super::summary::{
 };
 use super::variant_name::normalize_variant_name;
 
+pub(super) struct OwnerVariantTraversalResult {
+    pub(super) state: OwnerMatchPathState,
+    #[cfg(test)]
+    controls: Vec<OwnerVariantControlPaths>,
+}
+
+#[cfg(test)]
+struct OwnerVariantControlPaths {
+    op_index: usize,
+    kind: OwnerVariantControlKind,
+    paths: Vec<OwnerVariantTraversalPath>,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OwnerVariantControlKind {
+    Branch,
+    Match,
+}
+
+#[cfg(test)]
+struct OwnerVariantTraversalPath {
+    selector: OwnerVariantPathSelector,
+    result: OwnerVariantTraversalResult,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OwnerVariantPathSelector {
+    Then,
+    Else,
+    MatchArm(usize),
+}
+
 pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     index_out: &mut Vec<OwnerVariantParameterIndex>,
     source_out: &mut Vec<OwnerVariantProjectionSource>,
@@ -56,7 +92,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
     profile: &mut OwnerVariantReturnProfile,
     depth: usize,
-) -> OwnerMatchPathState {
+) -> OwnerVariantTraversalResult {
     profile.observe_nested(depth);
     let payload_observations_before = payload_condition_out.observation_count();
     let state_clone_timer = profile.start();
@@ -78,6 +114,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     let mut function_aliases = function_aliases.clone();
     let mut pending_reallocs = pending_reallocs.clone();
     let mut variant_owner_effects = variant_owner_effects.clone();
+    #[cfg(test)]
+    let mut controls = Vec::new();
     profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
     for (index, op) in ops.iter().enumerate() {
         match op {
@@ -108,7 +146,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     *span,
                 );
                 profile.finish(branch_fork_timer, OwnerVariantProfilePhase::BranchFork);
-                collect_variant_consumed_owner_parameters_from_path(
+                let then_result = collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
                     extent_out,
@@ -151,7 +189,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     *span,
                 );
                 profile.finish(branch_fork_timer, OwnerVariantProfilePhase::BranchFork);
-                collect_variant_consumed_owner_parameters_from_path(
+                let else_result = collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
                     extent_out,
@@ -177,6 +215,23 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     profile,
                     depth + 1,
                 );
+                #[cfg(test)]
+                controls.push(OwnerVariantControlPaths {
+                    op_index: index,
+                    kind: OwnerVariantControlKind::Branch,
+                    paths: vec![
+                        OwnerVariantTraversalPath {
+                            selector: OwnerVariantPathSelector::Then,
+                            result: then_result,
+                        },
+                        OwnerVariantTraversalPath {
+                            selector: OwnerVariantPathSelector::Else,
+                            result: else_result,
+                        },
+                    ],
+                });
+                #[cfg(not(test))]
+                let _ = (then_result, else_result);
             }
             ResourceOp::Match {
                 output,
@@ -194,12 +249,14 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         ),
                     );
                 }
-                for arm in arms {
+                #[cfg(test)]
+                let mut paths = Vec::new();
+                for (_arm_index, arm) in arms.iter().enumerate() {
                     if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
                         continue;
                     }
                     profile.observe_match_arm();
-                    collect_variant_consumed_owner_parameters_from_path(
+                    let result = collect_variant_consumed_owner_parameters_from_path(
                         index_out,
                         source_out,
                         extent_out,
@@ -225,7 +282,20 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         profile,
                         depth + 1,
                     );
+                    #[cfg(test)]
+                    paths.push(OwnerVariantTraversalPath {
+                        selector: OwnerVariantPathSelector::MatchArm(_arm_index),
+                        result,
+                    });
+                    #[cfg(not(test))]
+                    let _ = result;
                 }
+                #[cfg(test)]
+                controls.push(OwnerVariantControlPaths {
+                    op_index: index,
+                    kind: OwnerVariantControlKind::Match,
+                    paths,
+                });
             }
             _ => {}
         }
@@ -261,14 +331,18 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     if payload_condition_out.observation_count() == payload_observations_before {
         payload_condition_out.observe_unknown_path();
     }
-    OwnerMatchPathState {
-        owners,
-        function_aliases,
-        raw_aliases,
-        raw_views,
-        storage_origins,
-        pending_reallocs,
-        variant_owner_effects,
+    OwnerVariantTraversalResult {
+        state: OwnerMatchPathState {
+            owners,
+            function_aliases,
+            raw_aliases,
+            raw_views,
+            storage_origins,
+            pending_reallocs,
+            variant_owner_effects,
+        },
+        #[cfg(test)]
+        controls,
     }
 }
 
@@ -297,7 +371,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
     profile: &mut OwnerVariantReturnProfile,
     depth: usize,
-) -> OwnerMatchPathState {
+) -> OwnerVariantTraversalResult {
     profile.observe_path(depth);
     let state_clone_timer = profile.start();
     let mut path_engine = ResourceOwnerCheckEngine {
@@ -475,14 +549,18 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
     }
     profile.finish(terminal_timer, OwnerVariantProfilePhase::Terminal);
-    OwnerMatchPathState {
-        owners: path_owners,
-        function_aliases: path_function_aliases,
-        raw_aliases: path_raw_aliases,
-        raw_views: path_raw_views,
-        storage_origins: path_storage_origins,
-        pending_reallocs: path_pending_reallocs,
-        variant_owner_effects: path_variant_owner_effects,
+    OwnerVariantTraversalResult {
+        state: OwnerMatchPathState {
+            owners: path_owners,
+            function_aliases: path_function_aliases,
+            raw_aliases: path_raw_aliases,
+            raw_views: path_raw_views,
+            storage_origins: path_storage_origins,
+            pending_reallocs: path_pending_reallocs,
+            variant_owner_effects: path_variant_owner_effects,
+        },
+        #[cfg(test)]
+        controls: Vec::new(),
     }
 }
 
@@ -533,7 +611,7 @@ mod tests {
     use crate::resource::model::{AggregateKind, StorageOrigin};
     use crate::resource::summary::OwnerReturnSummaryIndex;
 
-    fn run_path(path_ops: &[ResourceOp], path_value: &Place) -> OwnerMatchPathState {
+    fn run_path(path_ops: &[ResourceOp], path_value: &Place) -> OwnerVariantTraversalResult {
         let types = TypeCtx::new();
         let summaries = Vec::new();
         let summary_index = OwnerReturnSummaryIndex::new(&summaries);
@@ -591,7 +669,7 @@ mod tests {
         let value = Place::local("value".to_string(), TypeId(0));
         let retained = Place::local("retained".to_string(), TypeId(0));
         let span = Span::dummy();
-        let state = run_path(
+        let result = run_path(
             &[
                 ResourceOp::Construct {
                     output: value.clone(),
@@ -612,7 +690,7 @@ mod tests {
         );
 
         assert_eq!(
-            state.storage_origins.origin(&retained),
+            result.state.storage_origins.origin(&retained),
             Some(StorageOrigin::Owned)
         );
     }
@@ -622,7 +700,7 @@ mod tests {
         let value = Place::local("value".to_string(), TypeId(0));
         let retained = Place::local("retained".to_string(), TypeId(0));
         let span = Span::dummy();
-        let state = run_path(
+        let result = run_path(
             &[ResourceOp::StorageOrigin {
                 target: retained.clone(),
                 origin: StorageOrigin::Owned,
@@ -632,7 +710,104 @@ mod tests {
         );
 
         assert_eq!(
-            state.storage_origins.origin(&retained),
+            result.state.storage_origins.origin(&retained),
+            Some(StorageOrigin::Owned)
+        );
+    }
+
+    #[test]
+    fn recursive_control_paths_preserve_branch_and_nested_match_hierarchy() {
+        let root_value = Place::local("root_value".to_string(), TypeId(0));
+        let then_value = Place::local("then_value".to_string(), TypeId(0));
+        let else_value = Place::local("else_value".to_string(), TypeId(0));
+        let arm_value = Place::local("arm_value".to_string(), TypeId(0));
+        let condition = Place::local("condition".to_string(), TypeId(0));
+        let scrutinee = Place::local("scrutinee".to_string(), TypeId(0));
+        let then_retained = Place::local("then_retained".to_string(), TypeId(0));
+        let else_retained = Place::local("else_retained".to_string(), TypeId(0));
+        let span = Span::dummy();
+        let enum_construct = |output: Place| ResourceOp::Construct {
+            output,
+            kind: AggregateKind::Enum {
+                name: "Result".to_string(),
+                variant: "Ok".to_string(),
+            },
+            inputs: Vec::new(),
+            span,
+        };
+        let result = run_path(
+            &[ResourceOp::Branch {
+                output: root_value.clone(),
+                condition,
+                condition_fact: None,
+                then_ops: vec![ResourceOp::Match {
+                    output: then_value.clone(),
+                    scrutinee,
+                    scrutinee_is_borrow_target: false,
+                    arms: vec![ResourceMatchArm {
+                        pattern: crate::resource::model::ResourceMatchPattern::Wildcard,
+                        bind_local: None,
+                        bind_source_name: None,
+                        bind_mode: None,
+                        ops: vec![
+                            enum_construct(arm_value.clone()),
+                            ResourceOp::StorageOrigin {
+                                target: then_retained.clone(),
+                                origin: StorageOrigin::Owned,
+                                span,
+                            },
+                        ],
+                        value: arm_value,
+                        span,
+                    }],
+                    span,
+                }],
+                then_value,
+                else_ops: vec![
+                    enum_construct(else_value.clone()),
+                    ResourceOp::StorageOrigin {
+                        target: else_retained.clone(),
+                        origin: StorageOrigin::Owned,
+                        span,
+                    },
+                ],
+                else_value,
+                span,
+            }],
+            &root_value,
+        );
+
+        assert_eq!(result.controls.len(), 1);
+        let branch = &result.controls[0];
+        assert_eq!(branch.op_index, 0);
+        assert_eq!(branch.kind, OwnerVariantControlKind::Branch);
+        assert_eq!(branch.paths.len(), 2);
+        assert_eq!(branch.paths[0].selector, OwnerVariantPathSelector::Then);
+        assert_eq!(branch.paths[1].selector, OwnerVariantPathSelector::Else);
+        assert_eq!(branch.paths[0].result.controls.len(), 1);
+        assert!(branch.paths[1].result.controls.is_empty());
+        let nested_match = &branch.paths[0].result.controls[0];
+        assert_eq!(nested_match.op_index, 0);
+        assert_eq!(nested_match.kind, OwnerVariantControlKind::Match);
+        assert_eq!(nested_match.paths.len(), 1);
+        assert_eq!(
+            nested_match.paths[0].selector,
+            OwnerVariantPathSelector::MatchArm(0)
+        );
+        assert_eq!(
+            nested_match.paths[0]
+                .result
+                .state
+                .storage_origins
+                .origin(&then_retained),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            branch.paths[1]
+                .result
+                .state
+                .storage_origins
+                .origin(&else_retained),
             Some(StorageOrigin::Owned)
         );
     }

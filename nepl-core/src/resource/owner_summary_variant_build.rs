@@ -67,7 +67,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     }
 
     let mut profile = OwnerVariantReturnProfile::new(function.name.as_str());
-    collect_variant_consumed_owner_parameters_from_nested_return(
+    let _ = collect_variant_consumed_owner_parameters_from_nested_return(
         index_out,
         source_out,
         extent_out,
@@ -90,6 +90,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
         return_out,
         &mut profile,
         0,
-    );
+    )
+    .state;
     profile
 }
