@@ -14006,3 +14006,7 @@ git diff --check
 - registered completion ownerを既存F5nzm phase classifierへexactly once渡し、既存Continue/Yield/Completed ownerを対応するconcrete provenance wrapperへ移す。lower phase ownerは再構築しない。
 - actual Web Begin importへstatus 0を注入し、Begin exactly once、Run/End zero、旧Unsupported/SinkRejected、spent Exhausted、未resume Yield、slice counters 1/0、cleanupをevidence 127で検証する。
 - F5nzz再実行、completion replay、Yield resume、next command、scheduler/queue/timer、追加Web/platform workは禁止する。Yield scheduler decisionとF5nzn continuationはF5oab以降へ残す。
+
+### F5oab Web successful retry Yield scheduler decision
+
+F5oaa actual successの未resume Yieldへcaller value decisionを接続し、ResumeSliceだけを既存F5nzm、F5nznへ順に渡す。actual status 0 fixtureでdecision前slice 1/0、resume後0/0、次command Run、Abort時1/0保持、旧diagnostic/budget、cleanupを固定する。次段は得たRun commandのregistered Web executionとcompletion rejoinであり、actual scheduler backendや複数command loopはさらに後段とする。

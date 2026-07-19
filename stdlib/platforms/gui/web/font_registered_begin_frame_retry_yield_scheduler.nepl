@@ -1,0 +1,114 @@
+//: # Web registered retry Yield scheduler handoff
+//: F5oaa Yieldをcaller decisionで保持または一度だけresumeし、次commandへ渡します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_yield_resume" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_next_command" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_success_phase" as *
+
+pub enum GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision:
+    ResumeSlice
+    Abort
+
+pub struct GuiFontWebRegisteredBeginFrameRetryYieldResumePendingOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionYieldOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionYieldOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwnerParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionYieldOwner
+
+pub enum GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner:
+    ResumePending %GuiFontWebRegisteredBeginFrameRetryYieldResumePendingOwner
+    AbortReady %GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwnerParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetryYieldNextCommandError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandError
+
+pub struct GuiFontWebRegisteredBeginFrameRetryYieldNextCommandErrorParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandError
+
+//: 未resume Yieldを一度分解し、caller decisionに対応するconcrete authorityへ移す
+pub fn gui_font_web_registered_begin_frame_retry_yield_scheduler_decide %fn GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner fn GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner \owner\decision:
+    let parts %GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwnerParts gui_font_web_registered_begin_frame_retry_success_yield_owner_into_parts owner
+    let previous_category %Option GuiError field::get parts "previous_category"
+    let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
+    let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+    let phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionYieldOwner field::get parts "phase_owner"
+    match decision:
+        GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::ResumeSlice:
+            GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::ResumePending GuiFontWebRegisteredBeginFrameRetryYieldResumePendingOwner previous_category previous_diagnostic spent_budget phase_owner
+        GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::Abort:
+            GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::AbortReady GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwner previous_category previous_diagnostic spent_budget phase_owner
+
+pub fn gui_font_web_registered_begin_frame_retry_yield_resume_pending_state %fn &GuiFontWebRegisteredBeginFrameRetryYieldResumePendingOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_owner_state field::get_ref owner "phase_owner"
+
+//: ResumePendingだけをF5nzm resumeとF5nzn next-commandへ順に一度ずつ渡す
+pub fn gui_font_web_registered_begin_frame_retry_yield_resume_and_step_next_command %fn GuiFontWebRegisteredBeginFrameRetryYieldResumePendingOwner Result GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner GuiFontWebRegisteredBeginFrameRetryYieldNextCommandError \owner:
+    let previous_category %Option GuiError field::get owner "previous_category"
+    let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get owner "previous_diagnostic"
+    let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get owner "spent_budget"
+    let phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionYieldOwner field::get owner "phase_owner"
+    let resumed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionResumedOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_slice phase_owner
+    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_owner_step_next_command resumed:
+        Result::Ok next_owner:
+            Result::Ok GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner previous_category previous_diagnostic spent_budget next_owner
+        Result::Err lower:
+            Result::Err GuiFontWebRegisteredBeginFrameRetryYieldNextCommandError previous_category previous_diagnostic spent_budget lower
+
+pub fn gui_font_web_registered_begin_frame_retry_yield_abort_ready_owner_into_parts %fn GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwner GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwnerParts \owner:
+    GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "phase_owner"
+
+pub fn gui_font_web_registered_begin_frame_retry_yield_next_command_owner_into_parts %fn GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwnerParts \owner:
+    GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "next_owner"
+
+pub fn gui_font_web_registered_begin_frame_retry_yield_next_command_error_into_parts %fn GuiFontWebRegisteredBeginFrameRetryYieldNextCommandError GuiFontWebRegisteredBeginFrameRetryYieldNextCommandErrorParts \error:
+    GuiFontWebRegisteredBeginFrameRetryYieldNextCommandErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "lower"
+
+pub fn gui_font_web_registered_begin_frame_retry_yield_resume_pending_owner_free %fn GuiFontWebRegisteredBeginFrameRetryYieldResumePendingOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_owner_free field::get owner "phase_owner"
+
+pub fn gui_font_web_registered_begin_frame_retry_yield_abort_ready_owner_free %fn GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_owner_free field::get owner "phase_owner"
+
+pub fn gui_font_web_registered_begin_frame_retry_yield_next_command_owner_free %fn GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_free field::get owner "next_owner"
+
+pub fn gui_font_web_registered_begin_frame_retry_yield_next_command_error_free %fn GuiFontWebRegisteredBeginFrameRetryYieldNextCommandError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_error_free field::get error "lower"

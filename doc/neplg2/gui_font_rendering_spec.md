@@ -8813,3 +8813,7 @@ F5nzzはplatform/Web composition boundaryとしてF5nzy RetryReadyを一度消�
 ### F5oaa Web registered retry success phase handoff
 
 F5oaaはF5nzz successだけを一度消費し、旧category、exact diagnostic、spent budgetを保持したままregistered completion ownerを既存F5nzm phase classifierへexactly once渡す。F5nzmの既存Continue/Yield/Completed owner authorityは全域match直後に対応するconcrete Web provenance wrapperへ移し、lower phase owner自体を再構築しない。actual Web status 0はhost import境界でだけ注入し、BeginFrame successが未resume Yieldとslice counters 1/0を返すことを検証する。F5oaaはF5nzz実行、completion replay、resume、next command、scheduler loop、追加platform workを行わない。
+
+### F5oab Web retry Yield scheduler handoff
+
+F5oaa が保持する concrete Yield authority は、caller-supplied `ResumeSlice` または `Abort` の値決定へ一度だけ渡す。`ResumeSlice` だけが既存 F5nzm resume helper と F5nzn next-command helper を順に一度ずつ呼び、旧 category、exact failure diagnostic、spent retry budget と次 command owner または完全な lower error を同じ provenance wrapper に保持する。`Abort` は未resume Yieldをそのまま回収可能に保つ。この境界はqueue、timer、actual scheduler loop、Run host execution、二つ目のcommandを実行しない。

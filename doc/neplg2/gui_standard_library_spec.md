@@ -2484,3 +2484,7 @@ F5nzyはF5nzw RetryPendingを有限0/1 budgetで一度だけ分類する。元fa
 ### Web registered stroke compositor F5oaa retry success phase handoff
 
 `platforms/gui/web/font_registered_begin_frame_retry_success_phase` はF5nzz successだけを一度消費し、previous category、exact diagnostic、spent budgetと既存F5nzm phase ownerを同居させる。completion phase分類はF5nzmへexactly once委譲し、Continue/Yield/Completed authorityを対応するconcrete provenance wrapperへ移すがlower ownerを再構築しない。actual status 0 fixtureはWeb Begin importを一度だけ成功させ、Run/Endを呼ばず未resume Yield 1/0とcleanupを検証する。このboundaryはF5nzz execution、completion replay、resume、next command、scheduler/platform loopを行わない。
+
+### Web registered stroke compositor F5oab retry Yield scheduler handoff
+
+`platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler` はF5oaa concrete Yield ownerをcaller-supplied ResumeSlice / Abortへ分類し、ResumeSliceだけがF5nzm slice resumeとF5nzn next-commandを各一回実行する。旧category、exact diagnostic、spent budgetはsuccess/error/abort authorityに保持される。これはscheduler backend、queue、timer、Run import実行、completion replay、複数command loopを提供しない。
