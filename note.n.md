@@ -168854,3 +168854,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - generic `check_match`がparallelな7個のVecで保持していたowner、function alias、raw alias/view、storage origin、pending realloc、variant effectを`OwnerMatchPathState`へ束ねた。parent cloneとmergeをcanonical helperへ抽出し、reachable arm順、Never除外、raw alias先行merge、残る6 stateのmerge順と入力集合は変更していない。collector内部は従来と同じ7個のVecへ直接格納するためallocation数を増やさず、reachable pathが空ならparent stateを変更せず`false`を返す契約を直接回帰で固定した。
 - arm entry、arm ops、value-to-output finalization自体は変更せずgeneric実装をoracleとして維持する。transport stateのparent cloneはspecialized traversalから再利用可能にしたが、entry/finalizationはまだ共通化していない。次はcanonical arm entryとfinalizationをそれぞれsemantic-neutral helperへ抽出してからspecialized traversalへowned path stateを返す。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu generic Match arm boundary checkpoint
+
+- generic `check_match`のreachable判定、7-state clone、inactive payload retire、pending return/value/payload condition、bind transfer、consumption適用を`prepare_match_arm_path`へ逐語抽出した。arm ops後のNever除外、result effect materialization、reserved-source判定、scalar/owner/raw view/realloc/effect copy、temporary output materializationは`finalize_match_arm_value`へ逐語抽出した。reachableでないarmはclone前に`None`となり、Never armだけがmerge collectorへ入らない従来契約を維持する。
+- specialized traversalの既存entry helperにはgenericと異なりreserved-source拒否がなく、engine diagnostics/deferred/extent stateも7-state bundle外にあるため、このcheckpointではspecialized側を接続・変更していない。次は両経路の差を固定するdifferential oracleを追加し、diagnostic authorityを明示してからsingle traversalへ接続する。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。

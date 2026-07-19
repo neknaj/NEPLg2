@@ -102,6 +102,188 @@ pub(super) fn merge_match_path_states(
 }
 
 impl ResourceOwnerCheckEngine<'_> {
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn prepare_match_arm_path(
+        &mut self,
+        owners: &OwnerTable,
+        function_aliases: &FunctionAliasTable,
+        raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        storage_origins: &StorageOriginTable,
+        pending_reallocs: &PendingRawReallocs,
+        variant_owner_effects: &PendingVariantOwnerEffects,
+        scrutinee: &Place,
+        arm: &ResourceMatchArm,
+        span: Span,
+    ) -> Option<OwnerMatchPathState> {
+        if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
+            return None;
+        }
+        let mut state = OwnerMatchPathState::from_parent(
+            owners,
+            function_aliases,
+            raw_aliases,
+            raw_views,
+            storage_origins,
+            pending_reallocs,
+            variant_owner_effects,
+        );
+        if let Some(selected_variant) = match_arm_variant_payload_name(arm) {
+            retire_inactive_enum_payload_owners(
+                &mut state.owners,
+                &mut state.raw_aliases,
+                &mut state.raw_views,
+                &mut state.storage_origins,
+                scrutinee,
+                &selected_variant,
+            );
+        }
+        state.variant_owner_effects.apply_match_arm_returns(
+            self,
+            &mut state.owners,
+            &mut state.raw_aliases,
+            &mut state.raw_views,
+            &mut state.storage_origins,
+            scrutinee,
+            &arm.pattern,
+            span,
+        );
+        state
+            .variant_owner_effects
+            .apply_match_arm_value_conditions(&mut state.raw_aliases, scrutinee, &arm.pattern);
+        if let Some(bind_local) = &arm.bind_local {
+            if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
+                if !state.variant_owner_effects.reject_reserved_source_use(
+                    self,
+                    &state.owners,
+                    &state.raw_aliases,
+                    &source,
+                    ResourceOwnerOperation::MatchValue,
+                    span,
+                ) {
+                    state
+                        .raw_aliases
+                        .copy_scalar_facts_if_tracked(&source, bind_local);
+                    self.transfer_owner(
+                        &mut state.owners,
+                        &mut state.raw_aliases,
+                        &state.raw_views,
+                        &mut state.storage_origins,
+                        &source,
+                        bind_local,
+                        ResourceOwnerOperation::MatchValue,
+                        span,
+                    );
+                }
+                state.function_aliases.copy_alias(&source, bind_local);
+                state.raw_views.copy(&source, bind_local);
+                state.pending_reallocs.copy_result(&source, bind_local);
+                state.variant_owner_effects.copy_result(&source, bind_local);
+                state
+                    .variant_owner_effects
+                    .apply_match_arm_payload_conditions(
+                        &mut state.raw_aliases,
+                        scrutinee,
+                        &arm.pattern,
+                        Some(bind_local),
+                    );
+            } else {
+                state.raw_aliases.clear(bind_local);
+                state.raw_views.clear(bind_local);
+                state.storage_origins.clear(bind_local);
+                state.pending_reallocs.clear_result(bind_local);
+                state.variant_owner_effects.clear_result(bind_local);
+            }
+        } else {
+            state
+                .variant_owner_effects
+                .apply_match_arm_payload_conditions(
+                    &mut state.raw_aliases,
+                    scrutinee,
+                    &arm.pattern,
+                    None,
+                );
+        }
+        state.variant_owner_effects.apply_match_arm(
+            self,
+            &mut state.owners,
+            &mut state.raw_aliases,
+            &mut state.raw_views,
+            &mut state.storage_origins,
+            scrutinee,
+            &arm.pattern,
+            span,
+        );
+        Some(state)
+    }
+
+    pub(super) fn finalize_match_arm_value(
+        &mut self,
+        state: &mut OwnerMatchPathState,
+        output: &Place,
+        value: &Place,
+        span: Span,
+    ) -> bool {
+        if self.place_is_never(value) {
+            return false;
+        }
+        if !state.variant_owner_effects.has_result_effects(value) {
+            state
+                .variant_owner_effects
+                .materialize_result_owner_effects(
+                    self,
+                    &mut state.owners,
+                    &mut state.raw_aliases,
+                    &mut state.raw_views,
+                    &mut state.storage_origins,
+                    value,
+                    span,
+                );
+        }
+        if !state.variant_owner_effects.reject_reserved_source_use(
+            self,
+            &state.owners,
+            &state.raw_aliases,
+            value,
+            ResourceOwnerOperation::MatchValue,
+            span,
+        ) {
+            state
+                .raw_aliases
+                .copy_scalar_facts_if_tracked(value, output);
+            self.transfer_owner(
+                &mut state.owners,
+                &mut state.raw_aliases,
+                &state.raw_views,
+                &mut state.storage_origins,
+                value,
+                output,
+                ResourceOwnerOperation::MatchValue,
+                span,
+            );
+            state.raw_views.copy_non_owning(value, output);
+            state.pending_reallocs.copy_result(value, output);
+            state.variant_owner_effects.copy_result(value, output);
+            if state
+                .variant_owner_effects
+                .result_effects_have_temporary_sources(&state.raw_aliases, output)
+            {
+                state
+                    .variant_owner_effects
+                    .materialize_result_owner_effects(
+                        self,
+                        &mut state.owners,
+                        &mut state.raw_aliases,
+                        &mut state.raw_views,
+                        &mut state.storage_origins,
+                        output,
+                        span,
+                    );
+            }
+        }
+        true
+    }
+
     pub(super) fn check_branch(
         &mut self,
         owners: &mut OwnerTable,
@@ -419,10 +601,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut arm_paths = OwnerMatchPathStates::default();
 
         for arm in arms {
-            if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
-                continue;
-            }
-            let arm_state = OwnerMatchPathState::from_parent(
+            let Some(mut arm_state) = self.prepare_match_arm_path(
                 owners,
                 function_aliases,
                 raw_aliases,
@@ -430,165 +609,24 @@ impl ResourceOwnerCheckEngine<'_> {
                 storage_origins,
                 pending_reallocs,
                 variant_owner_effects,
-            );
-            let OwnerMatchPathState {
-                owners: mut arm_owners,
-                function_aliases: mut arm_function_aliases,
-                raw_aliases: mut arm_raw_aliases,
-                raw_views: mut arm_raw_views,
-                storage_origins: mut arm_storage_origins,
-                pending_reallocs: mut arm_pending_reallocs,
-                variant_owner_effects: mut arm_variant_owner_effects,
-            } = arm_state;
-            if let Some(selected_variant) = match_arm_variant_payload_name(arm) {
-                retire_inactive_enum_payload_owners(
-                    &mut arm_owners,
-                    &mut arm_raw_aliases,
-                    &mut arm_raw_views,
-                    &mut arm_storage_origins,
-                    scrutinee,
-                    &selected_variant,
-                );
-            }
-            arm_variant_owner_effects.apply_match_arm_returns(
-                self,
-                &mut arm_owners,
-                &mut arm_raw_aliases,
-                &mut arm_raw_views,
-                &mut arm_storage_origins,
                 scrutinee,
-                &arm.pattern,
+                arm,
                 span,
-            );
-            arm_variant_owner_effects.apply_match_arm_value_conditions(
-                &mut arm_raw_aliases,
-                scrutinee,
-                &arm.pattern,
-            );
-            if let Some(bind_local) = &arm.bind_local {
-                if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
-                    if !arm_variant_owner_effects.reject_reserved_source_use(
-                        self,
-                        &arm_owners,
-                        &arm_raw_aliases,
-                        &source,
-                        ResourceOwnerOperation::MatchValue,
-                        span,
-                    ) {
-                        arm_raw_aliases.copy_scalar_facts_if_tracked(&source, bind_local);
-                        self.transfer_owner(
-                            &mut arm_owners,
-                            &mut arm_raw_aliases,
-                            &arm_raw_views,
-                            &mut arm_storage_origins,
-                            &source,
-                            bind_local,
-                            ResourceOwnerOperation::MatchValue,
-                            span,
-                        );
-                    }
-                    arm_function_aliases.copy_alias(&source, bind_local);
-                    arm_raw_views.copy(&source, bind_local);
-                    arm_pending_reallocs.copy_result(&source, bind_local);
-                    arm_variant_owner_effects.copy_result(&source, bind_local);
-                    arm_variant_owner_effects.apply_match_arm_payload_conditions(
-                        &mut arm_raw_aliases,
-                        scrutinee,
-                        &arm.pattern,
-                        Some(bind_local),
-                    );
-                } else {
-                    arm_raw_aliases.clear(bind_local);
-                    arm_raw_views.clear(bind_local);
-                    arm_storage_origins.clear(bind_local);
-                    arm_pending_reallocs.clear_result(bind_local);
-                    arm_variant_owner_effects.clear_result(bind_local);
-                }
-            } else {
-                arm_variant_owner_effects.apply_match_arm_payload_conditions(
-                    &mut arm_raw_aliases,
-                    scrutinee,
-                    &arm.pattern,
-                    None,
-                );
-            }
-            arm_variant_owner_effects.apply_match_arm(
-                self,
-                &mut arm_owners,
-                &mut arm_raw_aliases,
-                &mut arm_raw_views,
-                &mut arm_storage_origins,
-                scrutinee,
-                &arm.pattern,
-                span,
-            );
+            ) else {
+                continue;
+            };
             self.check_ops(
-                &mut arm_owners,
-                &mut arm_function_aliases,
-                &mut arm_raw_aliases,
-                &mut arm_raw_views,
-                &mut arm_storage_origins,
-                &mut arm_pending_reallocs,
-                &mut arm_variant_owner_effects,
+                &mut arm_state.owners,
+                &mut arm_state.function_aliases,
+                &mut arm_state.raw_aliases,
+                &mut arm_state.raw_views,
+                &mut arm_state.storage_origins,
+                &mut arm_state.pending_reallocs,
+                &mut arm_state.variant_owner_effects,
                 &arm.ops,
             );
-            if !self.place_is_never(&arm.value) {
-                if !arm_variant_owner_effects.has_result_effects(&arm.value) {
-                    arm_variant_owner_effects.materialize_result_owner_effects(
-                        self,
-                        &mut arm_owners,
-                        &mut arm_raw_aliases,
-                        &mut arm_raw_views,
-                        &mut arm_storage_origins,
-                        &arm.value,
-                        span,
-                    );
-                }
-                if !arm_variant_owner_effects.reject_reserved_source_use(
-                    self,
-                    &arm_owners,
-                    &arm_raw_aliases,
-                    &arm.value,
-                    ResourceOwnerOperation::MatchValue,
-                    span,
-                ) {
-                    arm_raw_aliases.copy_scalar_facts_if_tracked(&arm.value, output);
-                    self.transfer_owner(
-                        &mut arm_owners,
-                        &mut arm_raw_aliases,
-                        &arm_raw_views,
-                        &mut arm_storage_origins,
-                        &arm.value,
-                        output,
-                        ResourceOwnerOperation::MatchValue,
-                        span,
-                    );
-                    arm_raw_views.copy_non_owning(&arm.value, output);
-                    arm_pending_reallocs.copy_result(&arm.value, output);
-                    arm_variant_owner_effects.copy_result(&arm.value, output);
-                    if arm_variant_owner_effects
-                        .result_effects_have_temporary_sources(&arm_raw_aliases, output)
-                    {
-                        arm_variant_owner_effects.materialize_result_owner_effects(
-                            self,
-                            &mut arm_owners,
-                            &mut arm_raw_aliases,
-                            &mut arm_raw_views,
-                            &mut arm_storage_origins,
-                            output,
-                            span,
-                        );
-                    }
-                }
-                arm_paths.push(OwnerMatchPathState {
-                    owners: arm_owners,
-                    function_aliases: arm_function_aliases,
-                    raw_aliases: arm_raw_aliases,
-                    raw_views: arm_raw_views,
-                    storage_origins: arm_storage_origins,
-                    pending_reallocs: arm_pending_reallocs,
-                    variant_owner_effects: arm_variant_owner_effects,
-                });
+            if self.finalize_match_arm_value(&mut arm_state, output, &arm.value, span) {
+                arm_paths.push(arm_state);
             }
         }
         merge_match_path_states(
