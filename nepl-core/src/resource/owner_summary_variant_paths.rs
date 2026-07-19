@@ -402,6 +402,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     let mut path_variant_owner_effects = variant_owner_effects.clone();
     profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
     let match_entry_timer = profile.start();
+    #[cfg(not(test))]
     super::owner_summary_variant_match::apply_match_arm_entry(
         &mut path_engine,
         &mut path_owners,
@@ -413,6 +414,29 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &mut path_variant_owner_effects,
         match_arm,
     );
+    #[cfg(test)]
+    if let Some((scrutinee, arm, span)) = match_arm {
+        if let Some(state) = path_engine.prepare_match_arm_path(
+            owners,
+            function_aliases,
+            raw_aliases,
+            raw_views,
+            storage_origins,
+            pending_reallocs,
+            variant_owner_effects,
+            scrutinee,
+            arm,
+            span,
+        ) {
+            path_owners = state.owners;
+            path_function_aliases = state.function_aliases;
+            path_raw_aliases = state.raw_aliases;
+            path_raw_views = state.raw_views;
+            path_storage_origins = state.storage_origins;
+            path_pending_reallocs = state.pending_reallocs;
+            path_variant_owner_effects = state.variant_owner_effects;
+        }
+    }
     profile.finish(match_entry_timer, OwnerVariantProfilePhase::MatchEntry);
     let Some(constructed_variant) = construct_variant_for_value(path_ops, path_value) else {
         profile.observe_recursive_path();

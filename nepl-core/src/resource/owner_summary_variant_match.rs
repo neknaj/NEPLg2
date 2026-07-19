@@ -14,6 +14,7 @@ use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(test, allow(dead_code))]
 pub(super) fn apply_match_arm_entry(
     path_engine: &mut ResourceOwnerCheckEngine<'_>,
     path_owners: &mut OwnerTable,

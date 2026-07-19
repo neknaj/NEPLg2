@@ -168905,3 +168905,11 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - bind entry側のreserved-source rejection差、path-local engine diagnostics/deferred/extent/memoryの返却authority、full summary parity、unreachable/Never直接fixture、production merge、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
 - pass: focused actual path/control tree 3件、owner-summary 36件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
 - subagent差分・全体整合reviewは現checkpointにblockerなし。canonical finalizationはconstructed/recursive両経路で同じpath-local engineへ適用され、通常/予約source拒否はmerge eligible、Neverだけが非eligibleとなるgeneric契約を保持する。recursive Match child finalizationとNeverの直接fixtureは非blocker coverage gapとして残す。
+
+2026-07-19 F5nzu canonical Match child entry shadow checkpoint
+
+- actual path collectorのtest buildでは、Match childの親7-state cloneとspecialized entry helperをcanonical `prepare_match_arm_path`へ置き換え、同じpath-local engine/stateでentry、arm ops、canonical finalizationまで連続するshadow境界を作った。unreachable armは親collectorが事前skipするためcanonical prepareのNone経路へ通常到達しない。path関数単体のNone経路はskip authorityとして扱わない。
+- production buildは既存`owner_summary_variant_match::apply_match_arm_entry`を維持し、canonical shadow blockを除去するためsummary semantics、generic replay、allocationを変更しない。test buildでproduction helperが未使用になる警告だけを局所的に抑制した。
+- bind reserved-source rejectionを含むcanonical entryはshadowへ接続したが、specialized production helper自体のparity、path-local engine 4 channel返却、full summary parity、production merge、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+- pass: focused actual path/control tree 3件、owner-summary 36件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
+- subagent差分・全体整合reviewは現test-only checkpointにblockerなし。canonical prepareが返す7-stateを同じpath-local engineでops/finalizationへ渡し、unreachable armの事前skip、Never非merge、通常/予約source拒否のgeneric契約を保持する。bind reserved-source、prepare None、Neverの直接fixtureは非blocker coverage gapとして残す。
