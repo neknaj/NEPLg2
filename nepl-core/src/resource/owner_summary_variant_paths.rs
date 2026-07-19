@@ -1037,6 +1037,7 @@ mod tests {
         let value = Place::local("value".to_string(), types.unit());
         let child_value = Place::local("child_value".to_string(), types.unit());
         let unreachable_value = Place::local("unreachable_value".to_string(), types.unit());
+        let never_value = Place::local("never_value".to_string(), types.never());
         let output = Place::local("output".to_string(), types.unit());
         let outer_scrutinee = Place::local("outer_scrutinee".to_string(), types.unit());
         let nested_scrutinee = Place::local("nested_scrutinee".to_string(), types.unit());
@@ -1075,11 +1076,28 @@ mod tests {
             value: unreachable_value,
             span,
         };
+        let never_arm = ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Variant("Never".to_string()),
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: vec![ResourceOp::Construct {
+                output: never_value.clone(),
+                kind: AggregateKind::Enum {
+                    name: "Result".to_string(),
+                    variant: "Never".to_string(),
+                },
+                inputs: Vec::new(),
+                span,
+            }],
+            value: never_value,
+            span,
+        };
         let ops = [ResourceOp::Match {
             output: value.clone(),
             scrutinee: nested_scrutinee.clone(),
             scrutinee_is_borrow_target: false,
-            arms: vec![unreachable_arm, nested_arm],
+            arms: vec![unreachable_arm, never_arm, nested_arm],
             span,
         }];
         let bind_local = Place::local("payload".to_string(), owner_ty);
@@ -1126,16 +1144,23 @@ mod tests {
         );
 
         assert!(result.engine_effects().is_complete());
-        assert_eq!(result.engine_effects().delta_count(), 5);
+        assert_eq!(result.engine_effects().delta_count(), 8);
         assert!(result.merge_eligible);
         assert_eq!(result.controls.len(), 1);
         assert_eq!(result.controls[0].kind, OwnerVariantControlKind::Match);
-        assert_eq!(result.controls[0].paths.len(), 1);
+        assert_eq!(result.controls[0].paths.len(), 2);
         assert_eq!(
             result.controls[0].paths[0].selector,
             OwnerVariantPathSelector::MatchArm(1)
         );
+        assert!(!result.controls[0].paths[0].result.merge_eligible);
         assert!(result.controls[0].paths[0].result.engine_effects.is_none());
+        assert_eq!(
+            result.controls[0].paths[1].selector,
+            OwnerVariantPathSelector::MatchArm(2)
+        );
+        assert!(result.controls[0].paths[1].result.merge_eligible);
+        assert!(result.controls[0].paths[1].result.engine_effects.is_none());
 
         let summaries = Vec::new();
         let summary_index = OwnerReturnSummaryIndex::new(&summaries);
