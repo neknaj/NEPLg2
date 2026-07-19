@@ -16,6 +16,14 @@ struct RawAddressViewEntry {
 }
 
 impl RawAddressViewTable {
+    #[cfg(test)]
+    pub(super) fn oracle_snapshot(&self) -> Vec<(Place, RawAddressViewOwnership)> {
+        self.entries
+            .iter()
+            .map(|entry| (entry.place.clone(), entry.ownership))
+            .collect()
+    }
+
     pub(super) fn non_owning_entries(
         &self,
     ) -> impl Iterator<Item = (&Place, RawAddressViewOwnership)> {

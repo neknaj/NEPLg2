@@ -97,7 +97,7 @@ pub(super) struct PendingVariantPayloadValueCondition {
     pub(super) condition: super::model::I32ValueCondition,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct PendingVariantOwnerEffects {
     pub(super) consumptions: Vec<PendingVariantOwnerConsumption>,
     pub(super) returns: Vec<PendingVariantOwnerReturn>,

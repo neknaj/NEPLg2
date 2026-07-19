@@ -16,6 +16,11 @@ pub(super) struct OwnerTable {
 }
 
 impl OwnerTable {
+    #[cfg(test)]
+    pub(super) fn oracle_snapshot(&self) -> (Vec<OwnerStateEntry>, usize) {
+        (self.owners.clone(), self.next_storage)
+    }
+
     pub(super) fn entries(&self) -> &[OwnerStateEntry] {
         &self.owners
     }

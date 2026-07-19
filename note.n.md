@@ -168859,3 +168859,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - generic `check_match`のreachable判定、7-state clone、inactive payload retire、pending return/value/payload condition、bind transfer、consumption適用を`prepare_match_arm_path`へ逐語抽出した。arm ops後のNever除外、result effect materialization、reserved-source判定、scalar/owner/raw view/realloc/effect copy、temporary output materializationは`finalize_match_arm_value`へ逐語抽出した。reachableでないarmはclone前に`None`となり、Never armだけがmerge collectorへ入らない従来契約を維持する。
 - specialized traversalの既存entry helperにはgenericと異なりreserved-source拒否がなく、engine diagnostics/deferred/extent stateも7-state bundle外にあるため、このcheckpointではspecialized側を接続・変更していない。次は両経路の差を固定するdifferential oracleを追加し、diagnostic authorityを明示してからsingle traversalへ接続する。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu Match differential oracle snapshot checkpoint
+
+- single traversal shadow比較の前段としてtest-only `OwnerMatchOracleSnapshot`を追加し、owner entry順と次storage identity、function/raw alias、raw view entry順とownership、storage origin entry順とorigin-source mapping、pending realloc、variant effectの7-state全体を同値比較できるようにした。engine側もdiagnostics、deferred state、owner extent requirement、memory span requirementを別snapshotで保持し、7-state外の副作用を比較から落とさない。
+- snapshotはproduction処理から呼ばれず、generic replayの採用結果も変更しない。次はgeneric Match+post ops runnerとspecialized shadow runnerを同じ親stateから実行し、内部snapshotと最終OwnerReturnSummary全fieldを比較する。shadow一致前にgeneric replayを省略しない。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。

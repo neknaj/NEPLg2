@@ -29,6 +29,27 @@ pub(super) struct OwnerMatchPathState {
     pub(super) variant_owner_effects: PendingVariantOwnerEffects,
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerMatchOracleSnapshot {
+    owners: (Vec<super::model::OwnerStateEntry>, usize),
+    function_aliases: FunctionAliasTable,
+    raw_aliases: RawCellAddressAliases,
+    raw_views: Vec<(Place, super::owner_raw_view_model::RawAddressViewOwnership)>,
+    storage_origins: (Vec<super::model::StorageOriginEntry>, Vec<(Place, Place)>),
+    pending_reallocs: PendingRawReallocs,
+    variant_owner_effects: PendingVariantOwnerEffects,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerMatchEngineOracleSnapshot {
+    diagnostics: Vec<super::report::ResourceOwnerDiagnostic>,
+    deferred: super::report::ResourceOwnerCheckDeferred,
+    owner_extent_requirements: Vec<super::owner_extent::PendingOwnerExtentRequirement>,
+    memory_span_requirements: Vec<super::summary::OwnerMemorySpanRequirement>,
+}
+
 impl OwnerMatchPathState {
     pub(super) fn from_parent(
         owners: &OwnerTable,
@@ -47,6 +68,19 @@ impl OwnerMatchPathState {
             storage_origins: storage_origins.clone(),
             pending_reallocs: pending_reallocs.clone(),
             variant_owner_effects: variant_owner_effects.clone(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn oracle_snapshot(&self) -> OwnerMatchOracleSnapshot {
+        OwnerMatchOracleSnapshot {
+            owners: self.owners.oracle_snapshot(),
+            function_aliases: self.function_aliases.clone(),
+            raw_aliases: self.raw_aliases.clone(),
+            raw_views: self.raw_views.oracle_snapshot(),
+            storage_origins: self.storage_origins.oracle_snapshot(),
+            pending_reallocs: self.pending_reallocs.clone(),
+            variant_owner_effects: self.variant_owner_effects.clone(),
         }
     }
 }
@@ -102,6 +136,16 @@ pub(super) fn merge_match_path_states(
 }
 
 impl ResourceOwnerCheckEngine<'_> {
+    #[cfg(test)]
+    pub(super) fn match_oracle_snapshot(&self) -> OwnerMatchEngineOracleSnapshot {
+        OwnerMatchEngineOracleSnapshot {
+            diagnostics: self.diagnostics.clone(),
+            deferred: self.deferred,
+            owner_extent_requirements: self.owner_extent_requirements.clone(),
+            memory_span_requirements: self.memory_span_requirements.clone(),
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(super) fn prepare_match_arm_path(
         &mut self,
@@ -782,7 +826,23 @@ impl ResourceOwnerCheckEngine<'_> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+    use alloc::vec::Vec;
+
     use super::*;
+    use crate::types::{TypeCtx, TypeId};
+
+    fn clone_match_state(state: &OwnerMatchPathState) -> OwnerMatchPathState {
+        OwnerMatchPathState::from_parent(
+            &state.owners,
+            &state.function_aliases,
+            &state.raw_aliases,
+            &state.raw_views,
+            &state.storage_origins,
+            &state.pending_reallocs,
+            &state.variant_owner_effects,
+        )
+    }
 
     #[test]
     fn empty_match_path_merge_preserves_parent_state() {
@@ -804,5 +864,159 @@ mod tests {
             &mut variant_owner_effects,
             OwnerMatchPathStates::default(),
         ));
+    }
+
+    #[test]
+    fn match_oracle_snapshot_observes_owner_allocation_identity() {
+        let base = OwnerMatchPathState {
+            owners: OwnerTable::default(),
+            function_aliases: FunctionAliasTable::default(),
+            raw_aliases: RawCellAddressAliases::default(),
+            raw_views: RawAddressViewTable::default(),
+            storage_origins: StorageOriginTable::default(),
+            pending_reallocs: PendingRawReallocs::default(),
+            variant_owner_effects: PendingVariantOwnerEffects::default(),
+        };
+        let mut allocated = OwnerMatchPathState::from_parent(
+            &base.owners,
+            &base.function_aliases,
+            &base.raw_aliases,
+            &base.raw_views,
+            &base.storage_origins,
+            &base.pending_reallocs,
+            &base.variant_owner_effects,
+        );
+        allocated
+            .owners
+            .allocate(&Place::local("owner".to_string(), TypeId(0)));
+
+        let base_snapshot = base.oracle_snapshot();
+        assert_eq!(base_snapshot, base.oracle_snapshot());
+        assert_ne!(base_snapshot, allocated.oracle_snapshot());
+
+        let owner = Place::local("owner".to_string(), TypeId(0));
+        let other = Place::local("other".to_string(), TypeId(0));
+
+        let mut changed = clone_match_state(&base);
+        changed.function_aliases.set_alias(
+            &owner,
+            crate::function_identity::FunctionValueIdentity::new(
+                "f".to_string(),
+                None,
+                TypeId(0),
+                crate::ast::Effect::Pure,
+                Vec::new(),
+            ),
+            super::super::model::ResourceFunctionValueKind::Plain,
+        );
+        assert_ne!(base_snapshot, changed.oracle_snapshot());
+
+        let mut changed = clone_match_state(&base);
+        changed.raw_aliases.mark(&owner);
+        assert_ne!(base_snapshot, changed.oracle_snapshot());
+
+        let mut changed = clone_match_state(&base);
+        changed.raw_views.mark_non_owning(&owner);
+        assert_ne!(base_snapshot, changed.oracle_snapshot());
+
+        let mut forward = clone_match_state(&base);
+        forward.raw_views.mark(&owner);
+        forward.raw_views.mark_non_owning(&other);
+        let mut reverse = clone_match_state(&base);
+        reverse.raw_views.mark_non_owning(&other);
+        reverse.raw_views.mark(&owner);
+        assert_ne!(forward.oracle_snapshot(), reverse.oracle_snapshot());
+
+        let mut changed = clone_match_state(&base);
+        changed.storage_origins.mark_owned(&owner);
+        changed
+            .storage_origins
+            .mark_origin_source_for_oracle(&owner, other.clone());
+        assert_ne!(base_snapshot, changed.oracle_snapshot());
+
+        let mut changed = clone_match_state(&base);
+        changed.pending_reallocs.mark(
+            &owner,
+            &owner,
+            &other,
+            super::super::model::OwnerStorageExtent::Unknown,
+            Vec::new(),
+        );
+        assert_ne!(base_snapshot, changed.oracle_snapshot());
+
+        let mut changed = clone_match_state(&base);
+        changed.variant_owner_effects.unreachable_variants.push(
+            super::super::owner_variant::PendingUnreachableVariant {
+                result: owner,
+                variant: "Err".to_string(),
+            },
+        );
+        assert_ne!(base_snapshot, changed.oracle_snapshot());
+    }
+
+    #[test]
+    fn match_engine_oracle_snapshot_observes_all_side_effect_channels() {
+        let types = TypeCtx::new();
+        let summaries = Vec::new();
+        let summary_index = super::super::summary::OwnerReturnSummaryIndex::new(&summaries);
+        let mut engine = ResourceOwnerCheckEngine {
+            function: "oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: super::super::report::ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+
+        let snapshot = engine.match_oracle_snapshot();
+        assert!(snapshot.diagnostics.is_empty());
+        assert_eq!(
+            snapshot.deferred,
+            super::super::report::ResourceOwnerCheckDeferred::default()
+        );
+        assert!(snapshot.owner_extent_requirements.is_empty());
+        assert!(snapshot.memory_span_requirements.is_empty());
+
+        let owner = Place::local("owner".to_string(), TypeId(0));
+        engine.diagnostics.push(
+            super::super::report::ResourceOwnerDiagnostic::OwnerUnavailable {
+                function: "oracle".to_string(),
+                operation: ResourceOwnerOperation::Read,
+                place: owner.clone(),
+                state: OwnerState::Moved,
+                span: Span::empty(crate::span::FileId(0), 0),
+            },
+        );
+        assert_ne!(snapshot, engine.match_oracle_snapshot());
+        engine.diagnostics.clear();
+
+        engine.deferred.match_merges = 1;
+        assert_ne!(snapshot, engine.match_oracle_snapshot());
+        engine.deferred.match_merges = 0;
+
+        engine.owner_extent_requirements.push(
+            super::super::owner_extent::PendingOwnerExtentRequirement {
+                owner,
+                expected: super::super::model::OwnerStorageExtent::Unknown,
+                operation: ResourceOwnerOperation::Read,
+            },
+        );
+        assert_ne!(snapshot, engine.match_oracle_snapshot());
+        engine.owner_extent_requirements.clear();
+
+        engine
+            .memory_span_requirements
+            .push(super::super::summary::OwnerMemorySpanRequirement {
+                span: super::super::host_memory_contract::HostMemorySpan::IovDescriptor {
+                    iovs_arg: 0,
+                    iov_count_arg: 1,
+                },
+                args: Vec::new(),
+                operation: ResourceOwnerOperation::Read,
+            });
+        assert_ne!(snapshot, engine.match_oracle_snapshot());
     }
 }

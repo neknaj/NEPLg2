@@ -27,6 +27,22 @@ struct TranslatedStorageOrigin {
 }
 
 impl StorageOriginTable {
+    #[cfg(test)]
+    pub(super) fn oracle_snapshot(&self) -> (Vec<StorageOriginEntry>, Vec<(Place, Place)>) {
+        (
+            self.origins.clone(),
+            self.origin_sources
+                .iter()
+                .map(|entry| (entry.place.clone(), entry.source.clone()))
+                .collect(),
+        )
+    }
+
+    #[cfg(test)]
+    pub(super) fn mark_origin_source_for_oracle(&mut self, place: &Place, source: Place) {
+        self.set_origin_source(place, source);
+    }
+
     pub(super) fn origin(&self, place: &Place) -> Option<StorageOrigin> {
         self.origins
             .iter()
