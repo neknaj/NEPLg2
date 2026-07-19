@@ -9,6 +9,8 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_control::OwnerMatchPathState;
+#[cfg(test)]
+use super::owner_control::OwnerMatchEngineEffectAccumulator;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_consumed::consumed_owner_parameters;
@@ -41,6 +43,8 @@ pub(super) struct OwnerVariantTraversalResult {
     controls: Vec<OwnerVariantControlPaths>,
     #[cfg(test)]
     merge_eligible: bool,
+    #[cfg(test)]
+    engine_effects: OwnerMatchEngineEffectAccumulator,
 }
 
 #[cfg(test)]
@@ -118,6 +122,10 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     let mut variant_owner_effects = variant_owner_effects.clone();
     #[cfg(test)]
     let mut controls = Vec::new();
+    #[cfg(test)]
+    let mut engine_effects = OwnerMatchEngineEffectAccumulator::default();
+    #[cfg(test)]
+    engine_effects.mark_incomplete();
     profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
     for (index, op) in ops.iter().enumerate() {
         match op {
@@ -350,6 +358,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         controls,
         #[cfg(test)]
         merge_eligible: true,
+        #[cfg(test)]
+        engine_effects,
     }
 }
 
@@ -400,6 +410,12 @@ fn collect_variant_consumed_owner_parameters_from_path(
     let mut path_function_aliases = function_aliases.clone();
     let mut path_pending_reallocs = pending_reallocs.clone();
     let mut path_variant_owner_effects = variant_owner_effects.clone();
+    #[cfg(test)]
+    let mut engine_effects = OwnerMatchEngineEffectAccumulator::default();
+    #[cfg(test)]
+    let entry_checkpoint = path_engine.match_engine_effect_checkpoint();
+    #[cfg(test)]
+    let mut match_entry_reachable = true;
     profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
     let match_entry_timer = profile.start();
     #[cfg(not(test))]
@@ -435,8 +451,13 @@ fn collect_variant_consumed_owner_parameters_from_path(
             path_storage_origins = state.storage_origins;
             path_pending_reallocs = state.pending_reallocs;
             path_variant_owner_effects = state.variant_owner_effects;
+        } else {
+            match_entry_reachable = false;
+            engine_effects.mark_incomplete();
         }
     }
+    #[cfg(test)]
+    engine_effects.push(path_engine.match_engine_effect_delta(entry_checkpoint));
     profile.finish(match_entry_timer, OwnerVariantProfilePhase::MatchEntry);
     let Some(constructed_variant) = construct_variant_for_value(path_ops, path_value) else {
         profile.observe_recursive_path();
@@ -467,6 +488,8 @@ fn collect_variant_consumed_owner_parameters_from_path(
         #[cfg(test)]
         let mut result = result;
         #[cfg(test)]
+        result.engine_effects.mark_incomplete();
+        #[cfg(test)]
         if let Some(output) = _match_output {
             result.merge_eligible = path_engine.finalize_match_arm_value(
                 &mut result.state,
@@ -480,6 +503,15 @@ fn collect_variant_consumed_owner_parameters_from_path(
     profile.observe_constructed_path();
     profile.observe_path_replay(path_ops.len());
     let path_replay_timer = profile.start();
+    #[cfg(test)]
+    let leaf_effects_complete = !path_ops.iter().any(|op| {
+        matches!(
+            op,
+            ResourceOp::Branch { .. } | ResourceOp::Loop { .. } | ResourceOp::Match { .. }
+        )
+    });
+    #[cfg(test)]
+    let leaf_checkpoint = path_engine.match_engine_effect_checkpoint();
     path_engine.check_ops(
         &mut path_owners,
         &mut path_function_aliases,
@@ -490,6 +522,12 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &mut path_variant_owner_effects,
         path_ops,
     );
+    #[cfg(test)]
+    if leaf_effects_complete {
+        engine_effects.push(path_engine.match_engine_effect_delta(leaf_checkpoint));
+    } else {
+        engine_effects.mark_incomplete();
+    }
     profile.finish(path_replay_timer, OwnerVariantProfilePhase::PathReplay);
     let terminal_timer = profile.start();
     record_owner_variant_path_condition(
@@ -607,17 +645,27 @@ fn collect_variant_consumed_owner_parameters_from_path(
         controls: Vec::new(),
         #[cfg(test)]
         merge_eligible: true,
+        #[cfg(test)]
+        engine_effects,
     };
     #[cfg(test)]
     let mut result = result;
     #[cfg(test)]
+    if !match_entry_reachable {
+        result.merge_eligible = false;
+    }
+    #[cfg(test)]
     if let Some(output) = _match_output {
+        let finalize_checkpoint = path_engine.match_engine_effect_checkpoint();
         result.merge_eligible = path_engine.finalize_match_arm_value(
             &mut result.state,
             output,
             path_value,
             match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
         );
+        result
+            .engine_effects
+            .push(path_engine.match_engine_effect_delta(finalize_checkpoint));
     }
     result
 }
@@ -752,6 +800,7 @@ mod tests {
             result.state.storage_origins.origin(&retained),
             Some(StorageOrigin::Owned)
         );
+        assert!(result.engine_effects.is_complete());
     }
 
     #[test]
@@ -772,6 +821,7 @@ mod tests {
             result.state.storage_origins.origin(&retained),
             Some(StorageOrigin::Owned)
         );
+        assert!(!result.engine_effects.is_complete());
     }
 
     #[test]

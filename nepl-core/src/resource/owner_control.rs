@@ -69,9 +69,20 @@ pub(super) struct OwnerMatchEngineEffectDelta {
 }
 
 #[cfg(test)]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(super) struct OwnerMatchEngineEffectAccumulator {
     ordered: Vec<OwnerMatchEngineEffectDelta>,
+    complete: bool,
+}
+
+#[cfg(test)]
+impl Default for OwnerMatchEngineEffectAccumulator {
+    fn default() -> Self {
+        Self {
+            ordered: Vec::new(),
+            complete: true,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -81,10 +92,23 @@ impl OwnerMatchEngineEffectAccumulator {
     }
 
     pub(super) fn extend(&mut self, child: Self) {
+        self.complete &= child.complete;
         self.ordered.extend(child.ordered);
     }
 
+    pub(super) fn mark_incomplete(&mut self) {
+        self.complete = false;
+    }
+
+    pub(super) fn is_complete(&self) -> bool {
+        self.complete
+    }
+
     pub(super) fn absorb_into(self, engine: &mut ResourceOwnerCheckEngine<'_>) {
+        assert!(
+            self.complete,
+            "incomplete match engine effects must not become oracle authority"
+        );
         for delta in self.ordered {
             engine.absorb_match_engine_effect_delta(delta);
         }

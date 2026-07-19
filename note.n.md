@@ -168940,3 +168940,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - distinct first/second child deltaでdiagnosticsとowner extentの順序、deferred 3 counterの加算、同一memory requirementのsibling横断dedupを直接固定した。empty deltaは4 channel全てidentityであり、型・field・Vec allocationは`cfg(test)`でproductionから除去される。
 - focused owner control 10件、owner-summary filter 35件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent reviewはblockerなし・actual paths接続前checkpoint可。handcrafted deltaからactual checkpoint capture/recursive extendまでのend-to-endは次のcoverageである。
 - 次はMatch限定でactual traversal resultへaccumulatorを接続し、entry→leaf/subtree→finalizeだけを収集する。state維持用generic sequential replayとterminal summaryは収集せず、Never effectsを保持してstateのみ非merge、unreachable armはdelta自体を生成しない。Branch condition/finalization parity、production shared-engine化、full summary parity、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu constructed Match effect capture checkpoint
+
+- actual variant path resultへtest-only effect accumulatorを接続し、control-free constructed pathだけをcomplete authority候補とした。canonical Match entry、leaf replay、Match finalizationの各lexical deltaを順に保持する。path opsにBranch/Loop/Matchがあればgeneric control replay effects混入を避けるためincomplete、recursive collectorも未合成のためincompleteとして吸収を拒否する。
+- canonical prepareがNoneならcallerの事前reachable filterに依存せずaccumulatorをincomplete、stateをmerge非eligibleにする。Neverはleaf effects取得後にfinalize falseとなるためeffectsを保持したままstateだけ非mergeとなる。production buildではresult field、checkpoint、capture、classificationが`cfg(test)`で除去され、既存summary semanticsは不変である。
+- focused variant path 3件、owner control 10件、owner-summary filter 35件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent reviewは限定checkpointとしてblockerなし。control-bearing constructed、canonical Match delta parity、Never/unreachable直接fixture、recursive entry→child→finalize合成は次のcoverageである。
+- Branch condition/finalization parity、production shared-engine化、full summary parity、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
