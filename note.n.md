@@ -168869,3 +168869,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - test-only `run_generic_match_oracle`を追加し、owned engineと7-stateにcanonical `check_match`を適用した直後、同じstateへ後続opsを連続適用して、7-state snapshotとengine副作用snapshotを返す比較署名を固定した。runnerはengineをconsumeするためgeneric/specializedを同じ累積engineで順次実行できず、それぞれ同一baselineから独立構築する。armが空でも後続StorageOrigin opがretained stateへ反映され、非空deferred baselineも保持される回帰により、Matchだけを比較してpost-control stateまたはengine baselineを落とすoracleを禁止する。
 - production traversalとgeneric replayの採用結果は変更していない。次は同じ署名のspecialized shadow runnerを追加し、genericと同じ親state・post opsでsnapshotを比較する。nested Match、reachable/unreachable、Never、bind、pending effect、temporary、raw view/realloc/function aliasと最終summary一致前にgeneric replayを省略しない。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu specialized Match state-threading shadow checkpoint
+
+- test-only specialized shadow runnerを追加し、generic `check_match`を呼ばずcanonical prepare、arm ops、finalize、7-state collector merge、同じstateへのpost opsを明示的に実行する。generic/shadowはそれぞれ同一baselineから別engineと別stateをconsumeし、Wildcard非空arm、非空deferred baseline、post StorageOriginを含む結果の7-state/engine snapshot完全一致を固定した。
+- このshadowは目標となるpost-arm state threadingを検証するが、actual `owner_summary_variant_paths`の再帰collectorにはまだ接続しておらず、summary出力比較も未実装である。次はactual specialized traversalからowned post-arm stateを返すshadow接続とnested/unreachable/Never/bind/pending effect回帰を追加する。一致前にproduction generic replayを省略しない。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。

@@ -183,6 +183,70 @@ impl ResourceOwnerCheckEngine<'_> {
         (state.oracle_snapshot(), self.match_oracle_snapshot())
     }
 
+    #[cfg(test)]
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn run_specialized_match_shadow_oracle(
+        mut self,
+        mut state: OwnerMatchPathState,
+        output: &Place,
+        scrutinee: &Place,
+        arms: &[ResourceMatchArm],
+        span: Span,
+        post_ops: &[ResourceOp],
+    ) -> (OwnerMatchOracleSnapshot, OwnerMatchEngineOracleSnapshot) {
+        let mut arm_paths = OwnerMatchPathStates::default();
+        for arm in arms {
+            let Some(mut arm_state) = self.prepare_match_arm_path(
+                &state.owners,
+                &state.function_aliases,
+                &state.raw_aliases,
+                &state.raw_views,
+                &state.storage_origins,
+                &state.pending_reallocs,
+                &state.variant_owner_effects,
+                scrutinee,
+                arm,
+                span,
+            ) else {
+                continue;
+            };
+            self.check_ops(
+                &mut arm_state.owners,
+                &mut arm_state.function_aliases,
+                &mut arm_state.raw_aliases,
+                &mut arm_state.raw_views,
+                &mut arm_state.storage_origins,
+                &mut arm_state.pending_reallocs,
+                &mut arm_state.variant_owner_effects,
+                &arm.ops,
+            );
+            if self.finalize_match_arm_value(&mut arm_state, output, &arm.value, span) {
+                arm_paths.push(arm_state);
+            }
+        }
+        merge_match_path_states(
+            &mut state.owners,
+            &mut state.function_aliases,
+            &mut state.raw_aliases,
+            &mut state.raw_views,
+            &mut state.storage_origins,
+            &mut state.pending_reallocs,
+            &mut state.variant_owner_effects,
+            arm_paths,
+        );
+        self.check_ops(
+            &mut state.owners,
+            &mut state.function_aliases,
+            &mut state.raw_aliases,
+            &mut state.raw_views,
+            &mut state.storage_origins,
+            &mut state.pending_reallocs,
+            &mut state.variant_owner_effects,
+            post_ops,
+        );
+        (state.oracle_snapshot(), self.match_oracle_snapshot())
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(super) fn prepare_match_arm_path(
         &mut self,
@@ -1107,5 +1171,66 @@ mod tests {
         assert!(engine_state.diagnostics.is_empty());
         assert!(engine_state.owner_extent_requirements.is_empty());
         assert!(engine_state.memory_span_requirements.is_empty());
+    }
+
+    #[test]
+    fn specialized_match_shadow_matches_generic_with_nonempty_arm_and_post_ops() {
+        let types = TypeCtx::new();
+        let summaries = Vec::new();
+        let summary_index = super::super::summary::OwnerReturnSummaryIndex::new(&summaries);
+        let make_engine = || ResourceOwnerCheckEngine {
+            function: "oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: super::super::report::ResourceOwnerCheckDeferred {
+                match_merges: 7,
+                ..Default::default()
+            },
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let output = Place::local("output".to_string(), TypeId(0));
+        let scrutinee = Place::local("scrutinee".to_string(), TypeId(0));
+        let value = Place::local("value".to_string(), TypeId(0));
+        let retained = Place::local("retained".to_string(), TypeId(0));
+        let span = Span::empty(crate::span::FileId(0), 0);
+        let arms = vec![ResourceMatchArm {
+            pattern: super::super::model::ResourceMatchPattern::Wildcard,
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: Vec::new(),
+            value,
+            span,
+        }];
+        let post_ops = vec![ResourceOp::StorageOrigin {
+            target: retained,
+            origin: super::super::model::StorageOrigin::Owned,
+            span,
+        }];
+        let generic_state = empty_match_state();
+        let shadow_state = clone_match_state(&generic_state);
+
+        let generic = make_engine().run_generic_match_oracle(
+            generic_state,
+            &output,
+            &scrutinee,
+            &arms,
+            span,
+            &post_ops,
+        );
+        let shadow = make_engine().run_specialized_match_shadow_oracle(
+            shadow_state,
+            &output,
+            &scrutinee,
+            &arms,
+            span,
+            &post_ops,
+        );
+
+        assert_eq!(generic, shadow);
     }
 }
