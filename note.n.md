@@ -169189,3 +169189,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 再failureがRetryPendingならcarried Exhausted budgetでBudgetExhausted abortへ、RecoveredStateならF5nzx Abortへ閉じる。旧failure contextと再提出時の新failure authorityは別々に保持し、budget再発行、resume、scheduler/next commandを行わない。GUI/font全体は未完成で、`plan.md`は変更していない。
 - actual Web `-1` Unsupported outcomeはsupport preflight拒否ではなくcompletion済attemptのfailureなので、F5nzwの`DriverCompletionFailed` RecoveredStateへ進む。runtime fixtureは旧SinkRejected、spent Exhausted、新Unsupported/DriverCompletionFailed、cleanupをevidence 63で確認する。RetryPending再failureだけがcarried ExhaustedによるBudgetExhaustedとなる。
 - 修正後WASI/WASM actual fixtureはevidence 63 / failed 0 / exit 0。Web source-policy、専用normal隔離、native/wasm32 workspace check、release CLI build、release trunk build、trunk後Playground editor CLI JSON 13/13、issues/diff checkを通過した。subagent再reviewはblocker/major/minorおよびcleanup漏れなし。F5nzz issueはfixedだが、success status fixture、completion後scheduler continuation、native provider、layout/rasterization/presentationとGUI/font全体は未完成である。
+
+2026-07-19 F5oaa Web registered retry success phase handoff
+
+- F5nzz successだけを消費し、旧Unsupported/SinkRejected contextとspent Exhausted budgetを保持したままregistered completionを既存F5nzm phase classifierへ一度渡すplatform composition boundaryを追加する。
+- actual successはproduction synthetic outcomeではなくNode runtimeの`nepl_gui_web.compositor_tile_present_begin` status 0注入で検証する。期待phaseは未resume Yield、slice counters 1/0であり、resume、next command、scheduler loopは後続へ残す。GUI/font全体は未完成で、`plan.md`は変更していない。
+- 当初F5nzmのexclusive `PhaseOwner`をwrapper内へnested保持した実装はactual compilerのresource owner leakで拒否された。F5nzmを即時total matchし、具体的Continue/Yield/Completed ownerを旧diagnostic/budgetと同じWeb provenance wrapperへ移すことで、lower ownerを再構築せず所有権を閉じた。
+- actual WASI runtimeはevidence 127、Begin/Run/End calls 1/0/0、Web source-policy、専用normal isolation、native/wasm32 workspace check、release CLI build、release trunk build、trunk後Playground editor CLI JSON 13/13を通過した。subagent差分reviewはblocker/major/minorなし。F5oaa issueはfixedだが、次のF5oab scheduler decision、native provider、layout/rasterization/presentationとGUI/font全体は未完成である。

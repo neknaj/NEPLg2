@@ -1,0 +1,83 @@
+//: # Web registered BeginFrame retry success phase test adapter
+//: actual Web status 0のF5nzz successを未resume Yield authorityとして検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_yield_resume" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy_test" as fixture with tests
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_executor" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_success_phase" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+
+fn gui_font_web_registered_begin_frame_retry_success_phase_test_schedule %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentScheduleState \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch state
+    gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+
+//: host importがstatus 0を返す実行環境で旧retry contextと未resume Yieldを検証する
+#test
+pub fn gui_font_web_registered_begin_frame_retry_success_phase_test_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_retry_policy_test_ready_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok ready:
+            match gui_font_web_registered_begin_frame_retry_execute ready:
+                Result::Err failure:
+                    match failure:
+                        GuiFontWebRegisteredBeginFrameRetryExecutionFailure::InvariantViolation cleanup:
+                            match cleanup:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: sub 0 2
+                        GuiFontWebRegisteredBeginFrameRetryExecutionFailure::RecoveredAbort recovered:
+                            match gui_font_web_registered_begin_frame_retry_execution_recovered_abort_free recovered:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: sub 0 3
+                        GuiFontWebRegisteredBeginFrameRetryExecutionFailure::RetryAbort retry_failure:
+                            let failure_parts %GuiFontWebRegisteredBeginFrameRetryExecutionRetryAbortParts gui_font_web_registered_begin_frame_retry_execution_retry_abort_into_parts retry_failure
+                            let abort_ready %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryAbortReadyOwner field::get failure_parts "abort_ready"
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_abort_ready_owner_free abort_ready:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: sub 0 4
+                Result::Ok success:
+                    match gui_font_web_registered_begin_frame_retry_execution_success_into_phase success:
+                        GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Continue owner:
+                            match gui_font_web_registered_begin_frame_retry_success_continue_owner_free owner:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Completed owner:
+                            match gui_font_web_registered_begin_frame_retry_success_completed_owner_free owner:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Yield owner:
+                            let parts %GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwnerParts gui_font_web_registered_begin_frame_retry_success_yield_owner_into_parts owner
+                            let previous_category %Option GuiError field::get parts "previous_category"
+                            let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
+                            let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+                            let phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionYieldOwner field::get parts "phase_owner"
+                            let category_evidence %i32 match previous_category:
+                                Option::Some value:
+                                    match value:
+                                        GuiError::Unsupported: 1
+                                        _: 0
+                                _: 0
+                            let diagnostic_evidence %i32 match previous_diagnostic:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::SinkRejected _: 2
+                                _: 0
+                            let budget_evidence %i32 match spent_budget:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::Exhausted: 4
+                                _: 0
+                            let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_owner_state &phase_owner
+                            let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_font_web_registered_begin_frame_retry_success_phase_test_schedule &state
+                            let command_evidence %i32 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 1 then 16 else 0
+                            let pixel_evidence %i32 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 0 then 32 else 0
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_owner_free phase_owner:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: add 72 add add add add category_evidence diagnostic_evidence budget_evidence command_evidence pixel_evidence

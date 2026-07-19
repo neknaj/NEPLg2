@@ -2,8 +2,8 @@
 id: ISS-20260719T122634361Z-F5OAA-WEB-REGISTERED-RETRY-SUCCESS-P-52D52DDD
 title: "F5oaa Web registered retry success phase handoff"
 area: gui-font
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-07-19
@@ -42,6 +42,11 @@ Consume the F5nzz success owner once, classify its completion exactly once throu
 ## 検証
 
 An actual Web status 0 fixture reaches the expected registered completion phase with prior retry context, spent budget, and cleanup preserved; source-policy, normal compile, release/trunk/CLI gates and subagent reviews pass.
+
+- Actual WASI runtime: evidence 127, Begin/Run/End calls 1/0/0.
+- Web source-policy and dedicated normal-mode isolation pass.
+- Native and wasm32 workspace checks, release CLI build, release trunk build, and Playground editor CLI JSON 13/13 pass.
+- Subagent diff review reports no blocker, major, or minor finding.
 
 ## 受入条件
 

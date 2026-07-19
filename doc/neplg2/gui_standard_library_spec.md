@@ -2480,3 +2480,7 @@ F5nzyはF5nzw RetryPendingを有限0/1 budgetで一度だけ分類する。元fa
 ### Web registered stroke compositor F5nzz retry executor
 
 `platforms/gui/web/font_registered_begin_frame_retry_executor` はRetryReadyのexact pending actionを既存Web compositor executorへ一回だけ渡し、actual outcomeをregistered completionへ再結合する。再failureはspent budgetまたはRecoveredState Abortでtyped終端し、旧failure contextと新failure authorityを別々に保持する。raw Web imports、action実行本体、status mappingは既存executorに留める。
+
+### Web registered stroke compositor F5oaa retry success phase handoff
+
+`platforms/gui/web/font_registered_begin_frame_retry_success_phase` はF5nzz successだけを一度消費し、previous category、exact diagnostic、spent budgetと既存F5nzm phase ownerを同居させる。completion phase分類はF5nzmへexactly once委譲し、Continue/Yield/Completed authorityを対応するconcrete provenance wrapperへ移すがlower ownerを再構築しない。actual status 0 fixtureはWeb Begin importを一度だけ成功させ、Run/Endを呼ばず未resume Yield 1/0とcleanupを検証する。このboundaryはF5nzz execution、completion replay、resume、next command、scheduler/platform loopを行わない。

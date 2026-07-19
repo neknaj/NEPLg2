@@ -13999,3 +13999,10 @@ git diff --check
 - platform/Web adapterでRetryReadyを一度だけparts化し、exact pending actionを既存Web executorへ一回、actual outcomeをregistered F5nzl completionへ一回渡す。
 - successは旧failure context、spent budget、completion ownerを保持する。再failureのRetryPendingはspent Exhausted budgetでBudgetExhausted AbortReadyへ、RecoveredStateはF5nzx AbortReadyへ閉じる。
 - default Web Unsupported actual fixtureで旧SinkRejected、spent Exhausted、新Unsupported category/DriverCompletionFailed、registered cleanupをevidence 63として検証する。RetryPending再failureのBudgetExhausted経路はsource-policyで固定し、actual success status制御、completion後scheduler/next command、複数command loopは後続へ残す。
+
+### F5oaa Web registered retry success phase handoff
+
+- F5nzz Successだけをformal partsへ一度移し、旧category、exact diagnostic、spent budgetを保持する。
+- registered completion ownerを既存F5nzm phase classifierへexactly once渡し、既存Continue/Yield/Completed ownerを対応するconcrete provenance wrapperへ移す。lower phase ownerは再構築しない。
+- actual Web Begin importへstatus 0を注入し、Begin exactly once、Run/End zero、旧Unsupported/SinkRejected、spent Exhausted、未resume Yield、slice counters 1/0、cleanupをevidence 127で検証する。
+- F5nzz再実行、completion replay、Yield resume、next command、scheduler/queue/timer、追加Web/platform workは禁止する。Yield scheduler decisionとF5nzn continuationはF5oab以降へ残す。

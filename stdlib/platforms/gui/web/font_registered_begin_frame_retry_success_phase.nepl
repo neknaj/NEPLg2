@@ -1,0 +1,69 @@
+//: # Web registered BeginFrame retry success phase
+//: F5nzz successを既存F5nzm phase authorityへ一度だけ移します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_yield_resume" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_executor" as *
+
+pub struct GuiFontWebRegisteredBeginFrameRetrySuccessContinueOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionContinueOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionYieldOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwnerParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionYieldOwner
+
+pub struct GuiFontWebRegisteredBeginFrameRetrySuccessCompletedOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    phase_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletedOwner
+
+pub enum GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner:
+    Continue %GuiFontWebRegisteredBeginFrameRetrySuccessContinueOwner
+    Yield %GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner
+    Completed %GuiFontWebRegisteredBeginFrameRetrySuccessCompletedOwner
+
+//: F5nzz successのprovenanceを保持し、registered completionをF5nzmで全域分類する
+pub fn gui_font_web_registered_begin_frame_retry_execution_success_into_phase %fn GuiFontWebRegisteredBeginFrameRetryExecutionSuccess GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner \success:
+    let parts %GuiFontWebRegisteredBeginFrameRetryExecutionSuccessParts gui_font_web_registered_begin_frame_retry_execution_success_into_parts success
+    let previous_category %Option GuiError field::get parts "previous_category"
+    let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
+    let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+    let completion_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionCompletionOwner field::get parts "completion_owner"
+    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_into_phase completion_owner:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionPhaseOwner::Continue phase_owner:
+            GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Continue GuiFontWebRegisteredBeginFrameRetrySuccessContinueOwner previous_category previous_diagnostic spent_budget phase_owner
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionPhaseOwner::Yield phase_owner:
+            GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Yield GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner previous_category previous_diagnostic spent_budget phase_owner
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionPhaseOwner::Completed phase_owner:
+            GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Completed GuiFontWebRegisteredBeginFrameRetrySuccessCompletedOwner previous_category previous_diagnostic spent_budget phase_owner
+
+pub fn gui_font_web_registered_begin_frame_retry_success_yield_owner_into_parts %fn GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwnerParts \owner:
+    GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "phase_owner"
+
+pub fn gui_font_web_registered_begin_frame_retry_success_continue_owner_free %fn GuiFontWebRegisteredBeginFrameRetrySuccessContinueOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_continue_owner_free field::get owner "phase_owner"
+
+pub fn gui_font_web_registered_begin_frame_retry_success_yield_owner_free %fn GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_owner_free field::get owner "phase_owner"
+
+pub fn gui_font_web_registered_begin_frame_retry_success_completed_owner_free %fn GuiFontWebRegisteredBeginFrameRetrySuccessCompletedOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completed_owner_free field::get owner "phase_owner"

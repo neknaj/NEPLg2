@@ -86,6 +86,7 @@ const testOnlyNames = [
     "gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_retry_policy_test_abort_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_retry_policy_test_non_retriable_contract",
     "gui_font_web_registered_begin_frame_retry_executor_test_unsupported_contract",
+    "gui_font_web_registered_begin_frame_retry_success_phase_test_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_test_contract",
     "gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_yield_resume_test_owner",
     "gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_test_contract",
@@ -252,6 +253,16 @@ fn main %impure fn void i32 \\void:
     evidence
 `;
 
+const webRetrySuccessPhaseProbe = (testOnlyName) => `#entry main
+#indent 4
+#target std
+#import "platforms/gui/web/font_registered_begin_frame_retry_success_phase_test" as *
+
+fn main %impure fn void i32 \\void:
+    let evidence %i32 ${testOnlyName} unit
+    evidence
+`;
+
 async function main() {
     const distDir = path.resolve(__dirname, "..", "web", "dist");
     const { api } = await loadCompilerFromDist(distDir);
@@ -262,7 +273,7 @@ async function main() {
     }
     for (const testOnlyName of selectedNames) {
         try {
-            const source = testOnlyName.includes("web_registered_begin_frame_retry_executor_test") ? webRetryExecutorProbe(testOnlyName) : testOnlyName.includes("retry_policy_test") ? retryPolicyProbe(testOnlyName) : testOnlyName.includes("recovered_state_scheduler_decision_test") ? recoveredStateSchedulerDecisionProbe(testOnlyName) : (testOnlyName.includes("tile_rle_begin_frame_resumed_end_frame_test") || testOnlyName.includes("tile_rle_begin_frame_resumed_end_frame_record_test") || testOnlyName.includes("tile_rle_begin_frame_resumed_end_frame_schedule_test") || testOnlyName.includes("tile_rle_begin_frame_resumed_terminal_command_test")) ? resumedEndFrameProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_resumed_run_schedule_test") ? resumedRunScheduleProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_resumed_run_record_test") ? resumedRunRecordProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_resumed_next_command_test") ? resumedNextCommandProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_action_yield_resume_test") ? hostActionYieldResumeProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_action_completion_test") ? hostActionCompletionProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_action_executor_session_test") ? hostActionExecutorSessionProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_execution_driver_test") ? hostExecutionDriverProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_dispatch_loop_test") ? dispatchLoopProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_dispatch_test") ? dispatchProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_request_test") ? hostRequestProbe(testOnlyName) : probe(testOnlyName);
+            const source = testOnlyName.includes("web_registered_begin_frame_retry_success_phase_test") ? webRetrySuccessPhaseProbe(testOnlyName) : testOnlyName.includes("web_registered_begin_frame_retry_executor_test") ? webRetryExecutorProbe(testOnlyName) : testOnlyName.includes("retry_policy_test") ? retryPolicyProbe(testOnlyName) : testOnlyName.includes("recovered_state_scheduler_decision_test") ? recoveredStateSchedulerDecisionProbe(testOnlyName) : (testOnlyName.includes("tile_rle_begin_frame_resumed_end_frame_test") || testOnlyName.includes("tile_rle_begin_frame_resumed_end_frame_record_test") || testOnlyName.includes("tile_rle_begin_frame_resumed_end_frame_schedule_test") || testOnlyName.includes("tile_rle_begin_frame_resumed_terminal_command_test")) ? resumedEndFrameProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_resumed_run_schedule_test") ? resumedRunScheduleProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_resumed_run_record_test") ? resumedRunRecordProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_resumed_next_command_test") ? resumedNextCommandProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_action_yield_resume_test") ? hostActionYieldResumeProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_action_completion_test") ? hostActionCompletionProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_action_executor_session_test") ? hostActionExecutorSessionProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_execution_driver_test") ? hostExecutionDriverProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_dispatch_loop_test") ? dispatchLoopProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_dispatch_test") ? dispatchProbe(testOnlyName) : testOnlyName.includes("tile_rle_begin_frame_host_request_test") ? hostRequestProbe(testOnlyName) : probe(testOnlyName);
             compileWithLocalStdlib(api, { source });
         } catch (error) {
             const message = String(error?.message || error);

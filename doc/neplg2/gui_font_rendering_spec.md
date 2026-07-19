@@ -8809,3 +8809,7 @@ F5nzyはF5nzw `RetryPending`を一度だけ消費し、`Exhausted | OneRemaining
 ### F5nzz Web registered BeginFrame retry executor
 
 F5nzzはplatform/Web composition boundaryとしてF5nzy RetryReadyを一度消費し、保持session pendingのexpected actionを既存Web executorへexactly once渡す。actual outcomeは保持dispatch ownerとpendingから再結合したregistered F5nzl session ownerへexactly once渡す。successは旧category/diagnostic/spent budgetとcompletion ownerを保持する。failureはF5nzw recovery後、RetryPendingをcarried Exhausted budgetでBudgetExhausted abortへ、RecoveredStateをF5nzx Abortへ閉じる。raw host importは既存Web executorだけに残し、budget再発行、state resume、scheduler loop、next command、fallbackは行わない。
+
+### F5oaa Web registered retry success phase handoff
+
+F5oaaはF5nzz successだけを一度消費し、旧category、exact diagnostic、spent budgetを保持したままregistered completion ownerを既存F5nzm phase classifierへexactly once渡す。F5nzmの既存Continue/Yield/Completed owner authorityは全域match直後に対応するconcrete Web provenance wrapperへ移し、lower phase owner自体を再構築しない。actual Web status 0はhost import境界でだけ注入し、BeginFrame successが未resume Yieldとslice counters 1/0を返すことを検証する。F5oaaはF5nzz実行、completion replay、resume、next command、scheduler loop、追加platform workを行わない。

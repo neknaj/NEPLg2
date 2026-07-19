@@ -11247,3 +11247,9 @@ F5nzy consumes one F5nzw RetryPending owner and applies a finite exhausted/one-r
 ### F5nzz Web registered BeginFrame retry executor
 
 The platform/Web adapter consumes RetryReady once, borrows its exact pending action for one call to the existing Web executor, then reconstructs only the registered session-owner wrapper around the retained dispatch owner and the same pending owner. It invokes F5nzl completion once with the actual Web outcome. Success retains the previous failure context and spent budget beside the completion owner. RetryPending failure is decided with the carried Exhausted budget and can only become an abort handoff; RecoveredState is decided as Abort without resuming. Raw imports remain in the existing Web executor module.
+
+### F5oaa Web registered retry success phase handoff
+
+F5oaa consumes only `GuiFontWebRegisteredBeginFrameRetryExecutionSuccess`. It moves the F5nzz success into formal parts, retains the previous category, exact diagnostic, and spent budget, then passes the registered completion owner to the existing F5nzm total phase classifier exactly once. The resulting F5nzm Continue, Yield, or Completed authority is immediately moved into the matching concrete Web provenance wrapper. This explicit variant wrapper avoids an unsupported nested-exclusive-owner proof shape without reconstructing the lower phase owner.
+
+The actual success fixture overrides only the `nepl_gui_web.compositor_tile_present_begin` host import with status `0`; Run and End remain unused. This proves that success is supplied by the host boundary rather than synthesized in NEPL. The current BeginFrame transition produces an unresumed Yield with slice command/pixel counters `1/0`. F5oaa does not call F5nzz execution, replay completion, resume Yield, step the next command, schedule a loop, or perform another platform operation. The next scheduler slice owns the decision to resume the retained Yield exactly once.
