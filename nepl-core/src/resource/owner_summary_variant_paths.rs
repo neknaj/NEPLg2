@@ -8,9 +8,7 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
 use super::owner_check::ResourceOwnerCheckEngine;
-use super::owner_control::OwnerMatchPathState;
-#[cfg(test)]
-use super::owner_control::OwnerMatchEngineEffectAccumulator;
+use super::owner_control::{OwnerMatchEngineEffectAccumulator, OwnerMatchPathState};
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_consumed::consumed_owner_parameters;
@@ -47,12 +45,11 @@ pub(super) struct OwnerVariantTraversalResult {
     controls: Vec<OwnerVariantControlPaths>,
     #[cfg(test)]
     merge_eligible: bool,
-    #[cfg(test)]
     engine_effects: Option<OwnerMatchEngineEffectAccumulator>,
 }
 
-#[cfg(test)]
 impl OwnerVariantTraversalResult {
+    #[cfg(test)]
     fn engine_effects(&self) -> &OwnerMatchEngineEffectAccumulator {
         self.engine_effects
             .as_ref()
@@ -190,7 +187,6 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     let mut variant_owner_effects = variant_owner_effects.clone();
     #[cfg(test)]
     let mut controls = Vec::new();
-    #[cfg(test)]
     let mut engine_effects = OwnerMatchEngineEffectAccumulator::default();
     #[cfg(test)]
     let mut generic_oracle = None;
@@ -364,7 +360,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         continue;
                     }
                     profile.observe_match_arm();
-                    let result = collect_variant_consumed_owner_parameters_from_path(
+                    let mut result = collect_variant_consumed_owner_parameters_from_path(
                         index_out,
                         source_out,
                         extent_out,
@@ -391,13 +387,11 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         profile,
                         depth + 1,
                     );
-                    #[cfg(test)]
-                    let mut result = result;
+                    let child_effects = result.take_engine_effects();
+                    engine_effects.extend(child_effects);
                     #[cfg(test)]
                     let evidence = {
                         reachable_paths += 1;
-                        let child_effects = result.take_engine_effects();
-                        engine_effects.extend(child_effects);
                         let evidence = OwnerVariantTraversalEvidence {
                             state_snapshot: result.state.oracle_snapshot(),
                             controls: result.controls,
@@ -568,7 +562,6 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         controls,
         #[cfg(test)]
         merge_eligible: true,
-        #[cfg(test)]
         engine_effects: Some(engine_effects),
     }
 }
@@ -620,7 +613,6 @@ fn collect_variant_consumed_owner_parameters_from_path(
     let mut path_function_aliases = function_aliases.clone();
     let mut path_pending_reallocs = pending_reallocs.clone();
     let mut path_variant_owner_effects = variant_owner_effects.clone();
-    #[cfg(test)]
     let mut engine_effects = OwnerMatchEngineEffectAccumulator::default();
     #[cfg(test)]
     let entry_checkpoint = path_engine.match_engine_effect_checkpoint();
@@ -671,7 +663,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     profile.finish(match_entry_timer, OwnerVariantProfilePhase::MatchEntry);
     let Some(constructed_variant) = construct_variant_for_value(path_ops, path_value) else {
         profile.observe_recursive_path();
-        let result = collect_variant_consumed_owner_parameters_from_nested_return(
+        let mut result = collect_variant_consumed_owner_parameters_from_nested_return(
             index_out,
             source_out,
             extent_out,
@@ -695,13 +687,8 @@ fn collect_variant_consumed_owner_parameters_from_path(
             profile,
             depth,
         );
-        #[cfg(test)]
-        let mut result = result;
-        #[cfg(test)]
-        {
-            engine_effects.extend(result.take_engine_effects());
-            result.engine_effects = Some(engine_effects);
-        }
+        engine_effects.extend(result.take_engine_effects());
+        result.engine_effects = Some(engine_effects);
         #[cfg(test)]
         if match_entry_reachable {
             if let Some(output) = _match_output {
@@ -868,7 +855,6 @@ fn collect_variant_consumed_owner_parameters_from_path(
         controls: Vec::new(),
         #[cfg(test)]
         merge_eligible: true,
-        #[cfg(test)]
         engine_effects: Some(engine_effects),
     };
     #[cfg(test)]
