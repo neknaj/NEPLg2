@@ -146,6 +146,43 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
+    #[cfg(test)]
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn run_generic_match_oracle(
+        mut self,
+        mut state: OwnerMatchPathState,
+        output: &Place,
+        scrutinee: &Place,
+        arms: &[ResourceMatchArm],
+        span: Span,
+        post_ops: &[ResourceOp],
+    ) -> (OwnerMatchOracleSnapshot, OwnerMatchEngineOracleSnapshot) {
+        self.check_match(
+            &mut state.owners,
+            &mut state.function_aliases,
+            &mut state.raw_aliases,
+            &mut state.raw_views,
+            &mut state.storage_origins,
+            &mut state.pending_reallocs,
+            &mut state.variant_owner_effects,
+            output,
+            scrutinee,
+            arms,
+            span,
+        );
+        self.check_ops(
+            &mut state.owners,
+            &mut state.function_aliases,
+            &mut state.raw_aliases,
+            &mut state.raw_views,
+            &mut state.storage_origins,
+            &mut state.pending_reallocs,
+            &mut state.variant_owner_effects,
+            post_ops,
+        );
+        (state.oracle_snapshot(), self.match_oracle_snapshot())
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(super) fn prepare_match_arm_path(
         &mut self,
@@ -827,6 +864,7 @@ impl ResourceOwnerCheckEngine<'_> {
 #[cfg(test)]
 mod tests {
     use alloc::string::ToString;
+    use alloc::vec;
     use alloc::vec::Vec;
 
     use super::*;
@@ -842,6 +880,18 @@ mod tests {
             &state.pending_reallocs,
             &state.variant_owner_effects,
         )
+    }
+
+    fn empty_match_state() -> OwnerMatchPathState {
+        OwnerMatchPathState {
+            owners: OwnerTable::default(),
+            function_aliases: FunctionAliasTable::default(),
+            raw_aliases: RawCellAddressAliases::default(),
+            raw_views: RawAddressViewTable::default(),
+            storage_origins: StorageOriginTable::default(),
+            pending_reallocs: PendingRawReallocs::default(),
+            variant_owner_effects: PendingVariantOwnerEffects::default(),
+        }
     }
 
     #[test]
@@ -868,15 +918,7 @@ mod tests {
 
     #[test]
     fn match_oracle_snapshot_observes_owner_allocation_identity() {
-        let base = OwnerMatchPathState {
-            owners: OwnerTable::default(),
-            function_aliases: FunctionAliasTable::default(),
-            raw_aliases: RawCellAddressAliases::default(),
-            raw_views: RawAddressViewTable::default(),
-            storage_origins: StorageOriginTable::default(),
-            pending_reallocs: PendingRawReallocs::default(),
-            variant_owner_effects: PendingVariantOwnerEffects::default(),
-        };
+        let base = empty_match_state();
         let mut allocated = OwnerMatchPathState::from_parent(
             &base.owners,
             &base.function_aliases,
@@ -970,7 +1012,6 @@ mod tests {
             params: &[],
             owner_leaf_projection_cache: Default::default(),
         };
-
         let snapshot = engine.match_oracle_snapshot();
         assert!(snapshot.diagnostics.is_empty());
         assert_eq!(
@@ -1018,5 +1059,53 @@ mod tests {
                 operation: ResourceOwnerOperation::Read,
             });
         assert_ne!(snapshot, engine.match_oracle_snapshot());
+    }
+
+    #[test]
+    fn generic_match_oracle_runs_post_match_ops_on_retained_state() {
+        let types = TypeCtx::new();
+        let summaries = Vec::new();
+        let summary_index = super::super::summary::OwnerReturnSummaryIndex::new(&summaries);
+        let mut engine = ResourceOwnerCheckEngine {
+            function: "oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: super::super::report::ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        engine.deferred.match_merges = 7;
+        let output = Place::local("output".to_string(), TypeId(0));
+        let scrutinee = Place::local("scrutinee".to_string(), TypeId(0));
+        let retained = Place::local("retained".to_string(), TypeId(0));
+        let span = Span::empty(crate::span::FileId(0), 0);
+
+        let (state, engine_state) = engine.run_generic_match_oracle(
+            empty_match_state(),
+            &output,
+            &scrutinee,
+            &[],
+            span,
+            &[ResourceOp::StorageOrigin {
+                target: retained.clone(),
+                origin: super::super::model::StorageOrigin::Owned,
+                span,
+            }],
+        );
+
+        assert_eq!(
+            state.storage_origins.0,
+            vec![super::super::model::StorageOriginEntry {
+                place: retained,
+                origin: super::super::model::StorageOrigin::Owned,
+            }]
+        );
+        assert_eq!(engine_state.deferred.match_merges, 7);
+        assert!(engine_state.diagnostics.is_empty());
+        assert!(engine_state.owner_extent_requirements.is_empty());
+        assert!(engine_state.memory_span_requirements.is_empty());
     }
 }

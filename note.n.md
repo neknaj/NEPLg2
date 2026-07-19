@@ -168864,3 +168864,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - single traversal shadow比較の前段としてtest-only `OwnerMatchOracleSnapshot`を追加し、owner entry順と次storage identity、function/raw alias、raw view entry順とownership、storage origin entry順とorigin-source mapping、pending realloc、variant effectの7-state全体を同値比較できるようにした。engine側もdiagnostics、deferred state、owner extent requirement、memory span requirementを別snapshotで保持し、7-state外の副作用を比較から落とさない。
 - snapshotはproduction処理から呼ばれず、generic replayの採用結果も変更しない。次はgeneric Match+post ops runnerとspecialized shadow runnerを同じ親stateから実行し、内部snapshotと最終OwnerReturnSummary全fieldを比較する。shadow一致前にgeneric replayを省略しない。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu generic Match oracle runner checkpoint
+
+- test-only `run_generic_match_oracle`を追加し、owned engineと7-stateにcanonical `check_match`を適用した直後、同じstateへ後続opsを連続適用して、7-state snapshotとengine副作用snapshotを返す比較署名を固定した。runnerはengineをconsumeするためgeneric/specializedを同じ累積engineで順次実行できず、それぞれ同一baselineから独立構築する。armが空でも後続StorageOrigin opがretained stateへ反映され、非空deferred baselineも保持される回帰により、Matchだけを比較してpost-control stateまたはengine baselineを落とすoracleを禁止する。
+- production traversalとgeneric replayの採用結果は変更していない。次は同じ署名のspecialized shadow runnerを追加し、genericと同じ親state・post opsでsnapshotを比較する。nested Match、reachable/unreachable、Never、bind、pending effect、temporary、raw view/realloc/function aliasと最終summary一致前にgeneric replayを省略しない。F5nzu 2047、issue close、main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
