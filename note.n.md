@@ -169121,3 +169121,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - generic `check_branch`に埋め込まれていた各pathのvalue-to-output finalizationを`finalize_branch_path`へ抽出し、既存`OwnerMatchPathState`と`OwnerMatchPathStates`で両pathを保持・mergeする共通境界へ置換した。Never除外、reserved-source診断、owner/scalar/raw-view/realloc/variant effect transfer、temporary materialization、then→else effect順、7-state merge順は変更していない。
 - subagent reviewは旧実装との逐語的対応、reserved拒否後もpathをmergeする既存契約、empty pathsの親state保持、function aliasをoutputへcopyしない既存挙動を確認してblockerなし。owner control 10件、owner-summary 49件、native/wasm32 `cargo check -p nepl-core`、release `cargo build -p nepl-cli`、`git diff --check`は通過した。
 - これはspecialized Branch authority接続前の意味中立checkpointである。次はthen/else resultへcanonical finalizeを適用し、両effectがcompleteな場合だけstate/effectをproduction採用してgeneric Branch replayを省略する。Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu specialized Branch production authority checkpoint
+
+- return-producing Branchのthen/elseへcanonical finalizationを適用し、Branch専用engine clone上でconditionをgenericと同じthen→else順に処理した。condition→then child→else childのeffect列がcompleteな場合だけeligible stateをmergeし、元engineへ一度absorbしてgeneric Branch replayを省略する。incomplete時は元engineを変更せずgeneric replayへフォールバックする。
+- subagent初回reviewでconditionを元engineへ直接適用後に再absorbする二重effect/fallback汚染blockerを受け、専用engineへ分離した。再reviewでstateだけではeffect回帰を検出できないblockerを受け、同一親から実行したgeneric Branchとspecialized採用後のstateおよびdiagnostics/deferred/extent/memory snapshotをexact比較した。最終reviewはcondition→then→else順、Never effect保持/state除外、reserved source、後続ops threadingを確認してblocker-freeとなった。
+- owner control 10件、variant path 16件、owner-summary 49件、修正後variant path 16件、native/wasm32 `cargo check -p nepl-core`、release `cargo build -p nepl-cli`、`git diff --check`は通過した。次はF5nzt 1023対照を再計測し、残るLoop fallbackの寄与を判定する。Loop、1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。

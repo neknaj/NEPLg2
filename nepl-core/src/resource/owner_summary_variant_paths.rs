@@ -91,18 +91,6 @@ struct OwnerVariantTraversalEvidence {
 }
 
 #[cfg(test)]
-impl OwnerVariantTraversalResult {
-    fn into_evidence(self) -> OwnerVariantTraversalEvidence {
-        OwnerVariantTraversalEvidence {
-            state_snapshot: self.state.oracle_snapshot(),
-            controls: self.controls,
-            merge_eligible: self.merge_eligible,
-            effect_authority_transferred: false,
-        }
-    }
-}
-
-#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OwnerVariantPathSelector {
     Then,
@@ -205,11 +193,46 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
             } if output == return_value => {
                 profile.observe_branch_fork();
                 let branch_fork_timer = profile.start();
+                let mut branch_engine = ResourceOwnerCheckEngine {
+                    function: engine.function,
+                    types: engine.types,
+                    summaries: engine.summaries,
+                    diagnostics: Vec::new(),
+                    deferred: ResourceOwnerCheckDeferred::default(),
+                    owner_extent_requirements: engine.owner_extent_requirements.clone(),
+                    memory_span_requirements: engine.memory_span_requirements.clone(),
+                    params: engine.params,
+                    owner_leaf_projection_cache: Default::default(),
+                };
+                #[cfg(test)]
+                let mut branch_generic_state = OwnerMatchPathState::from_parent(
+                    &owners,
+                    &function_aliases,
+                    &raw_aliases,
+                    &raw_views,
+                    &storage_origins,
+                    &pending_reallocs,
+                    &variant_owner_effects,
+                );
+                #[cfg(test)]
+                let mut branch_generic_engine = ResourceOwnerCheckEngine {
+                    function: engine.function,
+                    types: engine.types,
+                    summaries: engine.summaries,
+                    diagnostics: engine.diagnostics.clone(),
+                    deferred: engine.deferred.clone(),
+                    owner_extent_requirements: engine.owner_extent_requirements.clone(),
+                    memory_span_requirements: engine.memory_span_requirements.clone(),
+                    params: engine.params,
+                    owner_leaf_projection_cache: Default::default(),
+                };
+                let branch_condition_checkpoint =
+                    branch_engine.match_engine_effect_checkpoint();
                 let mut then_owners = owners.clone();
                 let mut then_raw_aliases = raw_aliases.clone();
                 let mut then_storage_origins = storage_origins.clone();
                 let mut then_pending_reallocs = pending_reallocs.clone();
-                engine.apply_branch_condition_fact(
+                branch_engine.apply_branch_condition_fact(
                     &mut then_owners,
                     &mut then_raw_aliases,
                     &raw_views,
@@ -220,13 +243,32 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     *span,
                 );
                 profile.finish(branch_fork_timer, OwnerVariantProfilePhase::BranchFork);
-                let then_result = collect_variant_consumed_owner_parameters_from_path(
+                profile.observe_branch_fork();
+                let branch_fork_timer = profile.start();
+                let mut else_owners = owners.clone();
+                let mut else_raw_aliases = raw_aliases.clone();
+                let mut else_storage_origins = storage_origins.clone();
+                let mut else_pending_reallocs = pending_reallocs.clone();
+                branch_engine.apply_branch_condition_fact(
+                    &mut else_owners,
+                    &mut else_raw_aliases,
+                    &raw_views,
+                    &mut else_storage_origins,
+                    &mut else_pending_reallocs,
+                    condition_fact.as_ref(),
+                    false,
+                    *span,
+                );
+                profile.finish(branch_fork_timer, OwnerVariantProfilePhase::BranchFork);
+                let branch_condition_effects =
+                    branch_engine.match_engine_effect_delta(branch_condition_checkpoint);
+                let mut then_result = collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
                     extent_out,
                     condition_out,
                     payload_condition_out,
-                    &engine,
+                    &branch_engine,
                     &then_owners,
                     &then_raw_aliases,
                     &raw_views,
@@ -240,37 +282,20 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     then_value,
                     condition_fact.as_ref().map(|fact| (fact, true)),
                     None,
-                    None,
+                    Some((output, *span)),
                     host_size_out,
                     type_size_out,
                     return_out,
                     profile,
                     depth + 1,
                 );
-                profile.observe_branch_fork();
-                let branch_fork_timer = profile.start();
-                let mut else_owners = owners.clone();
-                let mut else_raw_aliases = raw_aliases.clone();
-                let mut else_storage_origins = storage_origins.clone();
-                let mut else_pending_reallocs = pending_reallocs.clone();
-                engine.apply_branch_condition_fact(
-                    &mut else_owners,
-                    &mut else_raw_aliases,
-                    &raw_views,
-                    &mut else_storage_origins,
-                    &mut else_pending_reallocs,
-                    condition_fact.as_ref(),
-                    false,
-                    *span,
-                );
-                profile.finish(branch_fork_timer, OwnerVariantProfilePhase::BranchFork);
-                let else_result = collect_variant_consumed_owner_parameters_from_path(
+                let mut else_result = collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
                     extent_out,
                     condition_out,
                     payload_condition_out,
-                    &engine,
+                    &branch_engine,
                     &else_owners,
                     &else_raw_aliases,
                     &raw_views,
@@ -284,15 +309,83 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     else_value,
                     condition_fact.as_ref().map(|fact| (fact, false)),
                     None,
-                    None,
+                    Some((output, *span)),
                     host_size_out,
                     type_size_out,
                     return_out,
                     profile,
                     depth + 1,
                 );
+                let mut branch_effects = OwnerMatchEngineEffectAccumulator::default();
+                branch_effects.push(branch_condition_effects);
+                branch_effects.extend(then_result.take_engine_effects());
+                branch_effects.extend(else_result.take_engine_effects());
+                let mut branch_paths = super::owner_control::OwnerMatchPathStates::default();
                 #[cfg(test)]
-                engine_effects.mark_incomplete();
+                let then_evidence = OwnerVariantTraversalEvidence {
+                    state_snapshot: then_result.state.oracle_snapshot(),
+                    controls: then_result.controls,
+                    merge_eligible: then_result.merge_eligible,
+                    effect_authority_transferred: then_result.engine_effects.is_none(),
+                };
+                if then_result.merge_eligible {
+                    branch_paths.push(then_result.state);
+                }
+                #[cfg(test)]
+                let else_evidence = OwnerVariantTraversalEvidence {
+                    state_snapshot: else_result.state.oracle_snapshot(),
+                    controls: else_result.controls,
+                    merge_eligible: else_result.merge_eligible,
+                    effect_authority_transferred: else_result.engine_effects.is_none(),
+                };
+                if else_result.merge_eligible {
+                    branch_paths.push(else_result.state);
+                }
+                if branch_effects.is_complete() {
+                    super::owner_control::merge_match_path_states(
+                        &mut owners,
+                        &mut function_aliases,
+                        &mut raw_aliases,
+                        &mut raw_views,
+                        &mut storage_origins,
+                        &mut pending_reallocs,
+                        &mut variant_owner_effects,
+                        branch_paths,
+                    );
+                    branch_effects = branch_effects.absorb_into_and_retain(&mut engine);
+                    specialized_authority = true;
+                }
+                engine_effects.extend(branch_effects);
+                #[cfg(test)]
+                if specialized_authority {
+                    branch_generic_engine.check_ops(
+                        &mut branch_generic_state.owners,
+                        &mut branch_generic_state.function_aliases,
+                        &mut branch_generic_state.raw_aliases,
+                        &mut branch_generic_state.raw_views,
+                        &mut branch_generic_state.storage_origins,
+                        &mut branch_generic_state.pending_reallocs,
+                        &mut branch_generic_state.variant_owner_effects,
+                        &ops[index..=index],
+                    );
+                    assert_eq!(
+                        branch_generic_state.oracle_snapshot(),
+                        OwnerMatchPathState::from_parent(
+                            &owners,
+                            &function_aliases,
+                            &raw_aliases,
+                            &raw_views,
+                            &storage_origins,
+                            &pending_reallocs,
+                            &variant_owner_effects,
+                        )
+                        .oracle_snapshot()
+                    );
+                    assert_eq!(
+                        branch_generic_engine.match_oracle_snapshot(),
+                        engine.match_oracle_snapshot()
+                    );
+                }
                 #[cfg(test)]
                 controls.push(OwnerVariantControlPaths {
                     op_index: index,
@@ -300,16 +393,14 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     paths: vec![
                         OwnerVariantTraversalPath {
                             selector: OwnerVariantPathSelector::Then,
-                            result: then_result.into_evidence(),
+                            result: then_evidence,
                         },
                         OwnerVariantTraversalPath {
                             selector: OwnerVariantPathSelector::Else,
-                            result: else_result.into_evidence(),
+                            result: else_evidence,
                         },
                     ],
                 });
-                #[cfg(not(test))]
-                let _ = (then_result, else_result);
             }
             ResourceOp::Match {
                 output,
@@ -379,7 +470,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         &arm.value,
                         None,
                         Some((scrutinee, arm, *span)),
-                        Some(output),
+                        Some((output, *span)),
                         host_size_out,
                         type_size_out,
                         return_out,
@@ -572,7 +663,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     path_value: &Place,
     branch_condition: Option<(&ResourceConditionFact, bool)>,
     match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
-    _match_output: Option<&Place>,
+    control_output: Option<(&Place, Span)>,
     host_size_out: &mut Vec<OwnerHostSizeReturn>,
     type_size_out: &mut Vec<OwnerTypeSizeReturn>,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
@@ -660,14 +751,23 @@ fn collect_variant_consumed_owner_parameters_from_path(
         engine_effects.extend(result.take_engine_effects());
         result.engine_effects = Some(engine_effects);
         if match_entry_reachable {
-            if let Some(output) = _match_output {
+            if let Some((output, control_span)) = control_output {
                 let finalize_checkpoint = path_engine.match_engine_effect_checkpoint();
-                result.merge_eligible = path_engine.finalize_match_arm_value(
-                    &mut result.state,
-                    output,
-                    path_value,
-                    match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
-                );
+                result.merge_eligible = if match_arm.is_some() {
+                    path_engine.finalize_match_arm_value(
+                        &mut result.state,
+                        output,
+                        path_value,
+                        control_span,
+                    )
+                } else {
+                    path_engine.finalize_branch_path(
+                        &mut result.state,
+                        output,
+                        path_value,
+                        control_span,
+                    )
+                };
                 result
                     .engine_effects
                     .as_mut()
@@ -823,14 +923,23 @@ fn collect_variant_consumed_owner_parameters_from_path(
         engine_effects: Some(engine_effects),
     };
     if match_entry_reachable {
-        if let Some(output) = _match_output {
+        if let Some((output, control_span)) = control_output {
             let finalize_checkpoint = path_engine.match_engine_effect_checkpoint();
-            result.merge_eligible = path_engine.finalize_match_arm_value(
-                &mut result.state,
-                output,
-                path_value,
-                match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
-            );
+            result.merge_eligible = if match_arm.is_some() {
+                path_engine.finalize_match_arm_value(
+                    &mut result.state,
+                    output,
+                    path_value,
+                    control_span,
+                )
+            } else {
+                path_engine.finalize_branch_path(
+                    &mut result.state,
+                    output,
+                    path_value,
+                    control_span,
+                )
+            };
             result
                 .engine_effects
                 .as_mut()
@@ -1028,7 +1137,12 @@ mod tests {
             path_value,
             None,
             match_arm,
-            match_output,
+            match_output.map(|output| {
+                (
+                    output,
+                    match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
+                )
+            }),
             &mut host_size_out,
             &mut type_size_out,
             &mut return_out,
