@@ -8789,3 +8789,7 @@ F5nztはF5nzs schedule phaseをconsume前に検査し、Completedだけがformal
 ### F5nzu registered resumed terminal F5mu borrowed projection boundary
 
 F5nzuは呼び出し側がF5nzt successをformal partsで一度だけ消費した後、その同じopaque terminal stepを既存F5muへborrow projectionする。新しいownerやcleanupを作らず、step authorityは呼び出し側が既存F5mt cleanupまで保持する。F5nztがterminal invariantを確立済みなのでproductionでphase/resultを再gateせず、error authorityも人工生成しない。`Completed`はhost-command recordではなく、F5mv drain、schedule、host request、platform executionへ進まない。
+
+### F5nzv registered resumed terminal no-request completion boundary
+
+F5nzvはF5nzt formal partsを一度だけ消費し、retained updated loop stateを読む前後で新しいownerを作らず、同じterminal stepを既存F5mt cleanupへexactly once渡す。cleanup成功後だけ`GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state`を返す。cleanup failureはretained stateとlower `GuiRgba8888CompositorTileRleEncodedFinishErrorKind`をtyped errorへ保持する。normal `complete_request`、pending/request/outcome、F5mv/F5mx、executor、host/platform executionを生成しない。

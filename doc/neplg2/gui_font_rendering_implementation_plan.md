@@ -13969,3 +13969,9 @@ git diff --check
 - 呼び出し側がF5nzt successをformal partsへ一度だけ移し、回収した同じopaque stepをF5nzuから既存F5muへ一度だけborrow projectionする。
 - 新しいownerやcleanupを追加せず、updated stateとstep authorityは既存F5nzt/F5mt lifecycleで保持する。productionはF5mt result、descriptor、cursor phaseを検査せず、F5mtを再advanceしない。
 - actual fixtureは既存F5nzt chain内でstate 2/16、drain Ended、schedule/F5mu Completed、canonical descriptor、cursor Completed、cleanupを検証する。deep state+stepの再包装はresource summaryを300秒超へ非線形拡大させるため行わない。F5mv、schedule、host request、host/platform executionは後続へ残す。
+
+### F5nzv registered resumed terminal no-request completion
+
+- F5nzt formal partsを一度だけ消費し、retained updated stateを保持してterminal stepを既存F5mt freeへexactly once渡す。
+- cleanup成功後だけF5nc completion enumの`Completed state`を返し、cleanup failureはstateとlower encoded-finish kindをtyped errorへ保持する。
+- actual fixtureはF5nzu borrowed projection後に同じpartsをF5nzvへ渡し、state 2/16、drain Ended、explicit Completed、cleanupを4095で検証する。normal `complete_request`、request/outcome、F5mv/F5mx、executor、host/platform executionは使用しない。

@@ -2460,3 +2460,7 @@ F5nztはF5nzsのCompleted schedule authorityだけを受理し、既存F5mt comm
 ### Registered stroke compositor F5nzu resumed terminal projection boundary
 
 F5nzuは呼び出し側がF5nzt ownerをformal partsで一度だけ消費した後、同じterminal stepを既存F5muへborrow projectionする。新ownerを作らずstep authorityは既存cleanupまで維持する。productionでterminal invariantを再検査せず、F5mt再advance、F5mv drain、schedule、host request、platform executionを行わない。
+
+### Registered stroke compositor F5nzv terminal no-request completion boundary
+
+F5nzvはF5nzt formal partsのretained stateとterminal stepを分断せず、stepを既存cleanupへexactly once渡す。cleanup成功後だけ明示的`DispatchLoopCompletion::Completed state`を返し、失敗はstateとlower encoded-finish kindをtyped recoveryとして保持する。normal request completion、pending/request/outcome生成、executor、host/platform executionは責務外である。

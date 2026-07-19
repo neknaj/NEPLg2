@@ -6,6 +6,7 @@
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_test" as fixture with tests
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_command" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_completion" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_record" as *
 #import "alloc/gui/render2d/compositor_frame_entry" as *
 #import "core/field" as field
@@ -55,19 +56,19 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
                         GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed: 32
                         _: 0
                     let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_command_owner_into_parts terminal
-                    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
-                    let descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_command_cursor_step_descriptor &step
-                    let evidence2 %i32 add evidence1 match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result &step:
+                    let step %&GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get_ref &parts "step"
+                    let descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_command_cursor_step_descriptor step
+                    let evidence2 %i32 add evidence1 match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result step:
                         GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed: 64
                         _: 0
                     let evidence3 %i32 add evidence2 if resumed_terminal_command_descriptor_is_canonical &descriptor then 128 else 0
-                    let evidence4 %i32 add evidence3 match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_record_result &step:
+                    let evidence4 %i32 add evidence3 match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_record_result step:
                         GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Completed: 1024
                         _: 0
-                    let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner step
-                    let evidence5 %i32 add evidence4 match gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_phase &cursor:
-                        GuiRgba8888CompositorTileRlePresentCommandCursorPhase::Completed: 256
-                        _: 0
-                    match gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_free cursor:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_parts_complete parts:
                         Result::Err _: sub 0 1
-                        Result::Ok _: add evidence5 512
+                        Result::Ok completion:
+                            add evidence4 match completion:
+                                GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed completed_state:
+                                    if eq resumed_terminal_command_state_evidence &completed_state 31 then 2816 else 0
+                                _: 0

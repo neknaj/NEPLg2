@@ -11227,3 +11227,7 @@ F5nzt inspects the F5nzs schedule phase before consuming its move-only owner. Co
 ### F5nzu registered resumed terminal F5mu projection
 
 After the caller consumes F5nzt through its single formal parts handoff, F5nzu borrows the recovered opaque terminal step into the existing total F5mu projection. It creates no replacement owner or cleanup path; the caller retains the unchanged step through the existing F5mt finish/free lifecycle. This avoids a measured nonlinear resource-summary expansion caused by rewrapping the deep dispatch state and step. Production does not repeat the terminal phase gate, inspect the descriptor or cursor phase, advance F5mt again, or create synthetic recovery. The boundary stops before F5mv, scheduling, host request construction, and host/platform execution because terminal `Completed` is not a host-command record.
+
+### F5nzv registered resumed terminal no-request completion
+
+F5nzv consumes the same F5nzt formal parts after optional F5nzu borrowed observation. It retains the Copy loop state locally, transfers the terminal step to the existing F5mt free operation exactly once, and constructs `DispatchLoopCompletion::Completed` only after that cleanup succeeds. A cleanup failure keeps the retained state and lower encoded-finish kind in a typed error with borrowed diagnostics and a consuming parts handoff. It never routes terminal completion through F5nc `complete_request`, fabricates a pending request or executor outcome, or invokes F5mv/F5mx, host, presenter, or platform work.

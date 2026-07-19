@@ -1,0 +1,37 @@
+//: # registered resumed terminal completion
+//: F5nzt formal partsのterminal stepを解放し、保持済みstateを明示的Completedへ写します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_command" as *
+#import "core/field" as field
+#import "core/result" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionError:
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    lower_kind %GuiRgba8888CompositorTileRleEncodedFinishErrorKind
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionErrorParts:
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    lower_kind %GuiRgba8888CompositorTileRleEncodedFinishErrorKind
+
+//: terminal stepをexactly once解放し、成功時だけretained stateをCompletedへ写す
+//:
+//: request、executor outcome、pending completionを生成せず、cleanup failureはstateとlower kindを保持します。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_parts_complete %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandOwnerParts Result GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionError \parts:
+    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState field::get parts "state"
+    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get parts "step":
+        Result::Err lower_kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionError state lower_kind
+        Result::Ok _: Result::Ok GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_completion_error_state %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionError GuiRgba8888CompositorTileRlePresentDispatchLoopState \error:
+    *field::get_ref error "state"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_completion_error_lower_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionError GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    *field::get_ref error "lower_kind"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_completion_error_into_parts %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionErrorParts \error:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionErrorParts field::get error "state" field::get error "lower_kind"
