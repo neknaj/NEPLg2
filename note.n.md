@@ -169138,3 +169138,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - nested returnのsequential Loopは既存generic `check_loop`をその場で一度だけ実行し、そのlexical checkpoint deltaをcomplete accumulatorへ保持するようにした。constructed leafもBranch/MatchがなければLoopを含む全path replay deltaをcompleteとして保持する。condition/body state mergeをspecialized collectorで再実装せず、Loop内部のnested controlもgeneric Loop deltaだけがauthorityとなる。
 - 初回reviewで空LoopとLoop後StorageOriginだけでは4-channel effectの欠落・二重吸収を検出できないblockerを受けた。共通fixtureのcondition opsにstate mutation、body ops内nested Matchにpending consumptionのOwned bind reserved-source診断を追加し、constructed/recursive両capture経路で同じinitial state/effectsからのgeneric全ops実行と7-state完全一致、accumulator吸収後4-channel完全一致、diagnostic count 1を固定した。最終reviewは一回性、nested Match非重複、Branch/Match incomplete fallback維持を確認してblockerなし。
 - variant path 18件、owner control 10件、owner-summary 51件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。次はcheckpoint後の1023 controlを再計測する。1023/2047 runtime gate、F5nzu issue close/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu Loop authority 1023 control measurement
+
+- generic Loop effect authority checkpoint `5b2b9e0ec` 後にF5nzt 1023 control fixtureをrelease CLI、`--test-mode --run --target wasi`、180秒上限で再計測した。結果はexit 124、elapsed 180.05秒、max RSS 664688 KiBで、runtime output生成前にtimeoutした。Match後664328 KiB、Branch後664444 KiBと同水準で、control authority三種の切替だけでは通常gateを解消しない。
+- 1023未通過のため2047復元、issue close、main統合は引き続き禁止する。次はfixtureでspecialized authorityが実際に何回成立し、どのfallback/return collectionが残るかをopt-in instrumentationで再計測し、推測で追加最適化しない。フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
