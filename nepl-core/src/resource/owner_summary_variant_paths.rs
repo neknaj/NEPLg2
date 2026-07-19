@@ -1047,16 +1047,23 @@ mod tests {
             bind_local: None,
             bind_source_name: None,
             bind_mode: None,
-            ops: vec![ResourceOp::Construct {
-                output: child_value.clone(),
-                kind: AggregateKind::Enum {
-                    name: "Result".to_string(),
-                    variant: "Ok".to_string(),
+            ops: vec![
+                ResourceOp::Construct {
+                    output: child_value.clone(),
+                    kind: AggregateKind::Enum {
+                        name: "Result".to_string(),
+                        variant: "Ok".to_string(),
+                    },
+                    inputs: Vec::new(),
+                    span,
                 },
-                inputs: Vec::new(),
-                span,
-            }],
-            value: child_value,
+                ResourceOp::StorageOrigin {
+                    target: child_value.clone(),
+                    origin: StorageOrigin::Owned,
+                    span,
+                },
+            ],
+            value: child_value.clone(),
             span,
         };
         let unreachable_arm = ResourceMatchArm {
@@ -1081,16 +1088,23 @@ mod tests {
             bind_local: None,
             bind_source_name: None,
             bind_mode: None,
-            ops: vec![ResourceOp::Construct {
-                output: never_value.clone(),
-                kind: AggregateKind::Enum {
-                    name: "Result".to_string(),
-                    variant: "Never".to_string(),
+            ops: vec![
+                ResourceOp::Construct {
+                    output: never_value.clone(),
+                    kind: AggregateKind::Enum {
+                        name: "Result".to_string(),
+                        variant: "Never".to_string(),
+                    },
+                    inputs: Vec::new(),
+                    span,
                 },
-                inputs: Vec::new(),
-                span,
-            }],
-            value: never_value,
+                ResourceOp::StorageOrigin {
+                    target: never_value.clone(),
+                    origin: StorageOrigin::Owned,
+                    span,
+                },
+            ],
+            value: never_value.clone(),
             span,
         };
         let ops = [ResourceOp::Match {
@@ -1154,13 +1168,34 @@ mod tests {
             OwnerVariantPathSelector::MatchArm(1)
         );
         assert!(!result.controls[0].paths[0].result.merge_eligible);
+        assert_eq!(
+            result.controls[0].paths[0]
+                .result
+                .state
+                .storage_origins
+                .origin(&never_value),
+            Some(StorageOrigin::Owned)
+        );
         assert!(result.controls[0].paths[0].result.engine_effects.is_none());
         assert_eq!(
             result.controls[0].paths[1].selector,
             OwnerVariantPathSelector::MatchArm(2)
         );
         assert!(result.controls[0].paths[1].result.merge_eligible);
+        assert_eq!(
+            result.controls[0].paths[1]
+                .result
+                .state
+                .storage_origins
+                .origin(&value),
+            Some(StorageOrigin::Owned)
+        );
         assert!(result.controls[0].paths[1].result.engine_effects.is_none());
+        assert_eq!(result.state.storage_origins.origin(&never_value), None);
+        assert_eq!(
+            result.state.storage_origins.origin(&output),
+            Some(StorageOrigin::Owned)
+        );
 
         let summaries = Vec::new();
         let summary_index = OwnerReturnSummaryIndex::new(&summaries);
@@ -1184,7 +1219,7 @@ mod tests {
             &PendingRawReallocs::default(),
             &effects,
         );
-        let (_, generic_effects) = make_engine().run_generic_match_oracle(
+        let (generic_state, generic_effects) = make_engine().run_generic_match_oracle(
             generic_state,
             &output,
             &outer_scrutinee,
@@ -1198,6 +1233,7 @@ mod tests {
             .absorb_into(&mut absorbed_engine);
 
         assert_eq!(generic_effects, absorbed_engine.match_oracle_snapshot());
+        assert_eq!(generic_state, result.state.oracle_snapshot());
         assert_eq!(generic_effects.diagnostic_count(), 1);
         assert!(result.engine_effects.is_none());
     }
