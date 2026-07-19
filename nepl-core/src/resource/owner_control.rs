@@ -50,6 +50,24 @@ pub(super) struct OwnerMatchEngineOracleSnapshot {
     memory_span_requirements: Vec<super::summary::OwnerMemorySpanRequirement>,
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy)]
+pub(super) struct OwnerMatchEngineEffectCheckpoint {
+    diagnostics_len: usize,
+    deferred: super::report::ResourceOwnerCheckDeferred,
+    owner_extent_requirements_len: usize,
+    memory_span_requirements_len: usize,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerMatchEngineEffectDelta {
+    diagnostics: Vec<super::report::ResourceOwnerDiagnostic>,
+    deferred: super::report::ResourceOwnerCheckDeferred,
+    owner_extent_requirements: Vec<super::owner_extent::PendingOwnerExtentRequirement>,
+    memory_span_requirements: Vec<super::summary::OwnerMemorySpanRequirement>,
+}
+
 impl OwnerMatchPathState {
     pub(super) fn from_parent(
         owners: &OwnerTable,
@@ -143,6 +161,79 @@ impl ResourceOwnerCheckEngine<'_> {
             deferred: self.deferred,
             owner_extent_requirements: self.owner_extent_requirements.clone(),
             memory_span_requirements: self.memory_span_requirements.clone(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn match_engine_effect_checkpoint(&self) -> OwnerMatchEngineEffectCheckpoint {
+        OwnerMatchEngineEffectCheckpoint {
+            diagnostics_len: self.diagnostics.len(),
+            deferred: self.deferred,
+            owner_extent_requirements_len: self.owner_extent_requirements.len(),
+            memory_span_requirements_len: self.memory_span_requirements.len(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn match_engine_effect_delta(
+        &self,
+        checkpoint: OwnerMatchEngineEffectCheckpoint,
+    ) -> OwnerMatchEngineEffectDelta {
+        assert!(
+            self.diagnostics.len() >= checkpoint.diagnostics_len,
+            "match diagnostics must not precede their checkpoint"
+        );
+        assert!(
+            self.owner_extent_requirements.len() >= checkpoint.owner_extent_requirements_len,
+            "match owner extent requirements must not precede their checkpoint"
+        );
+        assert!(
+            self.memory_span_requirements.len() >= checkpoint.memory_span_requirements_len,
+            "match memory span requirements must not precede their checkpoint"
+        );
+        OwnerMatchEngineEffectDelta {
+            diagnostics: self.diagnostics[checkpoint.diagnostics_len..].to_vec(),
+            deferred: super::report::ResourceOwnerCheckDeferred {
+                branch_merges: self
+                    .deferred
+                    .branch_merges
+                    .checked_sub(checkpoint.deferred.branch_merges)
+                    .expect("branch merge count must not precede its checkpoint"),
+                loop_merges: self
+                    .deferred
+                    .loop_merges
+                    .checked_sub(checkpoint.deferred.loop_merges)
+                    .expect("loop merge count must not precede its checkpoint"),
+                match_merges: self
+                    .deferred
+                    .match_merges
+                    .checked_sub(checkpoint.deferred.match_merges)
+                    .expect("match merge count must not precede its checkpoint"),
+            },
+            owner_extent_requirements: self.owner_extent_requirements
+                [checkpoint.owner_extent_requirements_len..]
+                .to_vec(),
+            memory_span_requirements: self.memory_span_requirements
+                [checkpoint.memory_span_requirements_len..]
+                .to_vec(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn absorb_match_engine_effect_delta(
+        &mut self,
+        delta: OwnerMatchEngineEffectDelta,
+    ) {
+        self.diagnostics.extend(delta.diagnostics);
+        self.deferred.branch_merges += delta.deferred.branch_merges;
+        self.deferred.loop_merges += delta.deferred.loop_merges;
+        self.deferred.match_merges += delta.deferred.match_merges;
+        self.owner_extent_requirements
+            .extend(delta.owner_extent_requirements);
+        for requirement in delta.memory_span_requirements {
+            if !self.memory_span_requirements.contains(&requirement) {
+                self.memory_span_requirements.push(requirement);
+            }
         }
     }
 
@@ -1123,6 +1214,80 @@ mod tests {
                 operation: ResourceOwnerOperation::Read,
             });
         assert_ne!(snapshot, engine.match_oracle_snapshot());
+    }
+
+    #[test]
+    fn match_engine_effect_delta_excludes_baseline_and_absorbs_in_generic_order() {
+        let types = TypeCtx::new();
+        let summaries = Vec::new();
+        let summary_index = super::super::summary::OwnerReturnSummaryIndex::new(&summaries);
+        let make_engine = || ResourceOwnerCheckEngine {
+            function: "oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: super::super::report::ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let owner = Place::local("owner".to_string(), TypeId(0));
+        let diagnostic = super::super::report::ResourceOwnerDiagnostic::OwnerUnavailable {
+            function: "oracle".to_string(),
+            operation: ResourceOwnerOperation::Read,
+            place: owner.clone(),
+            state: OwnerState::Moved,
+            span: Span::empty(crate::span::FileId(0), 0),
+        };
+        let extent = super::super::owner_extent::PendingOwnerExtentRequirement {
+            owner,
+            expected: super::super::model::OwnerStorageExtent::Unknown,
+            operation: ResourceOwnerOperation::Read,
+        };
+        let memory = super::super::summary::OwnerMemorySpanRequirement {
+            span: super::super::host_memory_contract::HostMemorySpan::IovDescriptor {
+                iovs_arg: 0,
+                iov_count_arg: 1,
+            },
+            args: Vec::new(),
+            operation: ResourceOwnerOperation::Read,
+        };
+        let seed_baseline = |engine: &mut ResourceOwnerCheckEngine<'_>| {
+            engine.diagnostics.push(diagnostic.clone());
+            engine.deferred.branch_merges = 2;
+            engine.deferred.loop_merges = 3;
+            engine.deferred.match_merges = 5;
+            engine.owner_extent_requirements.push(extent.clone());
+            engine.memory_span_requirements.push(memory.clone());
+        };
+        let mut path_engine = make_engine();
+        seed_baseline(&mut path_engine);
+        let checkpoint = path_engine.match_engine_effect_checkpoint();
+        path_engine.diagnostics.push(diagnostic.clone());
+        path_engine.deferred.branch_merges += 7;
+        path_engine.deferred.loop_merges += 11;
+        path_engine.deferred.match_merges += 13;
+        path_engine.owner_extent_requirements.push(extent.clone());
+        path_engine.memory_span_requirements.push(memory.clone());
+
+        let delta = path_engine.match_engine_effect_delta(checkpoint);
+        assert_eq!(delta.diagnostics, vec![diagnostic.clone()]);
+        assert_eq!(delta.deferred.branch_merges, 7);
+        assert_eq!(delta.deferred.loop_merges, 11);
+        assert_eq!(delta.deferred.match_merges, 13);
+        assert_eq!(delta.owner_extent_requirements, vec![extent.clone()]);
+        assert_eq!(delta.memory_span_requirements, vec![memory.clone()]);
+
+        let mut parent_engine = make_engine();
+        seed_baseline(&mut parent_engine);
+        parent_engine.absorb_match_engine_effect_delta(delta);
+        assert_eq!(parent_engine.diagnostics, vec![diagnostic.clone(), diagnostic]);
+        assert_eq!(parent_engine.deferred.branch_merges, 9);
+        assert_eq!(parent_engine.deferred.loop_merges, 14);
+        assert_eq!(parent_engine.deferred.match_merges, 18);
+        assert_eq!(parent_engine.owner_extent_requirements, vec![extent.clone(), extent]);
+        assert_eq!(parent_engine.memory_span_requirements, vec![memory]);
     }
 
     #[test]
