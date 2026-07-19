@@ -79,7 +79,27 @@ enum OwnerVariantControlKind {
 #[cfg(test)]
 struct OwnerVariantTraversalPath {
     selector: OwnerVariantPathSelector,
-    result: OwnerVariantTraversalResult,
+    result: OwnerVariantTraversalEvidence,
+}
+
+#[cfg(test)]
+struct OwnerVariantTraversalEvidence {
+    state_snapshot: super::owner_control::OwnerMatchOracleSnapshot,
+    controls: Vec<OwnerVariantControlPaths>,
+    merge_eligible: bool,
+    effect_authority_transferred: bool,
+}
+
+#[cfg(test)]
+impl OwnerVariantTraversalResult {
+    fn into_evidence(self) -> OwnerVariantTraversalEvidence {
+        OwnerVariantTraversalEvidence {
+            state_snapshot: self.state.oracle_snapshot(),
+            controls: self.controls,
+            merge_eligible: self.merge_eligible,
+            effect_authority_transferred: false,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -139,6 +159,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     let mut controls = Vec::new();
     #[cfg(test)]
     let mut engine_effects = OwnerMatchEngineEffectAccumulator::default();
+    #[cfg(test)]
+    let mut generic_oracle = None;
     profile.finish(state_clone_timer, OwnerVariantProfilePhase::StateClone);
     for (index, op) in ops.iter().enumerate() {
         match op {
@@ -249,11 +271,11 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     paths: vec![
                         OwnerVariantTraversalPath {
                             selector: OwnerVariantPathSelector::Then,
-                            result: then_result,
+                            result: then_result.into_evidence(),
                         },
                         OwnerVariantTraversalPath {
                             selector: OwnerVariantPathSelector::Else,
-                            result: else_result,
+                            result: else_result.into_evidence(),
                         },
                     ],
                 });
@@ -280,6 +302,30 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 let mut paths = Vec::new();
                 #[cfg(test)]
                 let mut reachable_paths = 0usize;
+                #[cfg(test)]
+                let mut merged_paths = super::owner_control::OwnerMatchPathStates::default();
+                #[cfg(test)]
+                let mut generic_state = OwnerMatchPathState::from_parent(
+                    &owners,
+                    &function_aliases,
+                    &raw_aliases,
+                    &raw_views,
+                    &storage_origins,
+                    &pending_reallocs,
+                    &variant_owner_effects,
+                );
+                #[cfg(test)]
+                let mut generic_engine = ResourceOwnerCheckEngine {
+                    function: engine.function,
+                    types: engine.types,
+                    summaries: engine.summaries,
+                    diagnostics: engine.diagnostics.clone(),
+                    deferred: engine.deferred.clone(),
+                    owner_extent_requirements: engine.owner_extent_requirements.clone(),
+                    memory_span_requirements: engine.memory_span_requirements.clone(),
+                    params: engine.params,
+                    owner_leaf_projection_cache: Default::default(),
+                };
                 for (_arm_index, arm) in arms.iter().enumerate() {
                     if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
                         continue;
@@ -315,15 +361,25 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     #[cfg(test)]
                     let mut result = result;
                     #[cfg(test)]
-                    {
+                    let evidence = {
                         reachable_paths += 1;
                         let child_effects = result.take_engine_effects();
                         engine_effects.extend(child_effects);
-                    }
+                        let evidence = OwnerVariantTraversalEvidence {
+                            state_snapshot: result.state.oracle_snapshot(),
+                            controls: result.controls,
+                            merge_eligible: result.merge_eligible,
+                            effect_authority_transferred: result.engine_effects.is_none(),
+                        };
+                        if result.merge_eligible {
+                            merged_paths.push(result.state);
+                        }
+                        evidence
+                    };
                     #[cfg(test)]
                     paths.push(OwnerVariantTraversalPath {
                         selector: OwnerVariantPathSelector::MatchArm(_arm_index),
-                        result,
+                        result: evidence,
                     });
                     #[cfg(not(test))]
                     let _ = result;
@@ -331,6 +387,39 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 #[cfg(test)]
                 if reachable_paths == 0 {
                     engine_effects.mark_incomplete();
+                }
+                #[cfg(test)]
+                {
+                    super::owner_control::merge_match_path_states(
+                        &mut owners,
+                        &mut function_aliases,
+                        &mut raw_aliases,
+                        &mut raw_views,
+                        &mut storage_origins,
+                        &mut pending_reallocs,
+                        &mut variant_owner_effects,
+                        merged_paths,
+                    );
+                    generic_engine.check_ops(
+                        &mut generic_state.owners,
+                        &mut generic_state.function_aliases,
+                        &mut generic_state.raw_aliases,
+                        &mut generic_state.raw_views,
+                        &mut generic_state.storage_origins,
+                        &mut generic_state.pending_reallocs,
+                        &mut generic_state.variant_owner_effects,
+                        &ops[index..=index],
+                    );
+                    assert_eq!(generic_state.oracle_snapshot(), OwnerMatchPathState::from_parent(
+                        &owners,
+                        &function_aliases,
+                        &raw_aliases,
+                        &raw_views,
+                        &storage_origins,
+                        &pending_reallocs,
+                        &variant_owner_effects,
+                    ).oracle_snapshot());
+                    generic_oracle = Some((generic_engine, generic_state));
                 }
                 #[cfg(test)]
                 controls.push(OwnerVariantControlPaths {
@@ -359,6 +448,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         let replay_checkpoint = engine.match_engine_effect_checkpoint();
         profile.observe_sequential_replay(1);
         let replay_timer = profile.start();
+        #[cfg(not(test))]
         engine.check_ops(
             &mut owners,
             &mut function_aliases,
@@ -369,6 +459,44 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
             &mut variant_owner_effects,
             &ops[index..=index],
         );
+        #[cfg(test)]
+        if !specialized_match {
+            engine.check_ops(
+                &mut owners,
+                &mut function_aliases,
+                &mut raw_aliases,
+                &mut raw_views,
+                &mut storage_origins,
+                &mut pending_reallocs,
+                &mut variant_owner_effects,
+                &ops[index..=index],
+            );
+            if let Some((oracle_engine, oracle_state)) = generic_oracle.as_mut() {
+                oracle_engine.check_ops(
+                    &mut oracle_state.owners,
+                    &mut oracle_state.function_aliases,
+                    &mut oracle_state.raw_aliases,
+                    &mut oracle_state.raw_views,
+                    &mut oracle_state.storage_origins,
+                    &mut oracle_state.pending_reallocs,
+                    &mut oracle_state.variant_owner_effects,
+                    &ops[index..=index],
+                );
+                assert_eq!(
+                    oracle_state.oracle_snapshot(),
+                    OwnerMatchPathState::from_parent(
+                        &owners,
+                        &function_aliases,
+                        &raw_aliases,
+                        &raw_views,
+                        &storage_origins,
+                        &pending_reallocs,
+                        &variant_owner_effects,
+                    )
+                    .oracle_snapshot()
+                );
+            }
+        }
         #[cfg(test)]
         if captures_sequential_effects {
             engine_effects.push(engine.match_engine_effect_delta(replay_checkpoint));
@@ -1039,6 +1167,7 @@ mod tests {
         let unreachable_value = Place::local("unreachable_value".to_string(), types.unit());
         let never_value = Place::local("never_value".to_string(), types.never());
         let output = Place::local("output".to_string(), types.unit());
+        let retained = Place::local("retained".to_string(), types.unit());
         let outer_scrutinee = Place::local("outer_scrutinee".to_string(), types.unit());
         let nested_scrutinee = Place::local("nested_scrutinee".to_string(), types.unit());
         let span = Span::dummy();
@@ -1107,13 +1236,20 @@ mod tests {
             value: never_value.clone(),
             span,
         };
-        let ops = [ResourceOp::Match {
-            output: value.clone(),
-            scrutinee: nested_scrutinee.clone(),
-            scrutinee_is_borrow_target: false,
-            arms: vec![unreachable_arm, never_arm, nested_arm],
-            span,
-        }];
+        let ops = [
+            ResourceOp::Match {
+                output: value.clone(),
+                scrutinee: nested_scrutinee.clone(),
+                scrutinee_is_borrow_target: false,
+                arms: vec![unreachable_arm, never_arm, nested_arm],
+                span,
+            },
+            ResourceOp::StorageOrigin {
+                target: retained.clone(),
+                origin: StorageOrigin::Owned,
+                span,
+            },
+        ];
         let bind_local = Place::local("payload".to_string(), owner_ty);
         let reserved_source = outer_scrutinee.clone().with_projection(
             crate::resource::model::PlaceProjection::EnumPayload {
@@ -1158,7 +1294,7 @@ mod tests {
         );
 
         assert!(result.engine_effects().is_complete());
-        assert_eq!(result.engine_effects().delta_count(), 8);
+        assert_eq!(result.engine_effects().delta_count(), 9);
         assert!(result.merge_eligible);
         assert_eq!(result.controls.len(), 1);
         assert_eq!(result.controls[0].kind, OwnerVariantControlKind::Match);
@@ -1171,12 +1307,13 @@ mod tests {
         assert_eq!(
             result.controls[0].paths[0]
                 .result
-                .state
-                .storage_origins
-                .origin(&never_value),
+                .state_snapshot
+                .storage_origin(&never_value),
             Some(StorageOrigin::Owned)
         );
-        assert!(result.controls[0].paths[0].result.engine_effects.is_none());
+        assert!(result.controls[0].paths[0]
+            .result
+            .effect_authority_transferred);
         assert_eq!(
             result.controls[0].paths[1].selector,
             OwnerVariantPathSelector::MatchArm(2)
@@ -1185,15 +1322,20 @@ mod tests {
         assert_eq!(
             result.controls[0].paths[1]
                 .result
-                .state
-                .storage_origins
-                .origin(&value),
+                .state_snapshot
+                .storage_origin(&value),
             Some(StorageOrigin::Owned)
         );
-        assert!(result.controls[0].paths[1].result.engine_effects.is_none());
+        assert!(result.controls[0].paths[1]
+            .result
+            .effect_authority_transferred);
         assert_eq!(result.state.storage_origins.origin(&never_value), None);
         assert_eq!(
             result.state.storage_origins.origin(&output),
+            Some(StorageOrigin::Owned)
+        );
+        assert_eq!(
+            result.state.storage_origins.origin(&retained),
             Some(StorageOrigin::Owned)
         );
 
@@ -1320,17 +1462,15 @@ mod tests {
         assert_eq!(
             nested_match.paths[0]
                 .result
-                .state
-                .storage_origins
-                .origin(&then_value),
+                .state_snapshot
+                .storage_origin(&then_value),
             Some(StorageOrigin::Owned)
         );
         assert_eq!(
             branch.paths[1]
                 .result
-                .state
-                .storage_origins
-                .origin(&else_retained),
+                .state_snapshot
+                .storage_origin(&else_retained),
             Some(StorageOrigin::Owned)
         );
     }

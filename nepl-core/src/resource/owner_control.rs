@@ -42,6 +42,17 @@ pub(super) struct OwnerMatchOracleSnapshot {
 }
 
 #[cfg(test)]
+impl OwnerMatchOracleSnapshot {
+    pub(super) fn storage_origin(&self, place: &Place) -> Option<super::model::StorageOrigin> {
+        self.storage_origins
+            .0
+            .iter()
+            .find(|entry| &entry.place == place)
+            .map(|entry| entry.origin)
+    }
+}
+
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct OwnerMatchEngineOracleSnapshot {
     diagnostics: Vec<super::report::ResourceOwnerDiagnostic>,
