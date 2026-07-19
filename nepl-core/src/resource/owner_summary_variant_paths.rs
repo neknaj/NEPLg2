@@ -825,6 +825,44 @@ mod tests {
     }
 
     #[test]
+    fn constructed_path_with_control_replay_keeps_engine_effects_incomplete() {
+        let value = Place::local("value".to_string(), TypeId(0));
+        let branch_output = Place::local("branch_output".to_string(), TypeId(0));
+        let then_value = Place::local("then_value".to_string(), TypeId(0));
+        let else_value = Place::local("else_value".to_string(), TypeId(0));
+        let condition = Place::local("condition".to_string(), TypeId(0));
+        let span = Span::dummy();
+        let ops = [
+            ResourceOp::Branch {
+                output: branch_output,
+                condition,
+                condition_fact: None,
+                then_ops: Vec::new(),
+                then_value,
+                else_ops: Vec::new(),
+                else_value,
+                span,
+            },
+            ResourceOp::Construct {
+                output: value.clone(),
+                kind: AggregateKind::Enum {
+                    name: "Result".to_string(),
+                    variant: "Ok".to_string(),
+                },
+                inputs: Vec::new(),
+                span,
+            },
+        ];
+        assert_eq!(
+            construct_variant_for_value(&ops, &value).map(|variant| variant.variant),
+            Some("Ok".to_string())
+        );
+        let result = run_path(&ops, &value);
+
+        assert!(!result.engine_effects.is_complete());
+    }
+
+    #[test]
     fn recursive_control_paths_preserve_branch_and_nested_match_hierarchy() {
         let root_value = Place::local("root_value".to_string(), TypeId(0));
         let then_value = Place::local("then_value".to_string(), TypeId(0));

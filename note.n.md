@@ -168947,3 +168947,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - canonical prepareがNoneならcallerの事前reachable filterに依存せずaccumulatorをincomplete、stateをmerge非eligibleにする。Neverはleaf effects取得後にfinalize falseとなるためeffectsを保持したままstateだけ非mergeとなる。production buildではresult field、checkpoint、capture、classificationが`cfg(test)`で除去され、既存summary semanticsは不変である。
 - focused variant path 3件、owner control 10件、owner-summary filter 35件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent reviewは限定checkpointとしてblockerなし。control-bearing constructed、canonical Match delta parity、Never/unreachable直接fixture、recursive entry→child→finalize合成は次のcoverageである。
 - Branch condition/finalization parity、production shared-engine化、full summary parity、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu control-bearing constructed effect gate checkpoint
+
+- return valueとは別outputのBranchを先行させ、後続Enum Constructがreturn valueの`Ok`を構築するactual path fixtureを追加した。`construct_variant_for_value`がこのops列をconstructed `Ok`として分類することを直接assertしたうえで、control scanによりengine effect accumulatorがincompleteのままになることを固定した。
+- これによりConstruct以前のgeneric Branch/Loop/Match replay effectsをcomplete specialized authorityへ誤採用しない。incomplete accumulatorは既存`absorb_into`で拒否される。production code/semanticsは変更していない。
+- focused variant path 4件、owner control 10件、owner-summary filter 36件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`は通過した。subagent初回reviewのconstructed経路をfixture自身が証明しないblockerは直接classification assertで修正した。
+- 次はcanonical Match entry/finalizeを含むactual delta parity、Never/unreachable fixture、recursive entry→child→finalize合成である。Branch condition/finalization parity、production shared-engine化、full summary parity、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
