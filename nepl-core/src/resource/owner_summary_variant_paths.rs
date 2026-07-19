@@ -937,7 +937,7 @@ mod tests {
     use alloc::string::ToString;
     use alloc::vec::Vec;
 
-    use crate::types::{TypeCtx, TypeId};
+    use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
 
     use super::*;
     use crate::layout::composite_field_offset_bytes;
@@ -1546,6 +1546,94 @@ mod tests {
         assert!(snapshot.extents.is_empty());
         assert!(snapshot.payload_conditions.is_empty());
         assert!(snapshot.returns.is_empty());
+    }
+
+    #[test]
+    fn constructed_path_records_returned_parameter_owner_projection() {
+        let mut types = TypeCtx::new();
+        let owner_ty = types.box_ty(types.unit());
+        let result_ty = types.register_named(
+            "ProjectionReturnResult".to_string(),
+            TypeKind::Enum {
+                name: "ProjectionReturnResult".to_string(),
+                type_params: Vec::new(),
+                variants: vec![
+                    EnumVariantInfo {
+                        name: "Ok".to_string(),
+                        payload: Some(owner_ty),
+                    },
+                    EnumVariantInfo {
+                        name: "Err".to_string(),
+                        payload: Some(types.unit()),
+                    },
+                ],
+            },
+        );
+        let parameter = Place::local("parameter".to_string(), owner_ty);
+        let value = Place::local("value".to_string(), result_ty);
+        let span = Span::dummy();
+        let mut owners = OwnerTable::default();
+        owners.allocate(&parameter);
+        let source = OwnerProjectionSource {
+            parameter_index: 6,
+            suffix: Vec::new(),
+            ty: owner_ty,
+        };
+        let sources = [OwnerParameterStorageSource {
+            storage: StorageId(0),
+            source: source.clone(),
+            place: parameter.clone(),
+        }];
+        let ops = [ResourceOp::Construct {
+            output: value.clone(),
+            kind: AggregateKind::Enum {
+                name: "ProjectionReturnResult".to_string(),
+                variant: "Ok".to_string(),
+            },
+            inputs: vec![parameter],
+            span,
+        }];
+
+        let (result, snapshot) = run_path_with_seeded_summary_snapshot(
+            &types,
+            &owners,
+            &sources,
+            &ops,
+            &value,
+            &PendingVariantOwnerEffects::default(),
+            None,
+            None,
+        );
+
+        assert!(result.engine_effects().is_complete());
+        assert_eq!(
+            snapshot.returns,
+            vec![OwnerVariantProjectionReturn {
+                variant: "Ok".to_string(),
+                suffix: vec![crate::resource::model::PlaceProjection::EnumPayload {
+                    variant: "Ok".to_string(),
+                }],
+                ty: owner_ty,
+                source_condition: None,
+                owner: crate::resource::summary::OwnerProjectionReturnOwner::Parameter {
+                    source,
+                    returned_extent: OwnerExtentSummary::Unknown,
+                },
+            }]
+        );
+        assert!(snapshot.indices.is_empty());
+        assert!(snapshot.sources.is_empty());
+        assert!(snapshot.extents.is_empty());
+        assert!(snapshot.payload_conditions.is_empty());
+        assert!(snapshot.host_sizes.is_empty());
+        assert!(snapshot.type_sizes.is_empty());
+        assert_eq!(
+            snapshot.conditions,
+            vec![OwnerVariantCondition {
+                variant: "Ok".to_string(),
+                condition: OwnerValueCondition::Always,
+            }]
+        );
     }
 
     #[test]

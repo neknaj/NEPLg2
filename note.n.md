@@ -169068,3 +169068,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - initial raw alias stateへproduction host-size outputとLayoutSizeOfが生成する形式のArgsCount host factとunit type-size factをseedし、2入力の`Result::Ok` Constructをproduction replayした。terminal recorderが第1入力を`EnumPayload(Ok)` host-size return、第2入力を`EnumPayload(Ok) + TupleField(index 1, offset 0)` type-size returnとしてexact singletonで記録することを固定した。
 - root conditionは`Ok / Always`、index/source/extent/payload/projection returnは空とし、host/type間および他channelへの漏れを拒否した。subagent reviewはConstructのscalar fact transfer、enum複数payload suffix、fixture独立性を確認してblockerなし。
 - focused fixture 1件、variant path 14件、owner control 10件、owner-summary filter 47件は通過した。次は残るprojection return channelを非空にし、8 summary channelのproducer別coverageを閉じる。その後full combined parity、production authority、Branch/Loop、1023/2047 runtime gateへ進む。F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
+
+2026-07-19 F5nzu parameter owner projection return checkpoint
+
+- `Ok(Box<Unit>) / Err(Unit)`を持つ実在enum型をtest TypeCtxへ登録し、root parameter ownerを`Ok` payloadへproduction Constructで移送した。terminal projection returnが`EnumPayload(Ok)` suffix、parameter index 6 root source、Unknown returned extent、source condition Noneをexactに記録することを固定した。
+- returned owner sourceはconsumed index/source/extentから除外され、payload/host/type size channelも空、root conditionだけが`Ok / Always`であることを検査した。subagent reviewはConstruct owner transfer、enum owner leaf filter、root source condition、returned-source exclusionを確認してblockerなし。
+- これでvariant summary 8 channelすべてにproducer別の非空fixtureが揃った。ただし同一複合pathでの8-channel combined parity、production specialized authority、Branch/Loop、1023/2047 runtime gateは未完了である。focused fixture 1件と関連回帰を通過後、次はcombined full-summary oracleまたはproduction authority接続へ進む。F5nzu issue close/main統合、フォントレンダリング/GUI全体はいずれも未完了で、`plan.md`は変更していない。
