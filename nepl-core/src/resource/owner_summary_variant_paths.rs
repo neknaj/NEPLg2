@@ -39,6 +39,8 @@ pub(super) struct OwnerVariantTraversalResult {
     pub(super) state: OwnerMatchPathState,
     #[cfg(test)]
     controls: Vec<OwnerVariantControlPaths>,
+    #[cfg(test)]
+    merge_eligible: bool,
 }
 
 #[cfg(test)]
@@ -166,6 +168,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     then_value,
                     condition_fact.as_ref().map(|fact| (fact, true)),
                     None,
+                    None,
                     host_size_out,
                     type_size_out,
                     return_out,
@@ -208,6 +211,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     else_ops,
                     else_value,
                     condition_fact.as_ref().map(|fact| (fact, false)),
+                    None,
                     None,
                     host_size_out,
                     type_size_out,
@@ -276,6 +280,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         &arm.value,
                         None,
                         Some((scrutinee, arm, *span)),
+                        Some(output),
                         host_size_out,
                         type_size_out,
                         return_out,
@@ -343,6 +348,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         },
         #[cfg(test)]
         controls,
+        #[cfg(test)]
+        merge_eligible: true,
     }
 }
 
@@ -366,6 +373,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     path_value: &Place,
     branch_condition: Option<(&ResourceConditionFact, bool)>,
     match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
+    _match_output: Option<&Place>,
     host_size_out: &mut Vec<OwnerHostSizeReturn>,
     type_size_out: &mut Vec<OwnerTypeSizeReturn>,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
@@ -408,7 +416,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     profile.finish(match_entry_timer, OwnerVariantProfilePhase::MatchEntry);
     let Some(constructed_variant) = construct_variant_for_value(path_ops, path_value) else {
         profile.observe_recursive_path();
-        return collect_variant_consumed_owner_parameters_from_nested_return(
+        let result = collect_variant_consumed_owner_parameters_from_nested_return(
             index_out,
             source_out,
             extent_out,
@@ -432,6 +440,18 @@ fn collect_variant_consumed_owner_parameters_from_path(
             profile,
             depth,
         );
+        #[cfg(test)]
+        let mut result = result;
+        #[cfg(test)]
+        if let Some(output) = _match_output {
+            result.merge_eligible = path_engine.finalize_match_arm_value(
+                &mut result.state,
+                output,
+                path_value,
+                match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
+            );
+        }
+        return result;
     };
     profile.observe_constructed_path();
     profile.observe_path_replay(path_ops.len());
@@ -549,7 +569,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
     }
     profile.finish(terminal_timer, OwnerVariantProfilePhase::Terminal);
-    OwnerVariantTraversalResult {
+    let result = OwnerVariantTraversalResult {
         state: OwnerMatchPathState {
             owners: path_owners,
             function_aliases: path_function_aliases,
@@ -561,7 +581,21 @@ fn collect_variant_consumed_owner_parameters_from_path(
         },
         #[cfg(test)]
         controls: Vec::new(),
+        #[cfg(test)]
+        merge_eligible: true,
+    };
+    #[cfg(test)]
+    let mut result = result;
+    #[cfg(test)]
+    if let Some(output) = _match_output {
+        result.merge_eligible = path_engine.finalize_match_arm_value(
+            &mut result.state,
+            output,
+            path_value,
+            match_arm.map(|(_, _, span)| span).unwrap_or_else(Span::dummy),
+        );
     }
+    result
 }
 
 fn push_unique_variant_parameter_index(
@@ -656,6 +690,7 @@ mod tests {
             path_value,
             None,
             None,
+            None,
             &mut host_size_out,
             &mut type_size_out,
             &mut return_out,
@@ -723,7 +758,6 @@ mod tests {
         let arm_value = Place::local("arm_value".to_string(), TypeId(0));
         let condition = Place::local("condition".to_string(), TypeId(0));
         let scrutinee = Place::local("scrutinee".to_string(), TypeId(0));
-        let then_retained = Place::local("then_retained".to_string(), TypeId(0));
         let else_retained = Place::local("else_retained".to_string(), TypeId(0));
         let span = Span::dummy();
         let enum_construct = |output: Place| ResourceOp::Construct {
@@ -752,7 +786,7 @@ mod tests {
                         ops: vec![
                             enum_construct(arm_value.clone()),
                             ResourceOp::StorageOrigin {
-                                target: then_retained.clone(),
+                                target: arm_value.clone(),
                                 origin: StorageOrigin::Owned,
                                 span,
                             },
@@ -762,7 +796,7 @@ mod tests {
                     }],
                     span,
                 }],
-                then_value,
+                then_value: then_value.clone(),
                 else_ops: vec![
                     enum_construct(else_value.clone()),
                     ResourceOp::StorageOrigin {
@@ -790,6 +824,7 @@ mod tests {
         assert_eq!(nested_match.op_index, 0);
         assert_eq!(nested_match.kind, OwnerVariantControlKind::Match);
         assert_eq!(nested_match.paths.len(), 1);
+        assert!(nested_match.paths[0].result.merge_eligible);
         assert_eq!(
             nested_match.paths[0].selector,
             OwnerVariantPathSelector::MatchArm(0)
@@ -799,7 +834,7 @@ mod tests {
                 .result
                 .state
                 .storage_origins
-                .origin(&then_retained),
+                .origin(&then_value),
             Some(StorageOrigin::Owned)
         );
         assert_eq!(

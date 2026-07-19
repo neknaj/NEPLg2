@@ -168897,3 +168897,11 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - nested Branch→Then Match fixtureはroot Branch、Then/Else順、nested Match、元arm index 0、Then/Else各childの最終StorageOriginを固定した。engine 4 channel、reserved-source rejection、summary全field parity、single traversal採用、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
 - pass: focused control tree 3件、owner-summary 36件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
 - subagent差分・全体整合reviewは現test-only checkpointにblockerなし。将来のproduction mergeにはgeneric reserved-source rejection、Match value-to-output finalization、engine 4 channelが欠けるため、現child stateからgeneric replayを除去してはならない。unreachable armを先にskipして元index 1を保持する直接回帰は非blocker coverage gapとして残す。
+
+2026-07-19 F5nzu actual Match child finalization shadow checkpoint
+
+- actual path collectorのtest-only control treeについて、Match arm path replayとsummary収集後、同じpath-local engineとcanonical `finalize_match_arm_value`でarm valueをMatch outputへ写すshadowを追加した。constructed/recursive pathの両方で適用し、Neverは`merge_eligible=false`としてchild resultへ保持する。
+- nested Branch→Match fixtureはarm valueへOwned StorageOriginを最後に付与し、finalized child stateのMatch outputへOwnedが写ることとmerge eligibilityを固定した。production buildではmatch output引数を使用せず、finalization、tree field、allocationを全て除去するためgeneric replayとsummary semanticsは変更しない。
+- bind entry側のreserved-source rejection差、path-local engine diagnostics/deferred/extent/memoryの返却authority、full summary parity、unreachable/Never直接fixture、production merge、1023/2047 gate、F5nzu issue/main統合、フォントレンダリング/GUI全体は未完了で、`plan.md`は変更していない。
+- pass: focused actual path/control tree 3件、owner-summary 36件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
+- subagent差分・全体整合reviewは現checkpointにblockerなし。canonical finalizationはconstructed/recursive両経路で同じpath-local engineへ適用され、通常/予約source拒否はmerge eligible、Neverだけが非eligibleとなるgeneric契約を保持する。recursive Match child finalizationとNeverの直接fixtureは非blocker coverage gapとして残す。
