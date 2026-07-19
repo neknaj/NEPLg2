@@ -521,3 +521,119 @@ fn push_or_merge_variant_extent_requirement(
     }
     out.push(entry);
 }
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::ToString;
+    use alloc::vec::Vec;
+
+    use crate::types::{TypeCtx, TypeId};
+
+    use super::*;
+    use crate::resource::model::{AggregateKind, StorageOrigin};
+    use crate::resource::summary::OwnerReturnSummaryIndex;
+
+    fn run_path(path_ops: &[ResourceOp], path_value: &Place) -> OwnerMatchPathState {
+        let types = TypeCtx::new();
+        let summaries = Vec::new();
+        let summary_index = OwnerReturnSummaryIndex::new(&summaries);
+        let engine = ResourceOwnerCheckEngine {
+            function: "variant_path_oracle",
+            types: &types,
+            summaries: &summary_index,
+            diagnostics: Vec::new(),
+            deferred: ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
+            memory_span_requirements: Vec::new(),
+            params: &[],
+            owner_leaf_projection_cache: Default::default(),
+        };
+        let mut index_out = Vec::new();
+        let mut source_out = Vec::new();
+        let mut extent_out = Vec::new();
+        let mut condition_out = Vec::new();
+        let mut payload_condition_out = OwnerVariantPayloadConditionAccumulator::default();
+        let mut host_size_out = Vec::new();
+        let mut type_size_out = Vec::new();
+        let mut return_out = Vec::new();
+        let mut profile = OwnerVariantReturnProfile::new("variant_path_oracle");
+
+        collect_variant_consumed_owner_parameters_from_path(
+            &mut index_out,
+            &mut source_out,
+            &mut extent_out,
+            &mut condition_out,
+            &mut payload_condition_out,
+            &engine,
+            &OwnerTable::default(),
+            &RawCellAddressAliases::default(),
+            &RawAddressViewTable::default(),
+            &StorageOriginTable::default(),
+            &FunctionAliasTable::default(),
+            &PendingRawReallocs::default(),
+            &PendingVariantOwnerEffects::default(),
+            &[],
+            &[],
+            path_ops,
+            path_value,
+            None,
+            None,
+            &mut host_size_out,
+            &mut type_size_out,
+            &mut return_out,
+            &mut profile,
+            0,
+        )
+    }
+
+    #[test]
+    fn constructed_path_returns_state_after_final_replay_op() {
+        let value = Place::local("value".to_string(), TypeId(0));
+        let retained = Place::local("retained".to_string(), TypeId(0));
+        let span = Span::dummy();
+        let state = run_path(
+            &[
+                ResourceOp::Construct {
+                    output: value.clone(),
+                    kind: AggregateKind::Enum {
+                        name: "Result".to_string(),
+                        variant: "Ok".to_string(),
+                    },
+                    inputs: Vec::new(),
+                    span,
+                },
+                ResourceOp::StorageOrigin {
+                    target: retained.clone(),
+                    origin: StorageOrigin::Owned,
+                    span,
+                },
+            ],
+            &value,
+        );
+
+        assert_eq!(
+            state.storage_origins.origin(&retained),
+            Some(StorageOrigin::Owned)
+        );
+    }
+
+    #[test]
+    fn recursive_path_returns_state_after_final_replay_op() {
+        let value = Place::local("value".to_string(), TypeId(0));
+        let retained = Place::local("retained".to_string(), TypeId(0));
+        let span = Span::dummy();
+        let state = run_path(
+            &[ResourceOp::StorageOrigin {
+                target: retained.clone(),
+                origin: StorageOrigin::Owned,
+                span,
+            }],
+            &value,
+        );
+
+        assert_eq!(
+            state.storage_origins.origin(&retained),
+            Some(StorageOrigin::Owned)
+        );
+    }
+}

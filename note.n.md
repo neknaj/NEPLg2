@@ -168882,3 +168882,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - diagnostics、deferred、owner extent requirements、memory span requirementsなどengine側の副作用は返却bundleに含まれない。7-state parityだけでproduction replayを除去せず、actual specialized traversalとgeneric oracleの差分fixtureでengine副作用、reserved-source rejection、nested Branch/Match、unreachable arm、condition fact、post-control opsを照合してから接続する。`plan.md`は変更していない。
 - pass: owner-summary unit 33件、native `cargo check -p nepl-core`、wasm32 `cargo check -p nepl-core --target wasm32-unknown-unknown`、release `cargo build --release -p nepl-cli`、`git diff --check`。
 - subagent差分・全体整合reviewはこの意味中立checkpointにblockerなしと判定した。single traversal利用前には、recursive child stateが現在未採用であること、engine 4 channelがbundle外であること、constructed/recursive両返却経路の直接回帰が未追加であることをblockerとして維持する。
+
+2026-07-19 F5nzu actual variant path returned-state regression checkpoint
+
+- actual private path collectorを同一module内のtestから直接呼び、constructed pathとrecursive nested-return pathの両方で最終`StorageOrigin` opが返却`OwnerMatchPathState`へ反映されることを固定した。production visibilityやcaller、generic replayは変更していない。
+- この回帰は7-state transportの返却時点だけを証明する。recursive Branch/Match child stateの採用、engine diagnostics/deferred/owner extent/memory span authority、generic oracleとの全field summary parity、1023/2047 runtime gateは未完了である。F5nzu issue、main統合、フォントレンダリング/GUI全体も未完了として維持し、`plan.md`は変更していない。
+- pass: focused actual path 2件、owner-summary 35件、native/wasm32 `cargo check -p nepl-core`、release `cargo build --release -p nepl-cli`、`git diff --check`。
+- subagent差分・全体整合reviewはblockerなし。両fixtureの分岐選択はops構文とoutput一致で確定し、最後のStorageOriginは空tableからactual replay後stateへ追加されるため直接証拠となる。空TypeCtxは今回の型非依存transport検証を偽陽性化せず、production visibility/semanticsも不変である。
