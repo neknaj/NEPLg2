@@ -1036,6 +1036,7 @@ mod tests {
         let owner_ty = types.box_ty(unit);
         let value = Place::local("value".to_string(), types.unit());
         let child_value = Place::local("child_value".to_string(), types.unit());
+        let unreachable_value = Place::local("unreachable_value".to_string(), types.unit());
         let output = Place::local("output".to_string(), types.unit());
         let outer_scrutinee = Place::local("outer_scrutinee".to_string(), types.unit());
         let nested_scrutinee = Place::local("nested_scrutinee".to_string(), types.unit());
@@ -1057,11 +1058,28 @@ mod tests {
             value: child_value,
             span,
         };
+        let unreachable_arm = ResourceMatchArm {
+            pattern: crate::resource::model::ResourceMatchPattern::Variant("Err".to_string()),
+            bind_local: None,
+            bind_source_name: None,
+            bind_mode: None,
+            ops: vec![ResourceOp::Construct {
+                output: unreachable_value.clone(),
+                kind: AggregateKind::Enum {
+                    name: "Result".to_string(),
+                    variant: "Err".to_string(),
+                },
+                inputs: Vec::new(),
+                span,
+            }],
+            value: unreachable_value,
+            span,
+        };
         let ops = [ResourceOp::Match {
             output: value.clone(),
-            scrutinee: nested_scrutinee,
+            scrutinee: nested_scrutinee.clone(),
             scrutinee_is_borrow_target: false,
-            arms: vec![nested_arm],
+            arms: vec![unreachable_arm, nested_arm],
             span,
         }];
         let bind_local = Place::local("payload".to_string(), owner_ty);
@@ -1091,6 +1109,12 @@ mod tests {
                 extent: None,
             },
         );
+        effects.unreachable_variants.push(
+            crate::resource::owner_variant::PendingUnreachableVariant {
+                result: nested_scrutinee,
+                variant: "Err".to_string(),
+            },
+        );
 
         let mut result = run_path_with_match(
             &types,
@@ -1107,6 +1131,10 @@ mod tests {
         assert_eq!(result.controls.len(), 1);
         assert_eq!(result.controls[0].kind, OwnerVariantControlKind::Match);
         assert_eq!(result.controls[0].paths.len(), 1);
+        assert_eq!(
+            result.controls[0].paths[0].selector,
+            OwnerVariantPathSelector::MatchArm(1)
+        );
         assert!(result.controls[0].paths[0].result.engine_effects.is_none());
 
         let summaries = Vec::new();
