@@ -2513,3 +2513,7 @@ F5nzyはF5nzw RetryPendingを有限0/1 budgetで一度だけ分類する。元fa
 ### Registered Web F5oad EndFrame command boundary
 
 F5oac actual Run completionのContinue stateと保持cursorから既存registered EndFrame ownerを一度だけ生成する。消費済schedule authority、pending action、sessionを再構築せず、EndFrame record/schedule/request/executionより前で停止する。
+
+### Registered Web F5oai Run success phase classifier
+
+`gui_font_web_registered_run_execution_success_into_phase` はF5oac successをContinue/Yield/Completedへ全域分類する。variant ownerはprovenance、spent budget、exact step、actual completionを保持し、total freeを提供する。cursor advance、Yield resume、host executionは行わない。

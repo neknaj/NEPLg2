@@ -8843,3 +8843,7 @@ F5oae successを一度だけ分解し、actual completionがCompletedの場合�
 ### F5oah Web unified frame entry
 
 `font_registered_unified_web_frame` はRetryReadyをactual Begin retryへ渡し、Continue/Completed/Yieldを全域分類する。Continue/Completedは正常ownerを返し、Yieldだけが固定resumed frameを実行する。retry failureを再retryせず、後続supportをBegin retry authorityへ混入させない。
+
+### F5oai Web Run success phase classifier
+
+F5oac successはContinue/Yield/Completedのいずれも正常なtyped phaseである。各ownerは旧failure provenance、spent budget、exact Run cursor step、actual session completionを保持し、stateはcompletionから導出する。分類時にEndFrame期待errorへ変換せず、全variantをconsuming cleanupできる。

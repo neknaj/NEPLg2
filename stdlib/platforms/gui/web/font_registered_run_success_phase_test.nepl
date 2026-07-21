@@ -1,0 +1,55 @@
+//: # Web registered Run success phase test
+//: actual RunのContinueとYieldを別policyで生成し、同じclassifierがexact ownerを閉じることを検証します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_run_executor_test" as fixture with tests
+#import "platforms/gui/web/font_registered_run_success_phase" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+
+fn gui_font_web_registered_run_success_phase_test_continue %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_run_executor_test_success_owner _unit 2 32:
+        Result::Err _: 0
+        Result::Ok success:
+            match gui_font_web_registered_run_execution_success_into_phase success:
+                GuiFontWebRegisteredRunSuccessPhaseOwner::Continue owner:
+                    let _state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_web_registered_run_success_phase_continue_owner_state &owner
+                    match gui_font_web_registered_run_success_phase_continue_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 1
+                GuiFontWebRegisteredRunSuccessPhaseOwner::Yield owner:
+                    let _state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_web_registered_run_success_phase_yield_owner_state &owner
+                    match gui_font_web_registered_run_success_phase_yield_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                GuiFontWebRegisteredRunSuccessPhaseOwner::Completed owner:
+                    match gui_font_web_registered_run_success_phase_completed_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+
+fn gui_font_web_registered_run_success_phase_test_yield %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_run_executor_test_success_owner _unit 1 32:
+        Result::Err _: 0
+        Result::Ok success:
+            match gui_font_web_registered_run_execution_success_into_phase success:
+                GuiFontWebRegisteredRunSuccessPhaseOwner::Continue owner:
+                    match gui_font_web_registered_run_success_phase_continue_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                GuiFontWebRegisteredRunSuccessPhaseOwner::Yield owner:
+                    let _state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_web_registered_run_success_phase_yield_owner_state &owner
+                    match gui_font_web_registered_run_success_phase_yield_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 2
+                GuiFontWebRegisteredRunSuccessPhaseOwner::Completed owner:
+                    match gui_font_web_registered_run_success_phase_completed_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+
+#test
+pub fn gui_font_web_registered_run_success_phase_test_contract %impure fn unit i32 \_unit:
+    let continue_evidence %i32 gui_font_web_registered_run_success_phase_test_continue _unit
+    let yield_evidence %i32 gui_font_web_registered_run_success_phase_test_yield _unit
+    add continue_evidence yield_evidence

@@ -1,3 +1,11 @@
+# 2026-07-22 GUI font F5oai Web Run success phase classifier
+
+- F5oac actual Run successをContinue/Yield/Completedへ全域分類し、provenance、spent retry budget、exact Run step、actual completionをvariant別ownerへ移すproduction boundaryを追加した。
+- stateを重複保持せずactual completionから導出し、全variantのparts、state accessor、individual/total cleanupを追加した。
+- final runtimeはevidence 3、actual Begin/Run/End 2/2/0でContinue/Yield両variantと対応state accessor、cleanupを検査した。normal isolation、専用/全体source contract、issues、diff check、native/wasm workspace check、release CLI、release trunk、Playground editor JSON 13/13を通過した。
+- subagent reviewのMajor指摘に従い、Owner/Partsのstep+completion/no-state、関数境界内のexact move、retained completion由来のstate accessorをsource contractで固定した。修正後reviewはBlocker/Major/Minorすべて0だった。
+- 最終目標は未完了。次はこのphase ownerをbounded resumable command driverへ接続し、その後queue/timer、fresh entry、native provider、layout/raster/presentationへ進む。
+
 # 2026-07-22 GUI font F5oah Web unified frame entry
 
 - RetryReadyをF5nzz actual Begin retryへ一度渡し、F5oaaでphase分類後、YieldだけをF5oag固定Run/EndFrame terminal chainへ渡すproduction facadeを追加した。

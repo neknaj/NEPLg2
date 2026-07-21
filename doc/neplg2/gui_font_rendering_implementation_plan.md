@@ -14033,3 +14033,7 @@ F5oaaの未resume Yieldを固定ResumeSliceで一度再開し、F5oabからF5oaf
 ### F5oah Web unified frame entry
 
 RetryReadyをF5nzzへ一度渡し、F5oaaで成功phaseを分類する。Continue/Completedは既存ownerのまま返し、YieldだけをF5oagへ一度渡してterminalへ閉じる。retry/resumed-loop failureはlower authorityを保持して全域cleanupできる。任意長loop、queue/timer、再retry、fresh BeginFrame入口は後続へ残す。
+
+### F5oai Web Run success phase classifier
+
+F5oac actual Run successをContinue/Yield/Completedへ全域分類し、provenance、spent retry budget、exact Run step、actual completionをvariant別ownerに保持する。stateの複製、cursor advance、Yield resume、EndFrame遷移は行わない。後続でこのownerをbounded resumable driverへ接続する。

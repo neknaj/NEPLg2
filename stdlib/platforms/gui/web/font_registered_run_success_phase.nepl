@@ -1,0 +1,120 @@
+//: # Web registered Run success phase
+//: actual Run成功をContinue、Yield、Completedの全phaseへ分け、exact completionとcursor stepを保持します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_run_executor" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+
+pub struct GuiFontWebRegisteredRunSuccessPhaseContinueOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+pub struct GuiFontWebRegisteredRunSuccessPhaseContinueOwnerParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+pub struct GuiFontWebRegisteredRunSuccessPhaseYieldOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+pub struct GuiFontWebRegisteredRunSuccessPhaseYieldOwnerParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+pub struct GuiFontWebRegisteredRunSuccessPhaseCompletedOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+pub struct GuiFontWebRegisteredRunSuccessPhaseCompletedOwnerParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+pub enum GuiFontWebRegisteredRunSuccessPhaseOwner:
+    Continue %GuiFontWebRegisteredRunSuccessPhaseContinueOwner
+    Yield %GuiFontWebRegisteredRunSuccessPhaseYieldOwner
+    Completed %GuiFontWebRegisteredRunSuccessPhaseCompletedOwner
+
+//: completionを一度だけ全域分類し、actual completionとexact Run cursor stepを同じownerへ移す
+pub fn gui_font_web_registered_run_execution_success_into_phase %fn GuiFontWebRegisteredRunExecutionSuccess GuiFontWebRegisteredRunSuccessPhaseOwner \owner:
+    let parts %GuiFontWebRegisteredRunExecutionSuccessParts gui_font_web_registered_run_execution_success_into_parts owner
+    let previous_category %Option GuiError field::get parts "previous_category"
+    let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
+    let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+    let completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion field::get parts "completion"
+    match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion &completion:
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Continue _:
+            GuiFontWebRegisteredRunSuccessPhaseOwner::Continue GuiFontWebRegisteredRunSuccessPhaseContinueOwner previous_category previous_diagnostic spent_budget step completion
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Yield _:
+            GuiFontWebRegisteredRunSuccessPhaseOwner::Yield GuiFontWebRegisteredRunSuccessPhaseYieldOwner previous_category previous_diagnostic spent_budget step completion
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed _:
+            GuiFontWebRegisteredRunSuccessPhaseOwner::Completed GuiFontWebRegisteredRunSuccessPhaseCompletedOwner previous_category previous_diagnostic spent_budget step completion
+
+pub fn gui_font_web_registered_run_success_phase_continue_owner_into_parts %fn GuiFontWebRegisteredRunSuccessPhaseContinueOwner GuiFontWebRegisteredRunSuccessPhaseContinueOwnerParts \owner:
+    GuiFontWebRegisteredRunSuccessPhaseContinueOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "step" field::get owner "completion"
+
+pub fn gui_font_web_registered_run_success_phase_yield_owner_into_parts %fn GuiFontWebRegisteredRunSuccessPhaseYieldOwner GuiFontWebRegisteredRunSuccessPhaseYieldOwnerParts \owner:
+    GuiFontWebRegisteredRunSuccessPhaseYieldOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "step" field::get owner "completion"
+
+pub fn gui_font_web_registered_run_success_phase_completed_owner_into_parts %fn GuiFontWebRegisteredRunSuccessPhaseCompletedOwner GuiFontWebRegisteredRunSuccessPhaseCompletedOwnerParts \owner:
+    GuiFontWebRegisteredRunSuccessPhaseCompletedOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "step" field::get owner "completion"
+
+pub fn gui_font_web_registered_run_success_phase_continue_owner_state %fn &GuiFontWebRegisteredRunSuccessPhaseContinueOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
+    match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion field::get_ref owner "completion":
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Continue state: state
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Yield state: state
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state: state
+
+pub fn gui_font_web_registered_run_success_phase_yield_owner_state %fn &GuiFontWebRegisteredRunSuccessPhaseYieldOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
+    match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion field::get_ref owner "completion":
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Continue state: state
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Yield state: state
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state: state
+
+pub fn gui_font_web_registered_run_success_phase_completed_owner_state %fn &GuiFontWebRegisteredRunSuccessPhaseCompletedOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
+    match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion field::get_ref owner "completion":
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Continue state: state
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Yield state: state
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state: state
+
+pub fn gui_font_web_registered_run_success_phase_continue_owner_free %fn GuiFontWebRegisteredRunSuccessPhaseContinueOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_run_success_phase_yield_owner_free %fn GuiFontWebRegisteredRunSuccessPhaseYieldOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_run_success_phase_completed_owner_free %fn GuiFontWebRegisteredRunSuccessPhaseCompletedOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_run_success_phase_owner_free %fn GuiFontWebRegisteredRunSuccessPhaseOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    match owner:
+        GuiFontWebRegisteredRunSuccessPhaseOwner::Continue payload: gui_font_web_registered_run_success_phase_continue_owner_free payload
+        GuiFontWebRegisteredRunSuccessPhaseOwner::Yield payload: gui_font_web_registered_run_success_phase_yield_owner_free payload
+        GuiFontWebRegisteredRunSuccessPhaseOwner::Completed payload: gui_font_web_registered_run_success_phase_completed_owner_free payload

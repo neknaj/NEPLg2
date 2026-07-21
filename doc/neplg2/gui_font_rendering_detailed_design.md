@@ -11282,3 +11282,7 @@ The resumed-loop adapter accepts only the concrete unresumed Yield owner from F5
 ### F5oah Web unified frame entry
 
 The facade consumes RetryReady through F5nzz once and classifies the success through F5oaa once. Continue and Completed remain legitimate typed outcomes with their original owner. Only Yield enters F5oag with caller-supplied continuation support. Retry failure never enters the resumed chain, and neither support nor budget authority is reconstructed.
+
+### F5oai Web Run success phase classifier
+
+The classifier consumes one F5oac actual Run success and retains its exact session completion and Run cursor step in distinct Continue, Yield, or Completed owners. State is derived from the retained completion rather than copied into a second field. This checkpoint does not advance the cursor, resume Yield, or invoke the fixed F5oag chain; the bounded resumable driver remains incomplete.
