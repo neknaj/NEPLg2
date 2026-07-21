@@ -8839,3 +8839,7 @@ F5oae successを一度だけ分解し、actual completionがCompletedの場合�
 ### F5oag Web resumed frame loop
 
 `font_registered_resumed_web_loop` はF5oaa concrete Yield ownerだけを入力とし、ResumeSlice、Run、EndFrame、terminal completionを順に各一度実行する。errorは各段のlower ownerをそのまま保持し、Run executorを含む全段にconsuming cleanupを要求する。固定Begin/Run/End frameの検証境界であり、任意長command列、queue/timer、failure resumeは提供しない。
+
+### F5oah Web unified frame entry
+
+`font_registered_unified_web_frame` はRetryReadyをactual Begin retryへ渡し、Continue/Completed/Yieldを全域分類する。Continue/Completedは正常ownerを返し、Yieldだけが固定resumed frameを実行する。retry failureを再retryせず、後続supportをBegin retry authorityへ混入させない。

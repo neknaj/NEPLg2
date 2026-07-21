@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-21T19:02:46.627Z",
+  "generated_at": "2026-07-21T20:17:55.553Z",
   "counts": {
-    "total": 1445,
+    "total": 1446,
     "open": 60,
-    "resolved": 1385,
+    "resolved": 1386,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 31,
+        "total": 32,
         "open": 0,
-        "resolved": 31
+        "resolved": 32
       },
       "nodesrc": {
         "total": 16,
@@ -12213,6 +12213,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260722T030000000Z-F5OAG-WEB-RESUMED-FRAME-LOOP-8B1D7C42.md"
+    },
+    {
+      "id": "ISS-20260722T050000000Z-F5OAH-WEB-UNIFIED-FRAME-ENTRY-4C92E7A1",
+      "title": "F5oah Web registered unified frame entry",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_unified_web_frame.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T050000000Z-F5OAH-WEB-UNIFIED-FRAME-ENTRY-4C92E7A1.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

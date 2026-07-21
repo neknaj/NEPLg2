@@ -1,0 +1,59 @@
+//: # Web registered unified frame entry
+//: RetryReadyからactual Begin retryを実行し、Yieldだけを固定Run/EndFrame terminal chainへ渡します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_executor" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_success_phase" as *
+#import "platforms/gui/web/font_registered_resumed_web_loop" as *
+#import "platforms/gui/web/font_registered_terminal_completion" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+pub enum GuiFontWebRegisteredUnifiedWebFrameSuccess:
+    Continue %GuiFontWebRegisteredBeginFrameRetrySuccessContinueOwner
+    Completed %GuiFontWebRegisteredBeginFrameRetrySuccessCompletedOwner
+    Terminal %GuiFontWebRegisteredTerminalCompletionSuccess
+
+pub enum GuiFontWebRegisteredUnifiedWebFrameError:
+    RetryExecutionFailed %GuiFontWebRegisteredBeginFrameRetryExecutionFailure
+    ResumedLoopFailed %GuiFontWebRegisteredResumedWebLoopError
+
+pub enum GuiFontWebRegisteredUnifiedWebFrameErrorRecovery:
+    RetryExecutionFailed %GuiFontWebRegisteredBeginFrameRetryExecutionFailure
+    ResumedLoopFailed %GuiFontWebRegisteredResumedWebLoopError
+
+//: RetryReadyのembedded supportはBegin retryだけに使い、後続supportはYield chainだけへ渡す
+pub fn gui_font_web_registered_unified_web_frame_execute %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner Result GuiFontWebRegisteredUnifiedWebFrameSuccess GuiFontWebRegisteredUnifiedWebFrameError \host\policy\continuation_support\ready:
+    match gui_font_web_registered_begin_frame_retry_execute ready:
+        Result::Err failure:
+            Result::Err GuiFontWebRegisteredUnifiedWebFrameError::RetryExecutionFailed failure
+        Result::Ok success:
+            match gui_font_web_registered_begin_frame_retry_execution_success_into_phase success:
+                GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Continue owner:
+                    Result::Ok GuiFontWebRegisteredUnifiedWebFrameSuccess::Continue owner
+                GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Completed owner:
+                    Result::Ok GuiFontWebRegisteredUnifiedWebFrameSuccess::Completed owner
+                GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Yield owner:
+                    match gui_font_web_registered_resumed_web_loop_execute host policy continuation_support owner:
+                        Result::Err failure: Result::Err GuiFontWebRegisteredUnifiedWebFrameError::ResumedLoopFailed failure
+                        Result::Ok terminal: Result::Ok GuiFontWebRegisteredUnifiedWebFrameSuccess::Terminal terminal
+
+pub fn gui_font_web_registered_unified_web_frame_error_into_recovery %fn GuiFontWebRegisteredUnifiedWebFrameError GuiFontWebRegisteredUnifiedWebFrameErrorRecovery \error:
+    match error:
+        GuiFontWebRegisteredUnifiedWebFrameError::RetryExecutionFailed failure: GuiFontWebRegisteredUnifiedWebFrameErrorRecovery::RetryExecutionFailed failure
+        GuiFontWebRegisteredUnifiedWebFrameError::ResumedLoopFailed failure: GuiFontWebRegisteredUnifiedWebFrameErrorRecovery::ResumedLoopFailed failure
+
+pub fn gui_font_web_registered_unified_web_frame_error_free %fn GuiFontWebRegisteredUnifiedWebFrameError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    match gui_font_web_registered_unified_web_frame_error_into_recovery error:
+        GuiFontWebRegisteredUnifiedWebFrameErrorRecovery::RetryExecutionFailed failure: gui_font_web_registered_begin_frame_retry_execution_failure_free failure
+        GuiFontWebRegisteredUnifiedWebFrameErrorRecovery::ResumedLoopFailed failure: gui_font_web_registered_resumed_web_loop_error_free failure
+
+pub fn gui_font_web_registered_unified_web_frame_success_free %fn GuiFontWebRegisteredUnifiedWebFrameSuccess Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \success:
+    match success:
+        GuiFontWebRegisteredUnifiedWebFrameSuccess::Continue owner: gui_font_web_registered_begin_frame_retry_success_continue_owner_free owner
+        GuiFontWebRegisteredUnifiedWebFrameSuccess::Completed owner: gui_font_web_registered_begin_frame_retry_success_completed_owner_free owner
+        GuiFontWebRegisteredUnifiedWebFrameSuccess::Terminal _: Result::Ok unit

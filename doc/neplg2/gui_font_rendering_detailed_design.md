@@ -11278,3 +11278,7 @@ The terminal adapter consumes the sole F5oae success and accepts only its actual
 ### F5oag Web resumed frame loop
 
 The resumed-loop adapter accepts only the concrete unresumed Yield owner from F5oaa. It selects ResumeSlice internally, then invokes the F5oab next-command step, F5oac Run execution, F5oad EndFrame step, F5oae EndFrame execution, and F5oaf terminal conversion exactly once and in order. Each error variant owns the complete lower recovery value and has a consuming cleanup path. The fixed chain is not an arbitrary-length queue or timer loop.
+
+### F5oah Web unified frame entry
+
+The facade consumes RetryReady through F5nzz once and classifies the success through F5oaa once. Continue and Completed remain legitimate typed outcomes with their original owner. Only Yield enters F5oag with caller-supplied continuation support. Retry failure never enters the resumed chain, and neither support nor budget authority is reconstructed.

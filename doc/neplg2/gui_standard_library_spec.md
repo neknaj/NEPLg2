@@ -2506,6 +2506,10 @@ F5nzyはF5nzw RetryPendingを有限0/1 budgetで一度だけ分類する。元fa
 ### Registered Web F5oag resumed frame loop
 
 `platforms/gui/web/font_registered_resumed_web_loop` は未resume Yieldから既存F5oab〜F5oaf境界を順に一度ずつ呼び、actual RunとEndFrameを経てterminal Completedを返す。段階別errorはlower authorityを再構築せず保持し、全variantを解放できる。これは固定2 command continuationであり、汎用scheduler loopではない。
+
+### Registered Web F5oah unified frame entry
+
+`platforms/gui/web/font_registered_unified_web_frame` はRetryReadyからF5nzz/F5oaaを経て、Yieldの場合だけF5oagを呼ぶ。Continue/Completed/Terminalを正常outcomeとして区別し、retry execution failureとresumed-loop failureを所有権付きerrorとして区別する。これは任意長scheduler loopではない。
 ### Registered Web F5oad EndFrame command boundary
 
 F5oac actual Run completionのContinue stateと保持cursorから既存registered EndFrame ownerを一度だけ生成する。消費済schedule authority、pending action、sessionを再構築せず、EndFrame record/schedule/request/executionより前で停止する。

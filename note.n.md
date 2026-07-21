@@ -1,3 +1,11 @@
+# 2026-07-22 GUI font F5oah Web unified frame entry
+
+- RetryReadyをF5nzz actual Begin retryへ一度渡し、F5oaaでphase分類後、YieldだけをF5oag固定Run/EndFrame terminal chainへ渡すproduction facadeを追加した。
+- Continue/Completedは正常なtyped ownerとして返し、暗黙resumeやterminal偽装を行わない。retry/resumed-loop failureは全variant consuming cleanupを持つ。
+- focused runtimeはevidence 127、actual Begin/Run/End各1回でterminal Completedまで到達した。source contract、normal isolation、Web GUI contract、issue整合、diff checkを通過し、subagent再レビューはBlocker/Major/Minorすべて0だった。
+- `cargo check --workspace`、wasm32 workspace check、release CLI build、release trunk buildを通過した。trunk後のPlayground editor CLI JSONは13/13、failed 0だった。既知のdead-code warning以外に新規警告はない。
+- 最終目標は未完了。次はContinue/反復Yieldを含む任意長command/queue/timer actual Web loop、fresh non-retry入口、native provider、layout/raster/presentationへ進む。
+
 # 2026-07-22 GUI font F5oag Web resumed frame loop
 
 - F5oaaのconcrete未resume YieldからF5oab〜F5oafを順に各一度呼ぶproduction APIを追加し、actual RunとEndFrameを経てterminal Completedへ閉じた。

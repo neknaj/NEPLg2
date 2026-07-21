@@ -101,3 +101,13 @@ pub fn gui_font_web_registered_begin_frame_retry_execution_recovered_abort_into_
 
 pub fn gui_font_web_registered_begin_frame_retry_execution_recovered_abort_free %fn GuiFontWebRegisteredBeginFrameRetryExecutionRecoveredAbort Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \failure:
     gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_recovered_state_abort_ready_owner_free field::get failure "abort_ready"
+
+//: actual retry execution failureに残る全authorityをvariantごとに閉じる
+pub fn gui_font_web_registered_begin_frame_retry_execution_failure_free %fn GuiFontWebRegisteredBeginFrameRetryExecutionFailure Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \failure:
+    match failure:
+        GuiFontWebRegisteredBeginFrameRetryExecutionFailure::RetryAbort payload:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_abort_ready_owner_free field::get payload "abort_ready"
+        GuiFontWebRegisteredBeginFrameRetryExecutionFailure::RecoveredAbort payload:
+            gui_font_web_registered_begin_frame_retry_execution_recovered_abort_free payload
+        GuiFontWebRegisteredBeginFrameRetryExecutionFailure::InvariantViolation cleanup:
+            cleanup

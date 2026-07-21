@@ -14029,3 +14029,7 @@ F5oae successを一度だけparts化し、actual Completed stateとexact EndFram
 ### F5oag Web resumed frame loop
 
 F5oaaの未resume Yieldを固定ResumeSliceで一度再開し、F5oabからF5oafまでを一つのproduction APIで順に実行する。RunとEndFrameは各一度だけactual Web executorへ渡し、全failureは下位ownerを保持したまま回収または解放できる。これはBegin/Run/Endの固定2 command continuationであり、任意長queue/timer loop、fresh BeginFrame入口、native provider、layout/raster/presentationは後続へ残す。
+
+### F5oah Web unified frame entry
+
+RetryReadyをF5nzzへ一度渡し、F5oaaで成功phaseを分類する。Continue/Completedは既存ownerのまま返し、YieldだけをF5oagへ一度渡してterminalへ閉じる。retry/resumed-loop failureはlower authorityを保持して全域cleanupできる。任意長loop、queue/timer、再retry、fresh BeginFrame入口は後続へ残す。
