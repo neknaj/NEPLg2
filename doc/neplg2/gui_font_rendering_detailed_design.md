@@ -11266,3 +11266,7 @@ Web adapterはF5oab next-command ownerをF5nzo、F5nzp、request owner、F5ne dr
 ### F5oad Web Run completion to EndFrame command
 
 F5oac successではRun schedule-only ownerがhost requestへ既に消費されているため、F5nzq入力を再構築しない。F5nzqのcursor finish/step本体はmodule-private helperへ分け、旧schedule-owner APIだけがContinue gate後に委譲する。Web wrapperもF5oac typed ownerからだけ到達できるmodule-private遷移で同じfinish/step契約を実行し、異なるstate/cursorの外部pairingを許さずprovenance、spent budget、exact EndFrame ownerを保持する。
+
+### F5oae Web EndFrame execution
+
+The adapter consumes the sole F5oad owner and transfers its exact lower authority through F5nzr, F5nzs, an EndFrame-only same-record request adopter, F5nh, and the existing Web host executor. Success retains provenance, the exhausted budget, the EndFrame cursor, and actual Completed-phase evidence. Every failure retains the owner-bearing lower boundary; no schedule, request, session, budget, or terminal cursor authority is reconstructed.

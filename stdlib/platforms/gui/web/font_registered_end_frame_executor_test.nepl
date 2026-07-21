@@ -1,0 +1,75 @@
+//: # Web registered EndFrame executor test adapter
+//: F5oad authorityからactual EndFrame import完了までのexactly-once chainを検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_end_frame_command_test" as fixture with tests
+#import "platforms/gui/web/font_registered_end_frame_command" as *
+#import "platforms/gui/web/font_registered_end_frame_executor" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_attempt_driver" as *
+#import "std/gui/compositor_tile_present_host_action_sink_driver" as *
+#import "std/gui/compositor_tile_present_host_execution_driver" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+fn gui_font_web_registered_end_frame_executor_test_provenance %fn Option GuiError fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget i32 \category\diagnostic\budget:
+    let category_evidence %i32 match category:
+        Option::Some value:
+            match value:
+                GuiError::Unsupported: 1
+                _: 0
+        _: 0
+    let diagnostic_evidence %i32 match diagnostic:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::SinkRejected _: 2
+        _: 0
+    let budget_evidence %i32 match budget:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::Exhausted: 4
+        _: 0
+    add add category_evidence diagnostic_evidence budget_evidence
+
+#test
+pub fn gui_font_web_registered_end_frame_executor_test_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_end_frame_command_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok owner:
+            match gui_rgba8888_compositor_tile_rle_present_schedule_policy 4 64:
+                Result::Err _:
+                    match gui_font_web_registered_end_frame_command_owner_free owner:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                Result::Ok policy:
+                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                    match gui_font_web_registered_end_frame_command_execute &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen owner:
+                        Result::Err error:
+                            match gui_font_web_registered_end_frame_execution_error_free error:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        Result::Ok success:
+                            let parts %GuiFontWebRegisteredEndFrameExecutionSuccessParts gui_font_web_registered_end_frame_execution_success_into_parts success
+                            let provenance %i32 gui_font_web_registered_end_frame_executor_test_provenance field::get parts "previous_category" field::get parts "previous_diagnostic" field::get parts "spent_budget"
+                            let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+                            let command_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result &step:
+                                GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+                                    match command:
+                                        GuiRgba8888CompositorTileRlePresentCommand::EndFrame _: 8
+                                        _: 0
+                                _: 0
+                            let completion field::get parts "completion"
+                            let completion_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion &completion:
+                                GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed _: 16
+                                _: 0
+                            match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free step:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: add add add 32 provenance command_evidence completion_evidence

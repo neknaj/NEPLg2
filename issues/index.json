@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-19T16:29:26.433Z",
+  "generated_at": "2026-07-21T17:46:46.335Z",
   "counts": {
-    "total": 1442,
+    "total": 1443,
     "open": 60,
-    "resolved": 1382,
+    "resolved": 1383,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 28,
+        "total": 29,
         "open": 0,
-        "resolved": 28
+        "resolved": 29
       },
       "nodesrc": {
         "total": 16,
@@ -12168,6 +12168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260719T160340098Z-F5OAD-WEB-RUN-COMPLETION-TO-END-FR-8C41A6E2.md"
+    },
+    {
+      "id": "ISS-20260721T172102186Z-F5OAE-WEB-ENDFRAME-SCHEDULE-REQUEST--01A404F1",
+      "title": "F5oae Web EndFrame schedule request execution",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-21",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_end_frame_executor.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260721T172102186Z-F5OAE-WEB-ENDFRAME-SCHEDULE-REQUEST--01A404F1.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

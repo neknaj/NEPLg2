@@ -1,0 +1,92 @@
+//: # registered stroke compositor tile RLE resumed EndFrame host request
+//: F5nzsのschedule済EndFrame authorityを同一recordのhost requestとF5nc pendingへ接続します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_import" as *
+#import "std/gui/host" as *
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorKind:
+    EndFrameRecordExpected
+    HostImportRequestFailed
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwner:
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwnerParts:
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError:
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    scheduled %GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorKind
+    host_error %Option GuiError
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorParts:
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    scheduled %GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorKind
+    host_error %Option GuiError
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error %fn GuiRgba8888CompositorTileRlePresentCommandCursorStep fn GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorKind fn Option GuiError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError \step\scheduled\kind\host_error:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError step scheduled kind host_error
+
+//: schedule済authorityから同一EndFrame recordのrequestだけを作り、rollback付きpendingへ一度採用する
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_into_host_request %fn &GuiHost fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameScheduleOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError \host\owner:
+    let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameScheduleOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_into_parts owner
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+    let scheduled %GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep field::get parts "scheduled"
+    match gui_rgba8888_compositor_tile_rle_present_host_command_step_result &step:
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Completed:
+            Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error step scheduled GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorKind::EndFrameRecordExpected none
+        GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Record record:
+            match record:
+                GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame _descriptor:
+                    match gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_into_host_request_pending host scheduled:
+                        Result::Err lower:
+                            let host_error %GuiError gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_host_request_error_value &lower
+                            let rollback %GuiRgba8888CompositorTileRlePresentDispatchLoopScheduleOnlyStep gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_host_request_error_scheduled lower
+                            Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error step rollback GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorKind::HostImportRequestFailed some host_error
+                        Result::Ok pending:
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwner step pending
+                _:
+                    Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error step scheduled GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorKind::EndFrameRecordExpected none
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_owner_pending %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwner &GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest \owner:
+    field::get_ref owner "pending"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_owner_into_parts %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwnerParts \owner:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwnerParts field::get owner "step" field::get owner "pending"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error_into_parts %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorParts \error:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorParts field::get error "step" field::get error "scheduled" field::get error "kind" field::get error "host_error"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error_is_end_frame_record_expected %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError bool \error:
+    match field::get_ref error "kind":
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestErrorKind::EndFrameRecordExpected: true
+        _: false
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error_host_error_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError Option GuiError \error:
+    *field::get_ref error "host_error"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error_previous_state %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError GuiRgba8888CompositorTileRlePresentDispatchLoopState \error:
+    gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_previous field::get_ref error "scheduled"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error_state %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError GuiRgba8888CompositorTileRlePresentDispatchLoopState \error:
+    gui_rgba8888_compositor_tile_rle_present_dispatch_loop_schedule_only_step_state field::get_ref error "scheduled"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_owner_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error_free %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get error "step"

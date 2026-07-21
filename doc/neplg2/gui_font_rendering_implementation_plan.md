@@ -14017,3 +14017,7 @@ F5nzp schedule-only formal ownerへpre-stateとexact recordを保持し、同じ
 ### F5oad Web Run completion to EndFrame command
 
 F5oac actual Run successのContinue stateとexact cursorをWeb module-private遷移へ接続し、F5nzqと同じ契約で既存F5nzq output ownerを生成する。schedule-only ownerの再構築、Run replay、EndFrame schedule/request/executionを行わず、既存F5nzq ownerとprovenanceを同居させる。次のF5oaeがF5nzr/F5nzsからactual EndFrame executionへ進む。
+
+### F5oae Web EndFrame schedule/request execution
+
+F5oad ownerを一度だけparts化し、F5nzr/F5nzs、EndFrame-only same-record request adopter、F5nh、Web executorを各1回実行する。runtimeはEndFrame import 1回、Begin/Runの追加実行0回、Completed completion、provenanceとspent budgetの保持を固定する。F5oafまでterminal cursor advance/completionは行わない。

@@ -8827,3 +8827,7 @@ Web adapterはF5oabのRun ownerをF5nzo record、F5nzp schedule、request adopte
 ### F5oad Web Run completion to EndFrame command
 
 Web adapterはF5oac successを一度だけ分解し、F5nh completionがContinueの場合だけpost-Run stateと保持中Run cursorをmodule-private遷移へ渡す。遷移はF5nzqと同じcursor finish/next-step契約をWeb module内で閉じて実行し、既存EndFrame ownerを返す。Yield/Completedはprovenance、spent budget、state、cursorを保持するtyped errorであり、消費済schedule authorityを再構築しない。EndFrame record、schedule、request、Web import execution、terminal completionは後続である。
+
+### F5oae Web EndFrame schedule/request execution
+
+F5oad ownerをformal partsで一度だけ消費し、exact lowerをF5nzr record、F5nzs schedule、EndFrame same-record host request、F5nh session、既存Web executorへ順に渡す。successはprovenance、spent budget、EndFrame cursor、actual completionを同居保持する。schedule/request/execution failureはowner-bearing lowerを保持し、authority再構築、spent budget再発行、terminal cursor advanceを行わない。terminal completionはF5oafの責務である。

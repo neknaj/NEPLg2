@@ -1,0 +1,176 @@
+//: # Web registered resumed EndFrame executor
+//: F5oadのEndFrame commandをF5nzr/F5nzsとsame-record request経由でWebへ一度だけ実行します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_record" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/compositor_host_executor" as *
+#import "platforms/gui/web/font_registered_end_frame_command" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_execution_driver" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+pub struct GuiFontWebRegisteredEndFrameExecutionSuccess:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+pub struct GuiFontWebRegisteredEndFrameExecutionSuccessParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+pub struct GuiFontWebRegisteredEndFrameExecutionScheduleError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameScheduleError
+
+pub struct GuiFontWebRegisteredEndFrameExecutionScheduleErrorParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameScheduleError
+
+pub struct GuiFontWebRegisteredEndFrameExecutionHostRequestError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError
+
+pub struct GuiFontWebRegisteredEndFrameExecutionHostRequestErrorParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestError
+
+pub struct GuiFontWebRegisteredEndFrameExecutionUnexpectedCompleted:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub struct GuiFontWebRegisteredEndFrameExecutionUnexpectedCompletedParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub struct GuiFontWebRegisteredEndFrameExecutionCompleteError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    lower %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError
+
+pub struct GuiFontWebRegisteredEndFrameExecutionCompleteErrorParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    lower %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError
+
+pub enum GuiFontWebRegisteredEndFrameExecutionError:
+    ScheduleFailed %GuiFontWebRegisteredEndFrameExecutionScheduleError
+    HostRequestFailed %GuiFontWebRegisteredEndFrameExecutionHostRequestError
+    UnexpectedSessionCompleted %GuiFontWebRegisteredEndFrameExecutionUnexpectedCompleted
+    CompletionFailed %GuiFontWebRegisteredEndFrameExecutionCompleteError
+
+pub enum GuiFontWebRegisteredEndFrameExecutionErrorRecovery:
+    ScheduleFailed %GuiFontWebRegisteredEndFrameExecutionScheduleError
+    HostRequestFailed %GuiFontWebRegisteredEndFrameExecutionHostRequestError
+    UnexpectedSessionCompleted %GuiFontWebRegisteredEndFrameExecutionUnexpectedCompleted
+    CompletionFailed %GuiFontWebRegisteredEndFrameExecutionCompleteError
+
+//: EndFrame authorityをschedule、same-record request、F5nh session、Web executorへ順に一度ずつ渡す
+pub fn gui_font_web_registered_end_frame_command_execute %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredEndFrameCommandOwner Result GuiFontWebRegisteredEndFrameExecutionSuccess GuiFontWebRegisteredEndFrameExecutionError \host\policy\support\owner:
+    let parts %GuiFontWebRegisteredEndFrameCommandOwnerParts gui_font_web_registered_end_frame_command_owner_into_parts owner
+    let previous_category %Option GuiError field::get parts "previous_category"
+    let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
+    let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+    let lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameOwner field::get parts "lower"
+    let record_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameRecordOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_owner_into_record lower
+    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_record_owner_into_schedule policy record_owner:
+        Result::Err lower:
+            Result::Err GuiFontWebRegisteredEndFrameExecutionError::ScheduleFailed GuiFontWebRegisteredEndFrameExecutionScheduleError previous_category previous_diagnostic spent_budget lower
+        Result::Ok scheduled:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_into_host_request host scheduled:
+                Result::Err lower:
+                    Result::Err GuiFontWebRegisteredEndFrameExecutionError::HostRequestFailed GuiFontWebRegisteredEndFrameExecutionHostRequestError previous_category previous_diagnostic spent_budget lower
+                Result::Ok request_owner:
+                    let request_parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameHostRequestOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_owner_into_parts request_owner
+                    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get request_parts "step"
+                    let pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest field::get request_parts "pending"
+                    let driver gui_rgba8888_compositor_tile_rle_present_host_execution_driver_prepare pending
+                    let session gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_start driver
+                    match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_request session:
+                        GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult::Completed:
+                            Result::Err GuiFontWebRegisteredEndFrameExecutionError::UnexpectedSessionCompleted GuiFontWebRegisteredEndFrameExecutionUnexpectedCompleted previous_category previous_diagnostic spent_budget step
+                        GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult::Action action_pending:
+                            match gui_web_compositor_host_executor_step support action_pending:
+                                Result::Err lower:
+                                    Result::Err GuiFontWebRegisteredEndFrameExecutionError::CompletionFailed GuiFontWebRegisteredEndFrameExecutionCompleteError previous_category previous_diagnostic spent_budget step lower
+                                Result::Ok completion:
+                                    Result::Ok GuiFontWebRegisteredEndFrameExecutionSuccess previous_category previous_diagnostic spent_budget step completion
+
+pub fn gui_font_web_registered_end_frame_execution_success_completion %fn &GuiFontWebRegisteredEndFrameExecutionSuccess GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion \owner:
+    gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion field::get_ref owner "completion"
+
+pub fn gui_font_web_registered_end_frame_execution_success_into_parts %fn GuiFontWebRegisteredEndFrameExecutionSuccess GuiFontWebRegisteredEndFrameExecutionSuccessParts \owner:
+    GuiFontWebRegisteredEndFrameExecutionSuccessParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "step" field::get owner "completion"
+
+pub fn gui_font_web_registered_end_frame_execution_success_free %fn GuiFontWebRegisteredEndFrameExecutionSuccess Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_end_frame_execution_complete_error_category_value %fn &GuiFontWebRegisteredEndFrameExecutionCompleteError Option GuiError \error:
+    gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_category_value field::get_ref error "lower"
+
+//: completion failureのcursorとowner-bearing F5nh lower recoveryを分断せずcallerへ移す
+pub fn gui_font_web_registered_end_frame_execution_complete_error_into_parts %fn GuiFontWebRegisteredEndFrameExecutionCompleteError GuiFontWebRegisteredEndFrameExecutionCompleteErrorParts \error:
+    GuiFontWebRegisteredEndFrameExecutionCompleteErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "step" field::get error "lower"
+
+pub fn gui_font_web_registered_end_frame_execution_schedule_error_into_parts %fn GuiFontWebRegisteredEndFrameExecutionScheduleError GuiFontWebRegisteredEndFrameExecutionScheduleErrorParts \error:
+    GuiFontWebRegisteredEndFrameExecutionScheduleErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "lower"
+
+pub fn gui_font_web_registered_end_frame_execution_host_request_error_into_parts %fn GuiFontWebRegisteredEndFrameExecutionHostRequestError GuiFontWebRegisteredEndFrameExecutionHostRequestErrorParts \error:
+    GuiFontWebRegisteredEndFrameExecutionHostRequestErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "lower"
+
+pub fn gui_font_web_registered_end_frame_execution_unexpected_completed_into_parts %fn GuiFontWebRegisteredEndFrameExecutionUnexpectedCompleted GuiFontWebRegisteredEndFrameExecutionUnexpectedCompletedParts \error:
+    GuiFontWebRegisteredEndFrameExecutionUnexpectedCompletedParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "step"
+
+pub fn gui_font_web_registered_end_frame_execution_error_into_recovery %fn GuiFontWebRegisteredEndFrameExecutionError GuiFontWebRegisteredEndFrameExecutionErrorRecovery \error:
+    match error:
+        GuiFontWebRegisteredEndFrameExecutionError::ScheduleFailed payload: GuiFontWebRegisteredEndFrameExecutionErrorRecovery::ScheduleFailed payload
+        GuiFontWebRegisteredEndFrameExecutionError::HostRequestFailed payload: GuiFontWebRegisteredEndFrameExecutionErrorRecovery::HostRequestFailed payload
+        GuiFontWebRegisteredEndFrameExecutionError::UnexpectedSessionCompleted payload: GuiFontWebRegisteredEndFrameExecutionErrorRecovery::UnexpectedSessionCompleted payload
+        GuiFontWebRegisteredEndFrameExecutionError::CompletionFailed payload: GuiFontWebRegisteredEndFrameExecutionErrorRecovery::CompletionFailed payload
+
+pub fn gui_font_web_registered_end_frame_execution_error_free %fn GuiFontWebRegisteredEndFrameExecutionError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    match gui_font_web_registered_end_frame_execution_error_into_recovery error:
+        GuiFontWebRegisteredEndFrameExecutionErrorRecovery::ScheduleFailed payload:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_error_free field::get payload "lower"
+        GuiFontWebRegisteredEndFrameExecutionErrorRecovery::HostRequestFailed payload:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_host_request_error_free field::get payload "lower"
+        GuiFontWebRegisteredEndFrameExecutionErrorRecovery::UnexpectedSessionCompleted payload:
+            gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get payload "step"
+        GuiFontWebRegisteredEndFrameExecutionErrorRecovery::CompletionFailed payload:
+            let parts %GuiFontWebRegisteredEndFrameExecutionCompleteErrorParts gui_font_web_registered_end_frame_execution_complete_error_into_parts payload
+            let lower field::get parts "lower"
+            let _attempt gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_lower lower
+            gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get parts "step"
