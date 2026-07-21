@@ -8851,3 +8851,6 @@ F5oac successはContinue/Yield/Completedのいずれも正常なtyped phaseで�
 ### F5oaj bounded Web Run phase driver
 
 driver outcomeはTerminal、opaque Suspended、Completed typed stopである。Suspendedはphase ownerと残action/yield budgetを同居保持し、public partsを持たない。resumeはSuspendedだけを消費し、Begin/Runを再実行せず既存EndFrame/terminal chainへ進む。
+### F5oak Web Run next command connector
+
+ContinueとYieldを別のconsuming APIで受け、provenance、spent budget、continuation state、未分類のnext cursor stepを同じownerに保持する。

@@ -11290,3 +11290,6 @@ The classifier consumes one F5oac actual Run success and retains its exact sessi
 ### F5oaj bounded Web Run phase driver
 
 The driver advances Continue directly and advances Yield only after an internal one-time resume-budget transition. Suspension retains the exact phase and remaining action/yield budgets in an opaque owner; resume consumes that owner and accepts no replacement policy. Existing EndFrame execution and terminal completion remain the only host path. This is one bounded post-Run command, not an arbitrary-length queue or timer loop.
+### F5oak Web Run next command connector
+
+Continue entryはstateを維持し、Yield entryだけ`resume_slice`を一度呼ぶ。共通helperはcurrent stepをfinishしてcursor stepを一度呼び、結果を分類しない。

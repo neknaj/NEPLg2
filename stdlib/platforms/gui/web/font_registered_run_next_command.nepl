@@ -1,0 +1,89 @@
+//: # Web registered Run next command connector
+//: actual RunのContinueまたはYield authorityからcursorを一度だけ進め、未分類の次commandを保持します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_run_success_phase" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+
+pub struct GuiFontWebRegisteredRunNextCommandOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+struct GuiFontWebRegisteredRunNextCommandOwnerParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub struct GuiFontWebRegisteredRunNextCommandError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    lower %GuiRgba8888CompositorTileRlePresentCommandCursorStepError
+
+pub struct GuiFontWebRegisteredRunNextCommandErrorParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    lower %GuiRgba8888CompositorTileRlePresentCommandCursorStepError
+
+//: current Run stepを閉じ、同じcursor authorityから次outputを一度だけ得る
+fn gui_font_web_registered_run_step_next_command %fn Option GuiError fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget fn GuiRgba8888CompositorTileRlePresentDispatchLoopState fn GuiRgba8888CompositorTileRlePresentCommandCursorStep Result GuiFontWebRegisteredRunNextCommandOwner GuiFontWebRegisteredRunNextCommandError \previous_category\previous_diagnostic\spent_budget\state\current_step:
+    let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner current_step
+    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step cursor:
+        Result::Ok step: Result::Ok GuiFontWebRegisteredRunNextCommandOwner previous_category previous_diagnostic spent_budget state step
+        Result::Err lower: Result::Err GuiFontWebRegisteredRunNextCommandError previous_category previous_diagnostic spent_budget state lower
+
+//: Continue stateを保ったまま、exact Run stepの次outputへ一度だけ進む
+pub fn gui_font_web_registered_run_success_continue_step_next_command %fn GuiFontWebRegisteredRunSuccessPhaseContinueOwner Result GuiFontWebRegisteredRunNextCommandOwner GuiFontWebRegisteredRunNextCommandError \owner:
+    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_web_registered_run_success_phase_continue_owner_state &owner
+    let parts %GuiFontWebRegisteredRunSuccessPhaseContinueOwnerParts gui_font_web_registered_run_success_phase_continue_owner_into_parts owner
+    gui_font_web_registered_run_step_next_command field::get parts "previous_category" field::get parts "previous_diagnostic" field::get parts "spent_budget" state field::get parts "step"
+
+//: Yield stateのsliceだけを一度resetし、exact Run stepの次outputへ一度だけ進む
+pub fn gui_font_web_registered_run_success_yield_resume_and_step_next_command %fn GuiFontWebRegisteredRunSuccessPhaseYieldOwner Result GuiFontWebRegisteredRunNextCommandOwner GuiFontWebRegisteredRunNextCommandError \owner:
+    let yielded %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_web_registered_run_success_phase_yield_owner_state &owner
+    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_resume_slice yielded
+    let parts %GuiFontWebRegisteredRunSuccessPhaseYieldOwnerParts gui_font_web_registered_run_success_phase_yield_owner_into_parts owner
+    gui_font_web_registered_run_step_next_command field::get parts "previous_category" field::get parts "previous_diagnostic" field::get parts "spent_budget" state field::get parts "step"
+
+pub fn gui_font_web_registered_run_next_command_owner_state %fn &GuiFontWebRegisteredRunNextCommandOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
+    *field::get_ref owner "state"
+
+pub fn gui_font_web_registered_run_next_command_owner_result %fn &GuiFontWebRegisteredRunNextCommandOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepResult \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result field::get_ref owner "step"
+
+fn gui_font_web_registered_run_next_command_owner_into_parts %fn GuiFontWebRegisteredRunNextCommandOwner GuiFontWebRegisteredRunNextCommandOwnerParts \owner:
+    GuiFontWebRegisteredRunNextCommandOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "state" field::get owner "step"
+
+pub fn gui_font_web_registered_run_next_command_owner_free %fn GuiFontWebRegisteredRunNextCommandOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_run_next_command_error_kind %fn &GuiFontWebRegisteredRunNextCommandError GuiRgba8888CompositorTileRlePresentCommandCursorStepErrorKind \error:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_kind field::get_ref error "lower"
+
+pub fn gui_font_web_registered_run_next_command_error_category_value %fn &GuiFontWebRegisteredRunNextCommandError Option GuiError \error:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_category_value field::get_ref error "lower"
+
+pub fn gui_font_web_registered_run_next_command_error_state %fn &GuiFontWebRegisteredRunNextCommandError GuiRgba8888CompositorTileRlePresentDispatchLoopState \error:
+    *field::get_ref error "state"
+
+pub fn gui_font_web_registered_run_next_command_error_into_parts %fn GuiFontWebRegisteredRunNextCommandError GuiFontWebRegisteredRunNextCommandErrorParts \error:
+    GuiFontWebRegisteredRunNextCommandErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "state" field::get error "lower"
+
+pub fn gui_font_web_registered_run_next_command_error_free %fn GuiFontWebRegisteredRunNextCommandError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_free field::get error "lower"

@@ -2521,3 +2521,6 @@ F5oac actual Run completionのContinue stateと保持cursorから既存registere
 ### Registered Web F5oaj bounded Run phase driver
 
 `gui_font_web_registered_run_phase_driver_execute` はtyped finite policyとF5oai ownerを消費する。budget不足はopaque Suspended ownerを返し、`resume`はそのexact ownerと残budgetだけを再投入する。Continue/ resumed Yieldは既存EndFrame executionとterminal completionへ進み、Completedはtyped stopとして返る。
+### Registered Web F5oak Run next command connector
+
+Continue/Yieldのexact Run stepからcursorを一度だけ進め、次のstepを分類せず保持する。Yieldだけslice stateを一度resetし、host effectは実行しない。

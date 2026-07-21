@@ -14041,3 +14041,6 @@ F5oac actual Run successをContinue/Yield/Completedへ全域分類し、provenan
 ### F5oaj bounded Web Run phase driver
 
 F5oai phase ownerをtyped action/yield budgetで一件だけ進める。Suspended ownerはphaseと残budgetをopaqueに保持し、resumeはfresh policyを受け取らない。Continueはexact stepをEndFrameへ渡し、YieldはDeferOnceからOneRemainingへの内部遷移後だけresumeする。任意長反復とqueue/timerは後続へ残す。
+### F5oak Web Run next command connector
+
+中立next-command connectorを任意長bounded command loopの前提として接続する。次段でRun/EndFrame/Completed分類と反復budgetを接続する。
