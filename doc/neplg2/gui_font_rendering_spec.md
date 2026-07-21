@@ -8854,3 +8854,6 @@ driver outcomeはTerminal、opaque Suspended、Completed typed stopである。S
 ### F5oak Web Run next command connector
 
 ContinueとYieldを別のconsuming APIで受け、provenance、spent budget、continuation state、未分類のnext cursor stepを同じownerに保持する。
+### F5oal Web next command phase classifier
+
+F5oak neutral next stepをBeginFrame、Run、EndFrame、Completedへ全域分類し、exact step authorityをvariant ownerへ移す。

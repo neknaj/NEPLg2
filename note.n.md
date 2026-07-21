@@ -169251,3 +169251,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - subagent reviewのMajor指摘に従い、raw next stepを分離できるparts APIをmodule-privateへ閉じ、actual Continue/Yield runtimeを追加した。runtimeが検出したborrowed ownerへの不正な`field::get`は`*field::get_ref`へ根本修正し、evidence 3、Begin/Run/End 2/2/0でContinue state 1/16、Yield reset 0/0、次EndFrame、cleanup、host call非増加を検査した。
 - final reviewはtodoの完了表現1件を修正後Blocker/Major/Minor 0/0/0。専用contract、既存driver contract、diff check、`trunk build`、trunk後Playground editor JSON 13/13を通過した。
 - このcheckpointは任意長loopの前提境界であり、全体完成ではない。次はnext stepのRun/EndFrame/Completed分類とbounded反復へ進む。
+# 2026-07-22 GUI font F5oal Web next command phase classifier
+
+- F5oak neutral ownerをBeginFrame、Run、EndFrame、Completedへ全域分類し、exact step、provenance、spent budget、stateをtyped variant ownerへ移す境界を追加した。
+- raw neutral partsはprivateのまま維持し、分類ではcursor advance、resume、command実行、host effectを行わない。actual Continue/Yield fixtureでEndFrame variantとstate差、cleanup、Begin/Run/End 2/2/0を検査する。
+- actual runtimeはevidence 3、Begin/Run/End 2/2/0で通過した。subagent reviewはBlocker/Major/Minor 0/0/0だった。
+- source contract、diff check、`trunk build`、trunk後Playground editor JSON 13/13を通過した。
+- 最終目標は未完了。次はgenuine multi-Run fixtureでRun variantとbounded反復を接続する。

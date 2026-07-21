@@ -19,17 +19,31 @@ fn gui_font_web_registered_run_next_command_test_state %fn &GuiRgba8888Composito
     and eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule commands eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule pixels
 
 fn gui_font_web_registered_run_next_command_test_finish %fn GuiFontWebRegisteredRunNextCommandOwner fn i32 fn i32 fn i32 i32 \owner\commands\pixels\evidence:
-    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_web_registered_run_next_command_owner_state &owner
-    let state_ok %bool gui_font_web_registered_run_next_command_test_state &state commands pixels
-    let command_ok %bool match gui_font_web_registered_run_next_command_owner_result &owner:
-        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
-            match command:
-                GuiRgba8888CompositorTileRlePresentCommand::EndFrame _: true
+    match gui_font_web_registered_run_next_command_owner_into_phase owner:
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::BeginFrame phase:
+            match gui_font_web_registered_run_next_command_phase_begin_frame_owner_free phase:
+                Result::Err _: sub 0 1
+                Result::Ok _: 0
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::Run phase:
+            match gui_font_web_registered_run_next_command_phase_run_owner_free phase:
+                Result::Err _: sub 0 1
+                Result::Ok _: 0
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::EndFrame phase:
+            let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_web_registered_run_next_command_phase_end_frame_owner_state &phase
+            let state_ok %bool gui_font_web_registered_run_next_command_test_state &state commands pixels
+            let command_ok %bool match gui_font_web_registered_run_next_command_phase_end_frame_owner_result &phase:
+                GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+                    match command:
+                        GuiRgba8888CompositorTileRlePresentCommand::EndFrame _: true
+                        _: false
                 _: false
-        _: false
-    match gui_font_web_registered_run_next_command_owner_free owner:
-        Result::Err _: sub 0 1
-        Result::Ok _: if and state_ok command_ok then evidence else 0
+            match gui_font_web_registered_run_next_command_phase_end_frame_owner_free phase:
+                Result::Err _: sub 0 1
+                Result::Ok _: if and state_ok command_ok then evidence else 0
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::Completed phase:
+            match gui_font_web_registered_run_next_command_phase_completed_owner_free phase:
+                Result::Err _: sub 0 1
+                Result::Ok _: 0
 
 fn gui_font_web_registered_run_next_command_test_continue %impure fn unit i32 \_unit:
     match fixture::gui_font_web_registered_run_executor_test_success_owner _unit 2 32:

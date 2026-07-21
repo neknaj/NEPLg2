@@ -14044,3 +14044,6 @@ F5oai phase ownerをtyped action/yield budgetで一件だけ進める。Suspende
 ### F5oak Web Run next command connector
 
 中立next-command connectorを任意長bounded command loopの前提として接続する。次段でRun/EndFrame/Completed分類と反復budgetを接続する。
+### F5oal Web next command phase classifier
+
+全域typed分類をmulti-Run bounded driverの前提として接続する。

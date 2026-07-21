@@ -41,6 +41,40 @@ pub struct GuiFontWebRegisteredRunNextCommandErrorParts:
     state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
     lower %GuiRgba8888CompositorTileRlePresentCommandCursorStepError
 
+pub struct GuiFontWebRegisteredRunNextCommandPhaseBeginFrameOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub struct GuiFontWebRegisteredRunNextCommandPhaseRunOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub struct GuiFontWebRegisteredRunNextCommandPhaseEndFrameOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub struct GuiFontWebRegisteredRunNextCommandPhaseCompletedOwner:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub enum GuiFontWebRegisteredRunNextCommandPhaseOwner:
+    BeginFrame %GuiFontWebRegisteredRunNextCommandPhaseBeginFrameOwner
+    Run %GuiFontWebRegisteredRunNextCommandPhaseRunOwner
+    EndFrame %GuiFontWebRegisteredRunNextCommandPhaseEndFrameOwner
+    Completed %GuiFontWebRegisteredRunNextCommandPhaseCompletedOwner
+
 //: current Run stepを閉じ、同じcursor authorityから次outputを一度だけ得る
 fn gui_font_web_registered_run_step_next_command %fn Option GuiError fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget fn GuiRgba8888CompositorTileRlePresentDispatchLoopState fn GuiRgba8888CompositorTileRlePresentCommandCursorStep Result GuiFontWebRegisteredRunNextCommandOwner GuiFontWebRegisteredRunNextCommandError \previous_category\previous_diagnostic\spent_budget\state\current_step:
     let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner current_step
@@ -69,6 +103,49 @@ pub fn gui_font_web_registered_run_next_command_owner_result %fn &GuiFontWebRegi
 
 fn gui_font_web_registered_run_next_command_owner_into_parts %fn GuiFontWebRegisteredRunNextCommandOwner GuiFontWebRegisteredRunNextCommandOwnerParts \owner:
     GuiFontWebRegisteredRunNextCommandOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "state" field::get owner "step"
+
+//: neutral next stepをexact resultで全域分類し、同じstep authorityをtyped ownerへ移す
+pub fn gui_font_web_registered_run_next_command_owner_into_phase %fn GuiFontWebRegisteredRunNextCommandOwner GuiFontWebRegisteredRunNextCommandPhaseOwner \owner:
+    let result %GuiRgba8888CompositorTileRlePresentCommandCursorStepResult gui_font_web_registered_run_next_command_owner_result &owner
+    let parts %GuiFontWebRegisteredRunNextCommandOwnerParts gui_font_web_registered_run_next_command_owner_into_parts owner
+    let previous_category field::get parts "previous_category"
+    let previous_diagnostic field::get parts "previous_diagnostic"
+    let spent_budget field::get parts "spent_budget"
+    let state field::get parts "state"
+    let step field::get parts "step"
+    match result:
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+            match command:
+                GuiRgba8888CompositorTileRlePresentCommand::BeginFrame _: GuiFontWebRegisteredRunNextCommandPhaseOwner::BeginFrame GuiFontWebRegisteredRunNextCommandPhaseBeginFrameOwner previous_category previous_diagnostic spent_budget state step
+                GuiRgba8888CompositorTileRlePresentCommand::Run _: GuiFontWebRegisteredRunNextCommandPhaseOwner::Run GuiFontWebRegisteredRunNextCommandPhaseRunOwner previous_category previous_diagnostic spent_budget state step
+                GuiRgba8888CompositorTileRlePresentCommand::EndFrame _: GuiFontWebRegisteredRunNextCommandPhaseOwner::EndFrame GuiFontWebRegisteredRunNextCommandPhaseEndFrameOwner previous_category previous_diagnostic spent_budget state step
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed:
+            GuiFontWebRegisteredRunNextCommandPhaseOwner::Completed GuiFontWebRegisteredRunNextCommandPhaseCompletedOwner previous_category previous_diagnostic spent_budget state step
+
+pub fn gui_font_web_registered_run_next_command_phase_begin_frame_owner_free %fn GuiFontWebRegisteredRunNextCommandPhaseBeginFrameOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_run_next_command_phase_run_owner_free %fn GuiFontWebRegisteredRunNextCommandPhaseRunOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_run_next_command_phase_end_frame_owner_state %fn &GuiFontWebRegisteredRunNextCommandPhaseEndFrameOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
+    *field::get_ref owner "state"
+
+pub fn gui_font_web_registered_run_next_command_phase_end_frame_owner_result %fn &GuiFontWebRegisteredRunNextCommandPhaseEndFrameOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepResult \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result field::get_ref owner "step"
+
+pub fn gui_font_web_registered_run_next_command_phase_end_frame_owner_free %fn GuiFontWebRegisteredRunNextCommandPhaseEndFrameOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_run_next_command_phase_completed_owner_free %fn GuiFontWebRegisteredRunNextCommandPhaseCompletedOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_run_next_command_phase_owner_free %fn GuiFontWebRegisteredRunNextCommandPhaseOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    match owner:
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::BeginFrame payload: gui_font_web_registered_run_next_command_phase_begin_frame_owner_free payload
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::Run payload: gui_font_web_registered_run_next_command_phase_run_owner_free payload
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::EndFrame payload: gui_font_web_registered_run_next_command_phase_end_frame_owner_free payload
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::Completed payload: gui_font_web_registered_run_next_command_phase_completed_owner_free payload
 
 pub fn gui_font_web_registered_run_next_command_owner_free %fn GuiFontWebRegisteredRunNextCommandOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
     gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"

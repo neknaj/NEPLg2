@@ -11293,3 +11293,6 @@ The driver advances Continue directly and advances Yield only after an internal 
 ### F5oak Web Run next command connector
 
 Continue entryはstateを維持し、Yield entryだけ`resume_slice`を一度呼ぶ。共通helperはcurrent stepをfinishしてcursor stepを一度呼び、結果を分類しない。
+### F5oal Web next command phase classifier
+
+classificationはborrowed resultを一度読み、private partsを一度consumeして同じstepをtyped ownerへ移す。

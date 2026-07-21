@@ -2524,3 +2524,6 @@ F5oac actual Run completionのContinue stateと保持cursorから既存registere
 ### Registered Web F5oak Run next command connector
 
 Continue/Yieldのexact Run stepからcursorを一度だけ進め、次のstepを分類せず保持する。Yieldだけslice stateを一度resetし、host effectは実行しない。
+### Registered Web F5oal next command phase
+
+neutral next commandをhost effectなしで4 phaseへ分類する。
