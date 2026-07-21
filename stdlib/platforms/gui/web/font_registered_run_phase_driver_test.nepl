@@ -1,0 +1,94 @@
+//: # Web registered Run phase bounded driver test
+//: actual Continue terminalとYield suspend/resumeを別chainで検証し、Begin/Run replayを禁止します。
+
+#indent 4
+
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_run_executor_test" as fixture with tests
+#import "platforms/gui/web/font_registered_run_phase_driver" as *
+#import "platforms/gui/web/font_registered_run_success_phase" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+fn gui_font_web_registered_run_phase_driver_test_continue %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_run_executor_test_success_owner _unit 2 32:
+        Result::Err _: 0
+        Result::Ok success:
+            let phase %GuiFontWebRegisteredRunSuccessPhaseOwner gui_font_web_registered_run_execution_success_into_phase success
+            match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:
+                Result::Err _:
+                    match gui_font_web_registered_run_success_phase_owner_free phase:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                Result::Ok policy:
+                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                    let driver_policy %GuiFontWebRegisteredRunPhaseDriverPolicy gui_font_web_registered_run_phase_driver_policy GuiFontWebRegisteredRunPhaseDriverActionBudget::OneRemaining GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget::OneRemaining
+                    match gui_font_web_registered_run_phase_driver_execute &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen driver_policy phase:
+                        Result::Err error:
+                            match gui_font_web_registered_run_phase_driver_error_free error:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        Result::Ok outcome:
+                            match outcome:
+                                GuiFontWebRegisteredRunPhaseDriverOutcome::Terminal _: 1
+                                GuiFontWebRegisteredRunPhaseDriverOutcome::Suspended owner:
+                                    match gui_font_web_registered_run_phase_driver_suspended_owner_free owner:
+                                        Result::Err _: sub 0 1
+                                        Result::Ok _: 0
+                                GuiFontWebRegisteredRunPhaseDriverOutcome::Completed owner:
+                                    match gui_font_web_registered_run_success_phase_completed_owner_free owner:
+                                        Result::Err _: sub 0 1
+                                        Result::Ok _: 0
+
+fn gui_font_web_registered_run_phase_driver_test_yield_suspend_resume %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_run_executor_test_success_owner _unit 1 32:
+        Result::Err _: 0
+        Result::Ok success:
+            let phase %GuiFontWebRegisteredRunSuccessPhaseOwner gui_font_web_registered_run_execution_success_into_phase success
+            match gui_rgba8888_compositor_tile_rle_present_schedule_policy 1 32:
+                Result::Err _:
+                    match gui_font_web_registered_run_success_phase_owner_free phase:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: 0
+                Result::Ok policy:
+                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                    let suspend_policy %GuiFontWebRegisteredRunPhaseDriverPolicy gui_font_web_registered_run_phase_driver_policy GuiFontWebRegisteredRunPhaseDriverActionBudget::OneRemaining GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget::DeferOnce
+                    match gui_font_web_registered_run_phase_driver_execute &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen suspend_policy phase:
+                        Result::Err error:
+                            match gui_font_web_registered_run_phase_driver_error_free error:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        Result::Ok first:
+                            match first:
+                                GuiFontWebRegisteredRunPhaseDriverOutcome::Suspended suspended:
+                                    match gui_font_web_registered_run_phase_driver_resume &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen suspended:
+                                        Result::Err error:
+                                            match gui_font_web_registered_run_phase_driver_error_free error:
+                                                Result::Err _: sub 0 1
+                                                Result::Ok _: 0
+                                        Result::Ok second:
+                                            match second:
+                                                GuiFontWebRegisteredRunPhaseDriverOutcome::Terminal _: 2
+                                                GuiFontWebRegisteredRunPhaseDriverOutcome::Suspended owner:
+                                                    match gui_font_web_registered_run_phase_driver_suspended_owner_free owner:
+                                                        Result::Err _: sub 0 1
+                                                        Result::Ok _: 0
+                                                GuiFontWebRegisteredRunPhaseDriverOutcome::Completed owner:
+                                                    match gui_font_web_registered_run_success_phase_completed_owner_free owner:
+                                                        Result::Err _: sub 0 1
+                                                        Result::Ok _: 0
+                                GuiFontWebRegisteredRunPhaseDriverOutcome::Terminal _: 0
+                                GuiFontWebRegisteredRunPhaseDriverOutcome::Completed owner:
+                                    match gui_font_web_registered_run_success_phase_completed_owner_free owner:
+                                        Result::Err _: sub 0 1
+                                        Result::Ok _: 0
+
+#test
+pub fn gui_font_web_registered_run_phase_driver_test_contract %impure fn unit i32 \_unit:
+    let continue_evidence %i32 gui_font_web_registered_run_phase_driver_test_continue _unit
+    let yield_evidence %i32 gui_font_web_registered_run_phase_driver_test_yield_suspend_resume _unit
+    add continue_evidence yield_evidence

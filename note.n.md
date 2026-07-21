@@ -1,3 +1,11 @@
+# 2026-07-22 GUI font F5oaj bounded Web Run phase driver
+
+- F5oai phase ownerからContinueを直接、Yieldを一度suspend/resumeして既存EndFrame/terminal chainへ進めるbounded one-command production driverを追加した。
+- Suspended ownerはexact phaseとaction/yield残budgetを同居保持してopaqueにした。YieldのDeferOnceだけを内部でOneRemainingへ遷移させ、resumeはfresh policyを受け取らない。
+- 初回reviewでbudgetを失うSuspended、再reviewでpublic parts escapeをBlockerとして検出し、opaque ownerとmodule-private partsへ修正した。runtimeで検出したResource IR uninitはmatch済みbudget変数の再利用が原因で、各armが証明したexact variantを格納するよう根本修正した。修正後reviewはBlocker/Major/Minorすべて0だった。
+- final runtimeはevidence 3、actual Begin/Run/End 2/2/2でContinue terminalとYield suspend/resume non-replayを検査した。normal isolation、専用/全体contract、issues、diff check、native/wasm workspace check、release CLI、release trunk、Playground editor JSON 13/13を通過した。
+- 最終目標は未完了。次はこのone-command境界を任意長bounded driverへ拡張し、その後queue/timer、fresh entry、native provider、layout/raster/presentationへ進む。
+
 # 2026-07-22 GUI font F5oai Web Run success phase classifier
 
 - F5oac actual Run successをContinue/Yield/Completedへ全域分類し、provenance、spent retry budget、exact Run step、actual completionをvariant別ownerへ移すproduction boundaryを追加した。

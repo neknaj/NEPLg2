@@ -1,0 +1,132 @@
+//: # Web registered Run phase bounded driver
+//: F5oai phase ownerを有限budgetでEndFrame terminalへ進め、budget不足時は同じownerを返します。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_end_frame_command" as *
+#import "platforms/gui/web/font_registered_end_frame_executor" as *
+#import "platforms/gui/web/font_registered_run_success_phase" as *
+#import "platforms/gui/web/font_registered_terminal_completion" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+pub enum GuiFontWebRegisteredRunPhaseDriverActionBudget:
+    Exhausted
+    OneRemaining
+
+pub enum GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget:
+    Exhausted
+    DeferOnce
+    OneRemaining
+
+pub struct GuiFontWebRegisteredRunPhaseDriverPolicy:
+    action_budget %GuiFontWebRegisteredRunPhaseDriverActionBudget
+    yield_resume_budget %GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget
+
+pub struct GuiFontWebRegisteredRunPhaseDriverSuspendedOwner:
+    phase_owner %GuiFontWebRegisteredRunSuccessPhaseOwner
+    action_budget %GuiFontWebRegisteredRunPhaseDriverActionBudget
+    yield_resume_budget %GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget
+
+pub struct GuiFontWebRegisteredRunPhaseDriverSuspendedOwnerParts:
+    phase_owner %GuiFontWebRegisteredRunSuccessPhaseOwner
+    action_budget %GuiFontWebRegisteredRunPhaseDriverActionBudget
+    yield_resume_budget %GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget
+
+pub enum GuiFontWebRegisteredRunPhaseDriverOutcome:
+    Terminal %GuiFontWebRegisteredTerminalCompletionSuccess
+    Suspended %GuiFontWebRegisteredRunPhaseDriverSuspendedOwner
+    Completed %GuiFontWebRegisteredRunSuccessPhaseCompletedOwner
+
+pub enum GuiFontWebRegisteredRunPhaseDriverError:
+    EndFrameCommandFailed %GuiFontWebRegisteredEndFrameCommandError
+    EndFrameExecutionFailed %GuiFontWebRegisteredEndFrameExecutionError
+    TerminalCompletionFailed %GuiFontWebRegisteredTerminalCompletionError
+
+pub enum GuiFontWebRegisteredRunPhaseDriverErrorRecovery:
+    EndFrameCommandFailed %GuiFontWebRegisteredEndFrameCommandError
+    EndFrameExecutionFailed %GuiFontWebRegisteredEndFrameExecutionError
+    TerminalCompletionFailed %GuiFontWebRegisteredTerminalCompletionError
+
+pub fn gui_font_web_registered_run_phase_driver_policy %fn GuiFontWebRegisteredRunPhaseDriverActionBudget fn GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget GuiFontWebRegisteredRunPhaseDriverPolicy \action_budget\yield_resume_budget:
+    GuiFontWebRegisteredRunPhaseDriverPolicy action_budget yield_resume_budget
+
+fn gui_font_web_registered_run_phase_driver_suspended %fn GuiFontWebRegisteredRunSuccessPhaseOwner fn GuiFontWebRegisteredRunPhaseDriverActionBudget fn GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget GuiFontWebRegisteredRunPhaseDriverOutcome \phase_owner\action_budget\yield_resume_budget:
+    GuiFontWebRegisteredRunPhaseDriverOutcome::Suspended GuiFontWebRegisteredRunPhaseDriverSuspendedOwner phase_owner action_budget yield_resume_budget
+
+fn gui_font_web_registered_run_phase_driver_execute_end_frame %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredEndFrameCommandOwner Result GuiFontWebRegisteredRunPhaseDriverOutcome GuiFontWebRegisteredRunPhaseDriverError \host\policy\support\owner:
+    match gui_font_web_registered_end_frame_command_execute host policy support owner:
+        Result::Err error: Result::Err GuiFontWebRegisteredRunPhaseDriverError::EndFrameExecutionFailed error
+        Result::Ok execution:
+            match gui_font_web_registered_end_frame_execution_into_terminal_completion execution:
+                Result::Err error: Result::Err GuiFontWebRegisteredRunPhaseDriverError::TerminalCompletionFailed error
+                Result::Ok terminal: Result::Ok GuiFontWebRegisteredRunPhaseDriverOutcome::Terminal terminal
+
+//: action budgetを先に検査し、Yieldだけresume budgetを消費して既存EndFrame chainへ進める
+fn gui_font_web_registered_run_phase_driver_execute_with_budget %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredRunPhaseDriverActionBudget impure fn GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget impure fn GuiFontWebRegisteredRunSuccessPhaseOwner Result GuiFontWebRegisteredRunPhaseDriverOutcome GuiFontWebRegisteredRunPhaseDriverError \host\policy\support\action_budget\yield_resume_budget\owner:
+    match owner:
+        GuiFontWebRegisteredRunSuccessPhaseOwner::Completed completed:
+            Result::Ok GuiFontWebRegisteredRunPhaseDriverOutcome::Completed completed
+        GuiFontWebRegisteredRunSuccessPhaseOwner::Continue continuation:
+            match action_budget:
+                GuiFontWebRegisteredRunPhaseDriverActionBudget::Exhausted:
+                    let phase_owner %GuiFontWebRegisteredRunSuccessPhaseOwner GuiFontWebRegisteredRunSuccessPhaseOwner::Continue continuation
+                    Result::Ok gui_font_web_registered_run_phase_driver_suspended phase_owner GuiFontWebRegisteredRunPhaseDriverActionBudget::Exhausted yield_resume_budget
+                GuiFontWebRegisteredRunPhaseDriverActionBudget::OneRemaining:
+                    match gui_font_web_registered_run_success_phase_continue_into_end_frame continuation:
+                        Result::Err error: Result::Err GuiFontWebRegisteredRunPhaseDriverError::EndFrameCommandFailed error
+                        Result::Ok end_frame: gui_font_web_registered_run_phase_driver_execute_end_frame host policy support end_frame
+        GuiFontWebRegisteredRunSuccessPhaseOwner::Yield continuation:
+            match action_budget:
+                GuiFontWebRegisteredRunPhaseDriverActionBudget::Exhausted:
+                    let phase_owner %GuiFontWebRegisteredRunSuccessPhaseOwner GuiFontWebRegisteredRunSuccessPhaseOwner::Yield continuation
+                    Result::Ok gui_font_web_registered_run_phase_driver_suspended phase_owner GuiFontWebRegisteredRunPhaseDriverActionBudget::Exhausted yield_resume_budget
+                GuiFontWebRegisteredRunPhaseDriverActionBudget::OneRemaining:
+                    match yield_resume_budget:
+                        GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget::Exhausted:
+                            let phase_owner %GuiFontWebRegisteredRunSuccessPhaseOwner GuiFontWebRegisteredRunSuccessPhaseOwner::Yield continuation
+                            Result::Ok gui_font_web_registered_run_phase_driver_suspended phase_owner GuiFontWebRegisteredRunPhaseDriverActionBudget::OneRemaining GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget::Exhausted
+                        GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget::DeferOnce:
+                            let phase_owner %GuiFontWebRegisteredRunSuccessPhaseOwner GuiFontWebRegisteredRunSuccessPhaseOwner::Yield continuation
+                            Result::Ok gui_font_web_registered_run_phase_driver_suspended phase_owner GuiFontWebRegisteredRunPhaseDriverActionBudget::OneRemaining GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget::OneRemaining
+                        GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget::OneRemaining:
+                            match gui_font_web_registered_run_success_phase_yield_resume_into_end_frame continuation:
+                                Result::Err error: Result::Err GuiFontWebRegisteredRunPhaseDriverError::EndFrameCommandFailed error
+                                Result::Ok end_frame: gui_font_web_registered_run_phase_driver_execute_end_frame host policy support end_frame
+
+pub fn gui_font_web_registered_run_phase_driver_execute %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredRunPhaseDriverPolicy impure fn GuiFontWebRegisteredRunSuccessPhaseOwner Result GuiFontWebRegisteredRunPhaseDriverOutcome GuiFontWebRegisteredRunPhaseDriverError \host\policy\support\driver_policy\owner:
+    let action_budget %GuiFontWebRegisteredRunPhaseDriverActionBudget field::get driver_policy "action_budget"
+    let yield_resume_budget %GuiFontWebRegisteredRunPhaseDriverYieldResumeBudget field::get driver_policy "yield_resume_budget"
+    gui_font_web_registered_run_phase_driver_execute_with_budget host policy support action_budget yield_resume_budget owner
+
+fn gui_font_web_registered_run_phase_driver_suspended_owner_into_parts %fn GuiFontWebRegisteredRunPhaseDriverSuspendedOwner GuiFontWebRegisteredRunPhaseDriverSuspendedOwnerParts \owner:
+    GuiFontWebRegisteredRunPhaseDriverSuspendedOwnerParts field::get owner "phase_owner" field::get owner "action_budget" field::get owner "yield_resume_budget"
+
+//: suspensionに保持されたexact phaseと残budgetだけを再投入し、callerから新budgetを受け取らない
+pub fn gui_font_web_registered_run_phase_driver_resume %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredRunPhaseDriverSuspendedOwner Result GuiFontWebRegisteredRunPhaseDriverOutcome GuiFontWebRegisteredRunPhaseDriverError \host\policy\support\owner:
+    let parts %GuiFontWebRegisteredRunPhaseDriverSuspendedOwnerParts gui_font_web_registered_run_phase_driver_suspended_owner_into_parts owner
+    gui_font_web_registered_run_phase_driver_execute_with_budget host policy support field::get parts "action_budget" field::get parts "yield_resume_budget" field::get parts "phase_owner"
+
+pub fn gui_font_web_registered_run_phase_driver_suspended_owner_free %fn GuiFontWebRegisteredRunPhaseDriverSuspendedOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    gui_font_web_registered_run_success_phase_owner_free field::get owner "phase_owner"
+
+pub fn gui_font_web_registered_run_phase_driver_error_into_recovery %fn GuiFontWebRegisteredRunPhaseDriverError GuiFontWebRegisteredRunPhaseDriverErrorRecovery \error:
+    match error:
+        GuiFontWebRegisteredRunPhaseDriverError::EndFrameCommandFailed payload: GuiFontWebRegisteredRunPhaseDriverErrorRecovery::EndFrameCommandFailed payload
+        GuiFontWebRegisteredRunPhaseDriverError::EndFrameExecutionFailed payload: GuiFontWebRegisteredRunPhaseDriverErrorRecovery::EndFrameExecutionFailed payload
+        GuiFontWebRegisteredRunPhaseDriverError::TerminalCompletionFailed payload: GuiFontWebRegisteredRunPhaseDriverErrorRecovery::TerminalCompletionFailed payload
+
+pub fn gui_font_web_registered_run_phase_driver_error_free %fn GuiFontWebRegisteredRunPhaseDriverError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    match gui_font_web_registered_run_phase_driver_error_into_recovery error:
+        GuiFontWebRegisteredRunPhaseDriverErrorRecovery::EndFrameCommandFailed payload: gui_font_web_registered_end_frame_command_error_free payload
+        GuiFontWebRegisteredRunPhaseDriverErrorRecovery::EndFrameExecutionFailed payload: gui_font_web_registered_end_frame_execution_error_free payload
+        GuiFontWebRegisteredRunPhaseDriverErrorRecovery::TerminalCompletionFailed payload: gui_font_web_registered_terminal_completion_error_free payload
+
+pub fn gui_font_web_registered_run_phase_driver_outcome_free %fn GuiFontWebRegisteredRunPhaseDriverOutcome Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \outcome:
+    match outcome:
+        GuiFontWebRegisteredRunPhaseDriverOutcome::Terminal _: Result::Ok unit
+        GuiFontWebRegisteredRunPhaseDriverOutcome::Suspended owner: gui_font_web_registered_run_phase_driver_suspended_owner_free owner
+        GuiFontWebRegisteredRunPhaseDriverOutcome::Completed owner: gui_font_web_registered_run_success_phase_completed_owner_free owner

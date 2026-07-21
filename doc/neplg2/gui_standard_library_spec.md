@@ -2517,3 +2517,7 @@ F5oac actual Run completionのContinue stateと保持cursorから既存registere
 ### Registered Web F5oai Run success phase classifier
 
 `gui_font_web_registered_run_execution_success_into_phase` はF5oac successをContinue/Yield/Completedへ全域分類する。variant ownerはprovenance、spent budget、exact step、actual completionを保持し、total freeを提供する。cursor advance、Yield resume、host executionは行わない。
+
+### Registered Web F5oaj bounded Run phase driver
+
+`gui_font_web_registered_run_phase_driver_execute` はtyped finite policyとF5oai ownerを消費する。budget不足はopaque Suspended ownerを返し、`resume`はそのexact ownerと残budgetだけを再投入する。Continue/ resumed Yieldは既存EndFrame executionとterminal completionへ進み、Completedはtyped stopとして返る。

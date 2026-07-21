@@ -14037,3 +14037,7 @@ RetryReadyをF5nzzへ一度渡し、F5oaaで成功phaseを分類する。Continu
 ### F5oai Web Run success phase classifier
 
 F5oac actual Run successをContinue/Yield/Completedへ全域分類し、provenance、spent retry budget、exact Run step、actual completionをvariant別ownerに保持する。stateの複製、cursor advance、Yield resume、EndFrame遷移は行わない。後続でこのownerをbounded resumable driverへ接続する。
+
+### F5oaj bounded Web Run phase driver
+
+F5oai phase ownerをtyped action/yield budgetで一件だけ進める。Suspended ownerはphaseと残budgetをopaqueに保持し、resumeはfresh policyを受け取らない。Continueはexact stepをEndFrameへ渡し、YieldはDeferOnceからOneRemainingへの内部遷移後だけresumeする。任意長反復とqueue/timerは後続へ残す。

@@ -11,6 +11,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "platforms/gui/web/font_registered_run_executor" as *
+#import "platforms/gui/web/font_registered_run_success_phase" as *
 #import "std/gui/compositor_tile_present_command_cursor" as *
 #import "std/gui/compositor_tile_present_dispatch_loop" as *
 #import "std/gui/compositor_tile_present_host_action_executor_session" as *
@@ -95,6 +96,31 @@ pub fn gui_font_web_registered_run_execution_success_step_end_frame %fn GuiFontW
             Result::Err GuiFontWebRegisteredEndFrameCommandError::ContinueExpected GuiFontWebRegisteredEndFrameCommandPhaseError previous_category previous_diagnostic spent_budget state step
         GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state:
             Result::Err GuiFontWebRegisteredEndFrameCommandError::ContinueExpected GuiFontWebRegisteredEndFrameCommandPhaseError previous_category previous_diagnostic spent_budget state step
+
+//: Continue phaseのretained completionからstateを導出し、exact Run stepだけをEndFrame遷移へ渡す
+pub fn gui_font_web_registered_run_success_phase_continue_into_end_frame %fn GuiFontWebRegisteredRunSuccessPhaseContinueOwner Result GuiFontWebRegisteredEndFrameCommandOwner GuiFontWebRegisteredEndFrameCommandError \owner:
+    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_web_registered_run_success_phase_continue_owner_state &owner
+    let parts %GuiFontWebRegisteredRunSuccessPhaseContinueOwnerParts gui_font_web_registered_run_success_phase_continue_owner_into_parts owner
+    let previous_category field::get parts "previous_category"
+    let previous_diagnostic field::get parts "previous_diagnostic"
+    let spent_budget field::get parts "spent_budget"
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+    match gui_font_web_registered_run_execution_step_end_frame state step:
+        Result::Ok lower: Result::Ok GuiFontWebRegisteredEndFrameCommandOwner previous_category previous_diagnostic spent_budget lower
+        Result::Err lower: Result::Err GuiFontWebRegisteredEndFrameCommandError::TransitionFailed GuiFontWebRegisteredEndFrameCommandLowerError previous_category previous_diagnostic spent_budget lower
+
+//: Yield phaseだけを一度resumeし、retained completion由来stateとexact Run stepをEndFrame遷移へ渡す
+pub fn gui_font_web_registered_run_success_phase_yield_resume_into_end_frame %fn GuiFontWebRegisteredRunSuccessPhaseYieldOwner Result GuiFontWebRegisteredEndFrameCommandOwner GuiFontWebRegisteredEndFrameCommandError \owner:
+    let yielded %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_font_web_registered_run_success_phase_yield_owner_state &owner
+    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_resume_slice yielded
+    let parts %GuiFontWebRegisteredRunSuccessPhaseYieldOwnerParts gui_font_web_registered_run_success_phase_yield_owner_into_parts owner
+    let previous_category field::get parts "previous_category"
+    let previous_diagnostic field::get parts "previous_diagnostic"
+    let spent_budget field::get parts "spent_budget"
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+    match gui_font_web_registered_run_execution_step_end_frame state step:
+        Result::Ok lower: Result::Ok GuiFontWebRegisteredEndFrameCommandOwner previous_category previous_diagnostic spent_budget lower
+        Result::Err lower: Result::Err GuiFontWebRegisteredEndFrameCommandError::TransitionFailed GuiFontWebRegisteredEndFrameCommandLowerError previous_category previous_diagnostic spent_budget lower
 
 pub fn gui_font_web_registered_end_frame_command_owner_into_parts %fn GuiFontWebRegisteredEndFrameCommandOwner GuiFontWebRegisteredEndFrameCommandOwnerParts \owner:
     GuiFontWebRegisteredEndFrameCommandOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "lower"

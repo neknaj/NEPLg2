@@ -8847,3 +8847,7 @@ F5oae successを一度だけ分解し、actual completionがCompletedの場合�
 ### F5oai Web Run success phase classifier
 
 F5oac successはContinue/Yield/Completedのいずれも正常なtyped phaseである。各ownerは旧failure provenance、spent budget、exact Run cursor step、actual session completionを保持し、stateはcompletionから導出する。分類時にEndFrame期待errorへ変換せず、全variantをconsuming cleanupできる。
+
+### F5oaj bounded Web Run phase driver
+
+driver outcomeはTerminal、opaque Suspended、Completed typed stopである。Suspendedはphase ownerと残action/yield budgetを同居保持し、public partsを持たない。resumeはSuspendedだけを消費し、Begin/Runを再実行せず既存EndFrame/terminal chainへ進む。

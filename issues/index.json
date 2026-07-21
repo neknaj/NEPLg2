@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-21T20:44:11.050Z",
+  "generated_at": "2026-07-21T21:08:31.313Z",
   "counts": {
-    "total": 1447,
+    "total": 1448,
     "open": 60,
-    "resolved": 1387,
+    "resolved": 1388,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 33,
+        "total": 34,
         "open": 0,
-        "resolved": 33
+        "resolved": 34
       },
       "nodesrc": {
         "total": 16,
@@ -12243,6 +12243,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260722T054500000Z-F5OAI-WEB-RUN-SUCCESS-PHASE-4D61B873.md"
+    },
+    {
+      "id": "ISS-20260722T061000000Z-F5OAJ-BOUNDED-WEB-RUN-PHASE-DRIVER-5E72C914",
+      "title": "F5oaj bounded Web Run phase driver",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_run_phase_driver.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T061000000Z-F5OAJ-BOUNDED-WEB-RUN-PHASE-DRIVER-5E72C914.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

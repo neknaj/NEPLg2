@@ -11286,3 +11286,7 @@ The facade consumes RetryReady through F5nzz once and classifies the success thr
 ### F5oai Web Run success phase classifier
 
 The classifier consumes one F5oac actual Run success and retains its exact session completion and Run cursor step in distinct Continue, Yield, or Completed owners. State is derived from the retained completion rather than copied into a second field. This checkpoint does not advance the cursor, resume Yield, or invoke the fixed F5oag chain; the bounded resumable driver remains incomplete.
+
+### F5oaj bounded Web Run phase driver
+
+The driver advances Continue directly and advances Yield only after an internal one-time resume-budget transition. Suspension retains the exact phase and remaining action/yield budgets in an opaque owner; resume consumes that owner and accepts no replacement policy. Existing EndFrame execution and terminal completion remain the only host path. This is one bounded post-Run command, not an arbitrary-length queue or timer loop.
