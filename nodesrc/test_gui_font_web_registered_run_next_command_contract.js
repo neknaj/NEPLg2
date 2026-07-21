@@ -18,6 +18,8 @@ assert.match(source, /error_free[\s\S]*command_cursor_step_error_free field::get
 assert.doesNotMatch(source, /pub struct GuiFontWebRegisteredRunNextCommandOwnerParts|pub fn gui_font_web_registered_run_next_command_owner_into_parts/);
 assert.match(source, /pub enum GuiFontWebRegisteredRunNextCommandPhaseOwner:\s*\n\s*BeginFrame[\s\S]*Run[\s\S]*EndFrame[\s\S]*Completed/);
 assert.match(source, /owner_into_phase[\s\S]*Command command:[\s\S]*BeginFrame _:[\s\S]*Run _:[\s\S]*EndFrame _:[\s\S]*CursorStepResult::Completed:/);
+assert.match(source, /pub struct GuiFontWebRegisteredRunNextCommandPhaseRunOwnerParts:[\s\S]*spent_budget[\s\S]*state[\s\S]*step/);
+assert.match(source, /phase_run_owner_into_parts[\s\S]*field::get owner "previous_category"[\s\S]*field::get owner "step"/);
 const classifier = source.match(/pub fn gui_font_web_registered_run_next_command_owner_into_phase[^\n]*:\r?\n([\s\S]*?)(?=\r?\npub fn )/);
 assert.ok(classifier);
 assert.doesNotMatch(classifier[1], /cursor_step cursor|resume_slice|schedule|host_request|session_start|executor_execute/);

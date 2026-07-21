@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-21T21:08:31.313Z",
+  "generated_at": "2026-07-21T22:29:48.141Z",
   "counts": {
-    "total": 1448,
+    "total": 1451,
     "open": 60,
-    "resolved": 1388,
+    "resolved": 1391,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 34,
+        "total": 37,
         "open": 0,
-        "resolved": 34
+        "resolved": 37
       },
       "nodesrc": {
         "total": 16,
@@ -12258,6 +12258,51 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260722T061000000Z-F5OAJ-BOUNDED-WEB-RUN-PHASE-DRIVER-5E72C914.md"
+    },
+    {
+      "id": "ISS-20260722T070000000Z-F5OAK-WEB-RUN-NEXT-COMMAND-6F83D025",
+      "title": "F5oak Web Run next command connector",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_run_next_command.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T070000000Z-F5OAK-WEB-RUN-NEXT-COMMAND-6F83D025.md"
+    },
+    {
+      "id": "ISS-20260722T080000000Z-F5OAL-WEB-NEXT-COMMAND-PHASE-7084E136",
+      "title": "F5oal Web next command phase classifier",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_run_next_command.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T080000000Z-F5OAL-WEB-NEXT-COMMAND-PHASE-7084E136.md"
+    },
+    {
+      "id": "ISS-20260722T090000000Z-F5OAM-WEB-RUN-PHASE-HANDOFF-8195F247",
+      "title": "F5oam Web Run phase handoff",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_run_next_command.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T090000000Z-F5OAM-WEB-RUN-PHASE-HANDOFF-8195F247.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

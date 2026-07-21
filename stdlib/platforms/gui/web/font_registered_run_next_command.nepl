@@ -55,6 +55,13 @@ pub struct GuiFontWebRegisteredRunNextCommandPhaseRunOwner:
     state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
     step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
 
+pub struct GuiFontWebRegisteredRunNextCommandPhaseRunOwnerParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
 pub struct GuiFontWebRegisteredRunNextCommandPhaseEndFrameOwner:
     previous_category %Option GuiError
     previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
@@ -127,6 +134,15 @@ pub fn gui_font_web_registered_run_next_command_phase_begin_frame_owner_free %fn
 
 pub fn gui_font_web_registered_run_next_command_phase_run_owner_free %fn GuiFontWebRegisteredRunNextCommandPhaseRunOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
     gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get owner "step"
+
+pub fn gui_font_web_registered_run_next_command_phase_run_owner_state %fn &GuiFontWebRegisteredRunNextCommandPhaseRunOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
+    *field::get_ref owner "state"
+
+pub fn gui_font_web_registered_run_next_command_phase_run_owner_result %fn &GuiFontWebRegisteredRunNextCommandPhaseRunOwner GuiRgba8888CompositorTileRlePresentCommandCursorStepResult \owner:
+    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result field::get_ref owner "step"
+
+pub fn gui_font_web_registered_run_next_command_phase_run_owner_into_parts %fn GuiFontWebRegisteredRunNextCommandPhaseRunOwner GuiFontWebRegisteredRunNextCommandPhaseRunOwnerParts \owner:
+    GuiFontWebRegisteredRunNextCommandPhaseRunOwnerParts field::get owner "previous_category" field::get owner "previous_diagnostic" field::get owner "spent_budget" field::get owner "state" field::get owner "step"
 
 pub fn gui_font_web_registered_run_next_command_phase_end_frame_owner_state %fn &GuiFontWebRegisteredRunNextCommandPhaseEndFrameOwner GuiRgba8888CompositorTileRlePresentDispatchLoopState \owner:
     *field::get_ref owner "state"

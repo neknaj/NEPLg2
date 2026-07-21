@@ -8857,3 +8857,6 @@ ContinueとYieldを別のconsuming APIで受け、provenance、spent budget、co
 ### F5oal Web next command phase classifier
 
 F5oak neutral next stepをBeginFrame、Run、EndFrame、Completedへ全域分類し、exact step authorityをvariant ownerへ移す。
+### F5oam Web Run phase handoff
+
+typed Run phaseを後続executorへexact authorityのままconsumeできる。

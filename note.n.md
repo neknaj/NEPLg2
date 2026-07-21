@@ -169258,3 +169258,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - actual runtimeはevidence 3、Begin/Run/End 2/2/0で通過した。subagent reviewはBlocker/Major/Minor 0/0/0だった。
 - source contract、diff check、`trunk build`、trunk後Playground editor JSON 13/13を通過した。
 - 最終目標は未完了。次はgenuine multi-Run fixtureでRun variantとbounded反復を接続する。
+# 2026-07-22 GUI font F5oam Web Run phase handoff
+
+- F5oal Run variantへprovenance、spent budget、state、exact stepを一括consumeするpartsとborrowed state/result accessorを追加した。
+- genuine multi-Run fixtureは既存uniform 1-run glyph fixtureから安全に得られないため、production encoder/writer fixtureを後続で追加する。最終目標は未完了。
+- source contract、issue index/check、subagent review、`trunk build`、trunk後Playground editor JSON 13/13を通過した。
