@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-21T17:46:46.335Z",
+  "generated_at": "2026-07-21T18:22:49.647Z",
   "counts": {
-    "total": 1443,
+    "total": 1444,
     "open": 60,
-    "resolved": 1383,
+    "resolved": 1384,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 29,
+        "total": 30,
         "open": 0,
-        "resolved": 29
+        "resolved": 30
       },
       "nodesrc": {
         "total": 16,
@@ -12183,6 +12183,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260721T172102186Z-F5OAE-WEB-ENDFRAME-SCHEDULE-REQUEST--01A404F1.md"
+    },
+    {
+      "id": "ISS-20260722T010000000Z-F5OAF-WEB-TERMINAL-COMPLETION-7E62A4D1",
+      "title": "F5oaf Web registered terminal completion",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_terminal_completion.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T010000000Z-F5OAF-WEB-TERMINAL-COMPLETION-7E62A4D1.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

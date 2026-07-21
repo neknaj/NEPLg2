@@ -14021,3 +14021,7 @@ F5oac actual Run successのContinue stateとexact cursorをWeb module-private遷
 ### F5oae Web EndFrame schedule/request execution
 
 F5oad ownerを一度だけparts化し、F5nzr/F5nzs、EndFrame-only same-record request adopter、F5nh、Web executorを各1回実行する。runtimeはEndFrame import 1回、Begin/Runの追加実行0回、Completed completion、provenanceとspent budgetの保持を固定する。F5oafまでterminal cursor advance/completionは行わない。
+
+### F5oaf Web terminal completion
+
+F5oae successを一度だけparts化し、actual Completed stateとexact EndFrame stepをF5nzt共通transitionへ渡す。terminal ownerをF5nzvへ一度渡し、actual completionとterminal completion、provenance、spent budgetをsuccessへ保持する。runtimeはBegin/Run/End各1回とterminal stateを固定し、複数command loop、native provider、layout/raster/presentationは後続へ残す。

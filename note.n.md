@@ -1,8 +1,9 @@
-# 2026-07-19 GUI font F5oac Web resumed Run execution
+# 2026-07-22 GUI font F5oaf Web terminal completion
 
 - F5nzp schedule-only authorityへpre-stateとexact recordを追加し、same-record host request adopterの成功pending/失敗rollback所有権を線形化した。
 - F5oabのactual resumed RunをF5nzo/F5nzp/F5ne/F5nh経由で既存Web executorへ一度渡し、Continue completionへ再結合した。runtime evidenceは下位30、上位成功/失敗合計1038、importsは各ケースBegin 1 / Run 1 / End 0。
-- 最終目標は未完了。次はRun completionからEndFrameを回収・実行してterminal completionへ接続し、その後に複数command loop、native、layout、rasterization、presentationへ進む。
+- F5oad/F5oae/F5oafでRun completionからexact EndFrameを回収・実行し、actual Completedとterminal cursor/completionを接続した。
+- 最終目標は未完了。次は複数command actual Web loop、native executor/provider、text shaping/layout、rasterization、native/GUI presentationへ進む。
 
 # 2026-07-15 Selfhost generic Match arm inference transaction
 
@@ -169210,3 +169211,4 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 2026-07-20: F5oad Web Run completion to EndFrame command を実装した。F5oac successが保持するF5nh Continue stateとexact Run cursorを一度だけ分解し、module-private遷移へ渡して既存EndFrame ownerを得る。消費済schedule-only ownerは再構築せず、retry provenanceとspent budgetを保持する。Yield recoveryもformal partsでstate/cursor/provenanceを回収する。actual Web fixturesはBegin 2 / Run 2 / End 0、evidence 94を確認する。EndFrame record/schedule/request/Web execution、terminal completion、複数command loop、native/GUI表示は未完了である。
 2026-07-22: F5oae Web EndFrame schedule/request executionを実装した。F5oad ownerからexact EndFrame lowerを一度だけ回収し、F5nzr/F5nzs、EndFrame-only same-record request、F5nh、既存Web executorの順に移す。provenanceとspent budgetを変更せず、successはEndFrame cursorとactual completionを保持する。terminal completion、複数command loop、native/GUI表示は未完了である。
 - actual WASI runtimeはevidence 63、Begin/Run/End calls 1/1/1を確認した。Web source-policy、Web GUI font rendering contract、native/wasm32 workspace check、release CLI build、release trunk build、trunk後Playground editor CLI JSON 13/13、issues/diff checkを通過した。全error variantはformal consuming partsとrecovery/free APIで元ownerを閉じる。`plan.md`は変更していない。次はF5oafでactual EndFrame completionをterminal completionへ接続する。
+2026-07-22: F5oaf Web terminal completionを実装した。F5oae successのactual Completed stateと同居するexact EndFrame stepを、EndFrame検査付きF5nzt共通transitionへ一度、得たterminal ownerをF5nzvへ一度渡す。schedule/request/session/budgetは再構築せず、provenanceとspent Exhausted budgetを保持する。actual WASI runtimeはevidence 127、Begin/Run/End calls 1/1/1を確認した。専用normal isolation、Web source/general contract、native/wasm32 workspace check、release CLI build、release trunk build、trunk後Playground editor CLI JSON 13/13、issues/diff checkを通過した。subagent差分reviewはblocker/majorなしで、指摘されたnote整合を修正した。複数command Web loop、native executor/provider、text shaping/layout、rasterization、native/GUI presentationとGUI/font全体は未完成である。`plan.md`は変更していない。

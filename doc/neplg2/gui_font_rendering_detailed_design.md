@@ -11270,3 +11270,7 @@ F5oac successではRun schedule-only ownerがhost requestへ既に消費され�
 ### F5oae Web EndFrame execution
 
 The adapter consumes the sole F5oad owner and transfers its exact lower authority through F5nzr, F5nzs, an EndFrame-only same-record request adopter, F5nh, and the existing Web host executor. Success retains provenance, the exhausted budget, the EndFrame cursor, and actual Completed-phase evidence. Every failure retains the owner-bearing lower boundary; no schedule, request, session, budget, or terminal cursor authority is reconstructed.
+
+### F5oaf Web terminal completion
+
+The terminal adapter consumes the sole F5oae success and accepts only its actual Completed state. It transfers the colocated exact EndFrame step through the shared F5nzt transition exactly once, then consumes the terminal owner through F5nzv exactly once. Phase, cursor, and cleanup failures retain provenance and exhausted-budget evidence; consumed schedule, request, session, and retry authority are never reconstructed.

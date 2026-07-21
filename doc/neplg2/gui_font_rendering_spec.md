@@ -8831,3 +8831,7 @@ Web adapterはF5oac successを一度だけ分解し、F5nh completionがContinue
 ### F5oae Web EndFrame schedule/request execution
 
 F5oad ownerをformal partsで一度だけ消費し、exact lowerをF5nzr record、F5nzs schedule、EndFrame same-record host request、F5nh session、既存Web executorへ順に渡す。successはprovenance、spent budget、EndFrame cursor、actual completionを同居保持する。schedule/request/execution failureはowner-bearing lowerを保持し、authority再構築、spent budget再発行、terminal cursor advanceを行わない。terminal completionはF5oafの責務である。
+
+### F5oaf Web terminal completion
+
+F5oae successを一度だけ分解し、actual completionがCompletedの場合だけ同居するexact EndFrame stepをF5nzt共通transitionへ渡す。得たterminal ownerをF5nzvへ渡してterminal Completedへ閉じる。Continue/Yield、terminal transition failure、cleanup failureはprovenanceとspent budgetを保持するtyped errorであり、schedule、request、session、budgetを再構築しない。

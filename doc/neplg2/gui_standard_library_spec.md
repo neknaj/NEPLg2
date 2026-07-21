@@ -2457,6 +2457,10 @@ F5nzsはF5nzr EndFrame recordを既存F5nc dispatch-loop schedule-only入口へe
 
 F5nzs ownerのcursorとschedule-only stepを同一EndFrame recordのhost request pendingへ一度だけ移す。Web adapterはF5oad provenanceとspent budgetを保持したままF5nhと既存executorへ渡し、actual completionとcursorを返す。request failureはschedule-only rollback authority、execution failureはF5nh lower authorityを保持する。terminal cursorは進めない。
 
+### Registered stroke compositor F5oaf Web terminal completion
+
+F5oae successのactual Completed stateとexact EndFrame stepを同じownerから回収し、F5nzt共通transitionとF5nzv completionへ各一度渡す。successはactual/terminal completionとprovenance、spent budgetを保持する。phase、terminal command、cleanup errorはowner-bearing recoveryを提供し、消費済みschedule/session authorityを再構築しない。
+
 ### Registered stroke compositor F5nzt resumed terminal command boundary
 
 F5nztはF5nzsのCompleted schedule authorityだけを受理し、既存F5mt command cursorを一度だけterminal stepへ進める。successはslice 2/16、drain Endedのupdated stateとopaque terminal stepを同居させ、phase mismatchとlower failureはいずれもpublic consuming recovery enumからowner authorityを回収できる。borrow APIはbool predicateとCopy lower diagnosticsに限定する。natural fixtureで到達不能なerrorを人工生成せずsource-policyでrecovery graphを検査する。terminal record projection、host request、platform executionは責務外である。

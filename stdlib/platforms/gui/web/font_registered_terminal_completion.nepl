@@ -1,0 +1,104 @@
+//: # Web registered terminal completion
+//: F5oaeのactual EndFrame completionとexact cursorをterminal Completedへ一度だけ閉じます。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_command" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_terminal_completion" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_end_frame_executor" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+
+pub struct GuiFontWebRegisteredTerminalCompletionSuccess:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    actual_completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+    terminal_completion %GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion
+
+pub struct GuiFontWebRegisteredTerminalCompletionSuccessParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    actual_completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+    terminal_completion %GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion
+
+pub struct GuiFontWebRegisteredTerminalCompletionPhaseError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+    actual_completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+
+pub struct GuiFontWebRegisteredTerminalCompletionCommandError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    actual_completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandError
+
+pub struct GuiFontWebRegisteredTerminalCompletionFinishError:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    actual_completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionError
+
+pub enum GuiFontWebRegisteredTerminalCompletionError:
+    ActualCompletionExpected %GuiFontWebRegisteredTerminalCompletionPhaseError
+    TerminalCommandFailed %GuiFontWebRegisteredTerminalCompletionCommandError
+    TerminalCompletionFailed %GuiFontWebRegisteredTerminalCompletionFinishError
+
+pub enum GuiFontWebRegisteredTerminalCompletionErrorRecovery:
+    ActualCompletionExpected %GuiFontWebRegisteredTerminalCompletionPhaseError
+    TerminalCommandFailed %GuiFontWebRegisteredTerminalCompletionCommandError
+    TerminalCompletionFailed %GuiFontWebRegisteredTerminalCompletionFinishError
+
+//: actual Completed stateとexact EndFrame stepだけをterminal transitionへ渡す
+//:
+//: schedule、request、session、retry budgetを再構築せず、F5nzt transitionとF5nzv completionを各一度だけ実行します。
+pub fn gui_font_web_registered_end_frame_execution_into_terminal_completion %fn GuiFontWebRegisteredEndFrameExecutionSuccess Result GuiFontWebRegisteredTerminalCompletionSuccess GuiFontWebRegisteredTerminalCompletionError \success:
+    let parts %GuiFontWebRegisteredEndFrameExecutionSuccessParts gui_font_web_registered_end_frame_execution_success_into_parts success
+    let previous_category %Option GuiError field::get parts "previous_category"
+    let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
+    let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+    let step %GuiRgba8888CompositorTileRlePresentCommandCursorStep field::get parts "step"
+    let actual_completion %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion field::get parts "completion"
+    match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion &actual_completion:
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_step_into_terminal_command state step:
+                Result::Err lower:
+                    Result::Err GuiFontWebRegisteredTerminalCompletionError::TerminalCommandFailed GuiFontWebRegisteredTerminalCompletionCommandError previous_category previous_diagnostic spent_budget actual_completion lower
+                Result::Ok terminal:
+                    let terminal_parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_command_owner_into_parts terminal
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_parts_complete terminal_parts:
+                        Result::Err lower:
+                            Result::Err GuiFontWebRegisteredTerminalCompletionError::TerminalCompletionFailed GuiFontWebRegisteredTerminalCompletionFinishError previous_category previous_diagnostic spent_budget actual_completion lower
+                        Result::Ok terminal_completion:
+                            Result::Ok GuiFontWebRegisteredTerminalCompletionSuccess previous_category previous_diagnostic spent_budget actual_completion terminal_completion
+        _:
+            Result::Err GuiFontWebRegisteredTerminalCompletionError::ActualCompletionExpected GuiFontWebRegisteredTerminalCompletionPhaseError previous_category previous_diagnostic spent_budget step actual_completion
+
+pub fn gui_font_web_registered_terminal_completion_success_into_parts %fn GuiFontWebRegisteredTerminalCompletionSuccess GuiFontWebRegisteredTerminalCompletionSuccessParts \success:
+    GuiFontWebRegisteredTerminalCompletionSuccessParts field::get success "previous_category" field::get success "previous_diagnostic" field::get success "spent_budget" field::get success "actual_completion" field::get success "terminal_completion"
+
+pub fn gui_font_web_registered_terminal_completion_error_into_recovery %fn GuiFontWebRegisteredTerminalCompletionError GuiFontWebRegisteredTerminalCompletionErrorRecovery \error:
+    match error:
+        GuiFontWebRegisteredTerminalCompletionError::ActualCompletionExpected payload: GuiFontWebRegisteredTerminalCompletionErrorRecovery::ActualCompletionExpected payload
+        GuiFontWebRegisteredTerminalCompletionError::TerminalCommandFailed payload: GuiFontWebRegisteredTerminalCompletionErrorRecovery::TerminalCommandFailed payload
+        GuiFontWebRegisteredTerminalCompletionError::TerminalCompletionFailed payload: GuiFontWebRegisteredTerminalCompletionErrorRecovery::TerminalCompletionFailed payload
+
+pub fn gui_font_web_registered_terminal_completion_error_free %fn GuiFontWebRegisteredTerminalCompletionError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    match gui_font_web_registered_terminal_completion_error_into_recovery error:
+        GuiFontWebRegisteredTerminalCompletionErrorRecovery::ActualCompletionExpected payload:
+            gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get payload "step"
+        GuiFontWebRegisteredTerminalCompletionErrorRecovery::TerminalCommandFailed payload:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_command_error_free field::get payload "lower"
+        GuiFontWebRegisteredTerminalCompletionErrorRecovery::TerminalCompletionFailed payload:
+            let lower %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCompletionError field::get_ref &payload "lower"
+            Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_terminal_completion_error_lower_kind lower

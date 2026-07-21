@@ -36,6 +36,23 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFr
     state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
     step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
 
+//: exact EndFrame stepをterminal stepへ一度だけ進める
+//:
+//: callerは同じactual completionに結び付いたstateとstepを渡します。EndFrame以外はownerを保持したPhaseExpectedとして返します。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_step_into_terminal_command %fn GuiRgba8888CompositorTileRlePresentDispatchLoopState fn GuiRgba8888CompositorTileRlePresentCommandCursorStep Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandError \state\step:
+    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result &step:
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+            match command:
+                GuiRgba8888CompositorTileRlePresentCommand::EndFrame _:
+                    let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner step
+                    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step cursor:
+                        Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandError::StepFailed GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandStepError state lower
+                        Result::Ok terminal_step: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandOwner state terminal_step
+                _:
+                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandError::PhaseExpected GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandPhaseError step state
+        _:
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandError::PhaseExpected GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandPhaseError step state
+
 //: Completed scheduleだけを受理し、EndFrame continuationをterminal stepへ進める
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_into_terminal_command %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameScheduleOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandError \owner:
     let phase %GuiRgba8888CompositorTileRlePresentSchedulePhase gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_phase &owner
@@ -43,10 +60,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_
     match phase:
         GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed:
             let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameScheduleOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_into_parts owner
-            let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner field::get parts "step"
-            match gui_rgba8888_compositor_tile_rle_present_command_cursor_step cursor:
-                Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandError::StepFailed GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandStepError state lower
-                Result::Ok step: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandOwner state step
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_step_into_terminal_command state field::get parts "step"
         _:
             let parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedEndFrameScheduleOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_end_frame_schedule_owner_into_parts owner
             Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandError::PhaseExpected GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedTerminalCommandPhaseError field::get parts "step" state
