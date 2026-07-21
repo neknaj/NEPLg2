@@ -6,6 +6,7 @@
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_record" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture" as count_fixture
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as source_fixture
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
 #import "alloc/gui/render2d/compositor_frame_entry" as *
 #import "alloc/gui/render2d/compositor_tile_rle_count_completed" as *
@@ -217,17 +218,22 @@ fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begi
 //: full registered pipelineから最初のBeginFrame virtual drain ownerを作る
 //:
 //: 後続fixtureがproduction bridgeを検証できるよう、F5nzdの全failure authorityを閉じたF5nze ownerだけを公開します。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_owner_from_completed %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner i32 \completed:
+    match surface_id_result 7:
+        Result::Err _:
+            source_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_free completed
+            Result::Err sub 0 2
+        Result::Ok surface:
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 263 2
+            let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_1 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_begin_frame_record_budget completed surface frame_config tile_config 0 64
+
 #test
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_begin_frame_virtual_drain_test_owner %impure fn unit Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner i32 \_unit:
-    match surface_id_result 7:
-        Result::Err _: Result::Err sub 0 2
-        Result::Ok surface:
-            match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed 473:
-                Option::None: Result::Err sub 0 3
-                Option::Some completed:
-                    let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 263 2
-                    let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
-                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_phase_1 gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_begin_frame_record_budget completed surface frame_config tile_config 0 64
+    match count_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed 473:
+        Option::None: Result::Err sub 0 3
+        Option::Some completed:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_owner_from_completed completed
 
 //: full registered pipelineから最初のBeginFrameをvirtual drainへ渡す
 //:

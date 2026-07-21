@@ -169269,3 +169269,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - 既存uniform 16-pixel rowのendpoint 1画素だけを別色にし、production compositor tile RLE count bridgeへ`accumulated_run_count = 2`、`next_pixel_index = 16`を要求するfocused fixtureを追加した。次段Web testがpixel mutationを複製しないよう、completed owner producerを分離した。
 - `trunk build`とplayground editor JSON 13/13は通過した。focused NEPL testは新規コードの型検査を通過した後、既存`gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_push`のResource cell moved/uninit診断で全体codegenが停止したためruntime assertion実行には未到達であり、F5oan issueはopenのままである。この既存診断をfixture成功と取り違えない。次はcompleted ownerをWeb BeginFrame chainへ供給するentryを追加し、descriptor/Run1/Run2とF5oal actual Run variantを実行時に固定する。最終目標は未完了で、`plan.md`は変更していない。
 - source contract、issue index/check、subagent review、`trunk build`、trunk後Playground editor JSON 13/13を通過した。
+## 2026-07-22 F5oan Web supplied completed owner Begin 接続 checkpoint
+
+- `font_registered_two_run_supplied_owner_test.nepl` を追加し、two-run completed ownerをBeginFrame record、virtual drain、schedule、host request、dispatch、loop、driver、sessionへ既存production APIだけで移した。RetryReady、dispatch state、command cursorは手組みしていない。
+- Window supportのtyped unsupported completionを既存recoveryでRetryPendingへ戻し、有限retry budgetを消費してOffscreen RetryReadyを得た後、`gui_font_web_registered_begin_frame_retry_execute` でactual Web Begin importへ渡す。
+- このcheckpointはactual Web Beginまでであり、descriptor expected run count 2、Run1、F5oal Run2、actual second Runは未完了としてF5oanをopenに維持する。
+- source contractは通過した。runtime probeはWASI初期化後に数分間完了せずJSON evidenceを返さなかったため停止し、runtime成功とは扱わない。

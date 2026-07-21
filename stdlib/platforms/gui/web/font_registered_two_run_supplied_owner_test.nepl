@@ -1,0 +1,99 @@
+//: # Web registered two-run supplied owner test
+//: production completion を既存 owner transition だけで Web Begin 実行へ渡します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_dispatch_loop" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_completion" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_executor_session" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_action_failure_recovery" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_execution_driver" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_host_request" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_schedule" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain_test" as begin_fixture
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_two_run_fixture_test" as two_run_fixture
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_executor" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_success_phase" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+fn gui_font_web_registered_two_run_supplied_owner_test_retry_ready %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner i32 \virtual_owner:
+    match gui_rgba8888_compositor_tile_rle_present_schedule_policy 1 64:
+        Result::Err _:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_free virtual_owner
+            Result::Err sub 0 4
+        Result::Ok policy:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_into_schedule &policy virtual_owner:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_error_free error
+                    Result::Err sub 0 5
+                Result::Ok scheduled:
+                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_schedule_owner_into_host_request &host scheduled:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_error_free error
+                            Result::Err sub 0 6
+                        Result::Ok requested:
+                            let dispatch %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_request_owner_into_dispatch requested
+                            let loop_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameDispatchLoopOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_owner_into_loop dispatch
+                            let driver %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostExecutionDriverOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_dispatch_loop_owner_into_host_execution_driver loop_owner
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_execution_driver_owner_into_host_action_executor_session_request driver:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionExecutorSessionRequestResult::UnexpectedCompleted unexpected:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_unexpected_completed_free unexpected
+                                    Result::Err sub 0 7
+                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionExecutorSessionRequestResult::Action action_owner:
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_complete GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Window action_owner Result::Ok unit:
+                                        Result::Ok completed:
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_free completed
+                                            Result::Err sub 0 8
+                                        Result::Err error:
+                                            match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_error_recover error:
+                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RecoveredState recovered:
+                                                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_recovered_state_owner_free recovered
+                                                    Result::Err sub 0 9
+                                                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecovery::RetryPending retry:
+                                                    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_pending_decide retry GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::OneRemaining GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecision::RetryWithSupport GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen:
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecisionOwner::AbortReady aborted:
+                                                            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_abort_ready_owner_free aborted
+                                                            Result::Err sub 0 10
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecisionOwner::RetryReady ready:
+                                                            Result::Ok ready
+
+//: supplied owner の descriptor を Web import が受け、exact two-run authority を Yield に保持することを検証する
+#test
+pub fn gui_font_web_registered_two_run_supplied_owner_test_contract %impure fn unit i32 \_unit:
+    match two_run_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_two_run_fixture_test_completed 473:
+        Option::None: sub 0 1
+        Option::Some completed:
+            match begin_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_owner_from_completed completed:
+                Result::Err evidence: evidence
+                Result::Ok virtual_owner:
+                    match gui_font_web_registered_two_run_supplied_owner_test_retry_ready virtual_owner:
+                        Result::Err evidence: evidence
+                        Result::Ok ready:
+                            match gui_font_web_registered_begin_frame_retry_execute ready:
+                                Result::Err failure:
+                                    gui_font_web_registered_begin_frame_retry_execution_failure_free failure
+                                    sub 0 11
+                                Result::Ok success:
+                                    match gui_font_web_registered_begin_frame_retry_execution_success_into_phase success:
+                                        GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Continue owner:
+                                            gui_font_web_registered_begin_frame_retry_success_continue_owner_free owner
+                                            0
+                                        GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Completed owner:
+                                            gui_font_web_registered_begin_frame_retry_success_completed_owner_free owner
+                                            0
+                                        GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Yield owner:
+                                            match gui_font_web_registered_begin_frame_retry_success_yield_owner_free owner:
+                                                Result::Err _: sub 0 1
+                                                Result::Ok _: 2

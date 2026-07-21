@@ -13,4 +13,4 @@ target: stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compos
 
 # F5oan production two-Run fixture
 
-registered software-drain completionのsurfaceをconsuming production pixel writerで更新し、既存compositor tile RLE count bridgeが16 pixelからexact 2 runを生成するfixtureを追加する。private completed fields、RLE count、cursor progressは手組みしない。既存Resource診断を越えてruntime assertionが通過するまで未解決とし、actual Web Run phaseへのsupplied-owner接続は後続とする。
+registered software-drain completionのsurfaceをconsuming production pixel writerで更新し、既存compositor tile RLE count bridgeが16 pixelからexact 2 runを生成するfixtureを追加する。private completed fields、RLE count、cursor progressは手組みしない。supplied completed ownerからproduction BeginFrame owner chainとretry authorityを経てactual Web Beginを実行するtest entryまで接続済み。descriptorのexact 2、Run1、F5oal Run2、actual second Runをruntime固定するまで未解決とする。
