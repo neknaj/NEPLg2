@@ -1,0 +1,62 @@
+//: # registered stroke compositor tile RLE two-run fixture
+//: completed surface の1画素をproduction writerで変更し、production count bridgeが2 runを得ることを検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_step" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_start" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_count_fixture" as fixture
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as source_fixture
+#import "alloc/gui/render2d/compositor_tile_rle_count" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/row_tile_plan" as *
+#import "core/cast" as *
+#import "core/gui/color" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_two_run_fixture_test_finish %impure fn Result GuiRgba8888CompositorTileRleCountStep GuiRgba8888CompositorTileRleCountStepError i32 \result:
+    match result:
+        Result::Err error:
+            match gui_rgba8888_compositor_tile_rle_count_step_error_free error:
+                Result::Err _: sub 0 1
+                Result::Ok _: 0
+        Result::Ok step:
+            let owner %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_step_finish_owner step
+            let run_count %i32 gui_rgba8888_compositor_tile_rle_count_owner_accumulated_run_count &owner
+            let next_pixel %i32 gui_rgba8888_compositor_tile_rle_count_owner_cursor_next_pixel_index &owner
+            match gui_rgba8888_compositor_tile_rle_count_owner_free owner:
+                Result::Err _: sub 0 1
+                Result::Ok _: if and eq run_count 2 eq next_pixel 16 then 1 else 0
+
+//: uniform production completionのrow endpointを別色にし、次段Web testへownerをそのまま渡す
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_two_run_fixture_test_completed %impure fn i32 Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner \raw_id:
+    match fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_test_completed raw_id:
+        Option::None: none
+        Option::Some completed:
+            let red %u8 cast 55
+            let green %u8 cast 66
+            let blue %u8 cast 77
+            let alpha %u8 cast 88
+            let color %Rgba8888 rgba8888_new red green blue alpha
+            match source_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_test_write_pixel completed 15 3 color:
+                Result::Err recovered:
+                    source_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_free recovered
+                    none
+                Result::Ok two_run: Option::Some two_run
+
+#test
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_two_run_fixture_test_contract %impure fn unit i32 \_unit:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_two_run_fixture_test_completed 473:
+        Option::None: sub 0 1
+        Option::Some two_run:
+            let frame_config %GuiRgba8888CompositorFrameEntryConfig gui_rgba8888_compositor_frame_entry_config 263 2
+            let tile_config %GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig 1
+            match gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_into_compositor_tile_rle_count_step_budget two_run frame_config tile_config 0 64:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_compositor_tile_rle_count_start_bridge_error_free error
+                    sub 0 3
+                Result::Ok result:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_two_run_fixture_test_finish result

@@ -169262,4 +169262,10 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - F5oal Run variantへprovenance、spent budget、state、exact stepを一括consumeするpartsとborrowed state/result accessorを追加した。
 - genuine multi-Run fixtureは既存uniform 1-run glyph fixtureから安全に得られないため、production encoder/writer fixtureを後続で追加する。最終目標は未完了。
+
+# 2026-07-22 GUI font F5oan production two-Run fixture
+
+- registered software-drain completed ownerを消費し、既存software-surface writerでdirty region内の1画素を変更して同じprepared/surface/dirty authorityへ再封印するowner-bearing境界を追加した。private field、RLE record、count cursorはfixture側で再構築していない。
+- 既存uniform 16-pixel rowのendpoint 1画素だけを別色にし、production compositor tile RLE count bridgeへ`accumulated_run_count = 2`、`next_pixel_index = 16`を要求するfocused fixtureを追加した。次段Web testがpixel mutationを複製しないよう、completed owner producerを分離した。
+- `trunk build`とplayground editor JSON 13/13は通過した。focused NEPL testは新規コードの型検査を通過した後、既存`gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_push`のResource cell moved/uninit診断で全体codegenが停止したためruntime assertion実行には未到達であり、F5oan issueはopenのままである。この既存診断をfixture成功と取り違えない。次はcompleted ownerをWeb BeginFrame chainへ供給するentryを追加し、descriptor/Run1/Run2とF5oal actual Run variantを実行時に固定する。最終目標は未完了で、`plan.md`は変更していない。
 - source contract、issue index/check、subagent review、`trunk build`、trunk後Playground editor JSON 13/13を通過した。

@@ -3547,6 +3547,23 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource
         Result::Ok _: unit
         Result::Err _: unit
 
+//: test fixture のcompleted surfaceをproduction writerで更新し、同じ authority を再封印する
+//:
+//: write成功では1画素rectをdirty regionへmergeし、失敗では元prepared、dirty metadata、回収surfaceを同じcompleted ownerとして返します。
+//: production rendererは呼ばず、test fixture moduleだけがprivate completed fieldsを偽造しないために使います。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_packed_mask_resource_software_drain_completed_owner_test_write_pixel %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner impure fn i32 impure fn i32 impure fn Rgba8888 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner \completed\x\y\color:
+    let prepared %GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourcePreparedCommandOwner field::get completed "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get completed "surface"
+    let dirty %DirtyRegion field::get completed "dirty"
+    match gui_rgba8888_software_surface_write_pixel surface x y color:
+        Result::Ok next_surface:
+            let pixel_dirty %DirtyRegion dirty_region_rect_unchecked GuiRect x y 1 1
+            let next_dirty %DirtyRegion dirty_region_merge dirty pixel_dirty
+            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner prepared next_surface next_dirty
+        Result::Err error:
+            let recovered_surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_software_surface_write_error_surface error
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokePackedMaskResourceSoftwareDrainCompletedOwner prepared recovered_surface dirty
+
 //: completed ownerをterminalに閉じ、prepared lifetimeを解放してsurfaceだけを返す
 //:
 //: dirty metadataを先にgeneric ownerへ集約した後だけ呼び、途中のsplit accessorとしては公開しません。
