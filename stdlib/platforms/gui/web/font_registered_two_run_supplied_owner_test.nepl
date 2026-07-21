@@ -22,6 +22,8 @@
 #import "core/result" as *
 #import "platforms/gui/web/font_registered_begin_frame_retry_executor" as *
 #import "platforms/gui/web/font_registered_begin_frame_retry_success_phase" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler" as *
+#import "platforms/gui/web/font_registered_run_executor" as *
 #import "std/gui/compositor_tile_present" as *
 #import "std/gui/compositor_tile_present_host_execution" as *
 #import "std/gui/compositor_tile_present_host_executor" as *
@@ -106,6 +108,27 @@ pub fn gui_font_web_registered_two_run_supplied_owner_test_contract %impure fn u
                                             gui_font_web_registered_begin_frame_retry_success_completed_owner_free owner
                                             0
                                         GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Yield owner:
-                                            match gui_font_web_registered_begin_frame_retry_success_yield_owner_free owner:
-                                                Result::Err _: sub 0 1
-                                                Result::Ok _: if eq descriptor_evidence 1 then 3 else 2
+                                            match gui_font_web_registered_begin_frame_retry_yield_scheduler_decide owner GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::ResumeSlice:
+                                                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::AbortReady aborted:
+                                                    gui_font_web_registered_begin_frame_retry_yield_abort_ready_owner_free aborted
+                                                    0
+                                                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::ResumePending pending:
+                                                    match gui_font_web_registered_begin_frame_retry_yield_resume_and_step_next_command pending:
+                                                        Result::Err error:
+                                                            gui_font_web_registered_begin_frame_retry_yield_next_command_error_free error
+                                                            0
+                                                        Result::Ok next:
+                                                            match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:
+                                                                Result::Err _:
+                                                                    gui_font_web_registered_begin_frame_retry_yield_next_command_owner_free next
+                                                                    0
+                                                                Result::Ok policy:
+                                                                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                                                                    match gui_font_web_registered_retry_yield_next_command_execute_run &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen next:
+                                                                        Result::Err error:
+                                                                            gui_font_web_registered_run_execution_error_free error
+                                                                            0
+                                                                        Result::Ok run_success:
+                                                                            match gui_font_web_registered_run_execution_success_free run_success:
+                                                                                Result::Err _: sub 0 1
+                                                                                Result::Ok _: if eq descriptor_evidence 1 then 7 else 6

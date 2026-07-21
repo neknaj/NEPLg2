@@ -21,6 +21,9 @@ assert.match(source, /host_action_executor_session_complete GuiRgba8888Composito
 assert.match(source, /retry_pending_decide retry GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::OneRemaining/);
 assert.match(source, /gui_font_web_registered_begin_frame_retry_execute retry_owner/);
 assert.match(source, /GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Yield/);
+assert.match(source, /begin_frame_retry_yield_scheduler_decide owner GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::ResumeSlice/);
+assert.match(source, /begin_frame_retry_yield_resume_and_step_next_command pending/);
+assert.match(source, /retry_yield_next_command_execute_run &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen next/);
 assert.match(source, /present_frame_descriptor_expected_run_count &descriptor 2/);
 assert.match(source, /present_frame_descriptor_expected_pixel_count &descriptor 16/);
 assert.doesNotMatch(source, /GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner [A-Z]/);

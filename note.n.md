@@ -169279,3 +169279,7 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - supplied-owner Web entryのsession actionをborrowで観測し、production BeginFrame descriptorのexpected run countが2、expected pixel countが16であるevidenceをRetryReady authorityと同じtest-only wrapperに保持する。
 - wrapperはRetryReadyを再構築せず、そのまま既存Web retry executorへmoveする。Run1、F5oal Run2、actual second Runは未完了としてF5oanをopenに維持する。
+## 2026-07-22 F5oan supplied actual Run1 checkpoint
+
+- supplied Begin成功のYield ownerを既存schedulerで一度だけresumeし、production next-command ownerを既存Web Run executorへmoveしてactual Run1へ接続した。command、cursor、state、spent budgetは再構築していない。
+- F5oal Run2とactual second Runは未完了のためF5oanをopenに維持する。
