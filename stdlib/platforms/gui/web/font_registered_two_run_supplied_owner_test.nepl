@@ -15,6 +15,7 @@
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain_test" as begin_fixture
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_two_run_fixture_test" as two_run_fixture
+#import "alloc/gui/render2d/row_tile_rle" as *
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
@@ -89,7 +90,8 @@ fn gui_font_web_registered_two_run_supplied_owner_test_run2_evidence %fn GuiFont
             let command_ok %bool match gui_font_web_registered_run_next_command_phase_run_owner_result &owner:
                 GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
                     match command:
-                        GuiRgba8888CompositorTileRlePresentCommand::Run _: true
+                        GuiRgba8888CompositorTileRlePresentCommand::Run run:
+                            and eq gui_rgba8888_row_tile_rle_run_pixel_offset &run 15 eq gui_rgba8888_row_tile_rle_run_pixel_count &run 1
                         _: false
                 _: false
             match gui_font_web_registered_run_next_command_phase_run_owner_free owner:

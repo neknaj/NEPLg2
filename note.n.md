@@ -169287,3 +169287,8 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - actual Run1 successを既存success phaseとnext-command classifierへmoveし、F5oalのtyped Run owner/resultからgenuine Run2 variantをborrow観測してauthorityを閉じる。Run command、cursor、stateは手組みしない。
 - Run2 payloadとactual second Runは未完了としてF5oanをopenに維持する。
+
+## 2026-07-22 F5oan genuine Run2 payload checkpoint
+
+- actual Run1 successからproduction next-command classifierで得たF5oal Run ownerをborrowし、exact Run2 payloadがpixel offset 15 / count 1であることを既存row tile RLE accessorで固定した。command、cursor、stateを再構築せず、観測後はownerを既存free APIで閉じる。
+- actual second Runとruntime evidenceは未完了のためF5oanをopenに維持する。既知の長時間runtime probeをこのsource-level checkpointの成功とは扱わない。`plan.md`は変更していない。

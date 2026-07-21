@@ -27,6 +27,8 @@ assert.match(source, /retry_yield_next_command_execute_run &host &policy GuiRgba
 assert.match(source, /run_execution_success_into_phase success/);
 assert.match(source, /run_success_continue_step_next_command owner/);
 assert.match(source, /GuiFontWebRegisteredRunNextCommandPhaseOwner::Run owner/);
+assert.match(source, /row_tile_rle_run_pixel_offset &run 15/);
+assert.match(source, /row_tile_rle_run_pixel_count &run 1/);
 assert.match(source, /present_frame_descriptor_expected_run_count &descriptor 2/);
 assert.match(source, /present_frame_descriptor_expected_pixel_count &descriptor 16/);
 assert.doesNotMatch(source, /GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner [A-Z]/);
