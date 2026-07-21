@@ -169275,3 +169275,7 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - Window supportのtyped unsupported completionを既存recoveryでRetryPendingへ戻し、有限retry budgetを消費してOffscreen RetryReadyを得た後、`gui_font_web_registered_begin_frame_retry_execute` でactual Web Begin importへ渡す。
 - このcheckpointはactual Web Beginまでであり、descriptor expected run count 2、Run1、F5oal Run2、actual second Runは未完了としてF5oanをopenに維持する。
 - source contractは通過した。runtime probeはWASI初期化後に数分間完了せずJSON evidenceを返さなかったため停止し、runtime成功とは扱わない。
+## 2026-07-22 F5oan supplied Begin descriptor exact two-run checkpoint
+
+- supplied-owner Web entryのsession actionをborrowで観測し、production BeginFrame descriptorのexpected run countが2、expected pixel countが16であるevidenceをRetryReady authorityと同じtest-only wrapperに保持する。
+- wrapperはRetryReadyを再構築せず、そのまま既存Web retry executorへmoveする。Run1、F5oal Run2、actual second Runは未完了としてF5oanをopenに維持する。

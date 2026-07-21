@@ -15,6 +15,7 @@
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_virtual_drain_test" as begin_fixture
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_two_run_fixture_test" as two_run_fixture
+#import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/option" as *
@@ -27,7 +28,11 @@
 #import "std/gui/compositor_tile_present_schedule" as *
 #import "std/gui/host" as *
 
-fn gui_font_web_registered_two_run_supplied_owner_test_retry_ready %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner i32 \virtual_owner:
+pub struct GuiFontWebRegisteredTwoRunSuppliedOwnerTestReady:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner
+    descriptor_evidence %i32
+
+fn gui_font_web_registered_two_run_supplied_owner_test_retry_ready %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameVirtualDrainOwner Result GuiFontWebRegisteredTwoRunSuppliedOwnerTestReady i32 \virtual_owner:
     match gui_rgba8888_compositor_tile_rle_present_schedule_policy 1 64:
         Result::Err _:
             gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_owner_free virtual_owner
@@ -52,6 +57,11 @@ fn gui_font_web_registered_two_run_supplied_owner_test_retry_ready %impure fn Gu
                                     gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_unexpected_completed_free unexpected
                                     Result::Err sub 0 7
                                 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionExecutorSessionRequestResult::Action action_owner:
+                                    let expected %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_owner_expected_action &action_owner
+                                    let descriptor_evidence %i32 match expected:
+                                        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin descriptor:
+                                            if and eq gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count &descriptor 2 eq gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count &descriptor 16 then 1 else 0
+                                        _: 0
                                     match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_executor_session_complete GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Window action_owner Result::Ok unit:
                                         Result::Ok completed:
                                             gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_completion_owner_free completed
@@ -67,7 +77,7 @@ fn gui_font_web_registered_two_run_supplied_owner_test_retry_ready %impure fn Gu
                                                             gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_host_action_retry_abort_ready_owner_free aborted
                                                             Result::Err sub 0 10
                                                         GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecisionOwner::RetryReady ready:
-                                                            Result::Ok ready
+                                                            Result::Ok GuiFontWebRegisteredTwoRunSuppliedOwnerTestReady ready descriptor_evidence
 
 //: supplied owner の descriptor を Web import が受け、exact two-run authority を Yield に保持することを検証する
 #test
@@ -81,7 +91,9 @@ pub fn gui_font_web_registered_two_run_supplied_owner_test_contract %impure fn u
                     match gui_font_web_registered_two_run_supplied_owner_test_retry_ready virtual_owner:
                         Result::Err evidence: evidence
                         Result::Ok ready:
-                            match gui_font_web_registered_begin_frame_retry_execute ready:
+                            let descriptor_evidence %i32 field::get ready "descriptor_evidence"
+                            let retry_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner field::get ready "owner"
+                            match gui_font_web_registered_begin_frame_retry_execute retry_owner:
                                 Result::Err failure:
                                     gui_font_web_registered_begin_frame_retry_execution_failure_free failure
                                     sub 0 11
@@ -96,4 +108,4 @@ pub fn gui_font_web_registered_two_run_supplied_owner_test_contract %impure fn u
                                         GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Yield owner:
                                             match gui_font_web_registered_begin_frame_retry_success_yield_owner_free owner:
                                                 Result::Err _: sub 0 1
-                                                Result::Ok _: 2
+                                                Result::Ok _: if eq descriptor_evidence 1 then 3 else 2
