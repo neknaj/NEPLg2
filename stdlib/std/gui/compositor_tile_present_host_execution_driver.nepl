@@ -119,6 +119,10 @@ pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_prepare %f
 pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_action %fn &GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending GuiRgba8888CompositorTileRlePresentHostExecutionAction \driver:
     *field::get_ref driver "action"
 
+//: executorへ渡さないpendingを閉じ、requestのrollback stateを回収する
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_abort %fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending GuiRgba8888CompositorTileRlePresentDispatchLoopState \driver:
+    gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_abort field::get driver "pending"
+
 //: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_complete_outcome: executor outcome を loop completion へ[戻/もど]す
 //:
 //: [契約/けいやく]:

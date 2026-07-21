@@ -271,6 +271,10 @@ pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_post_phase %f
 pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_previous %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest GuiRgba8888CompositorTileRlePresentDispatchLoopState \pending:
     *field::get_ref pending "previous"
 
+//: pending requestを実行せず閉じ、保持していたrollback stateを返す
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_abort %fn GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest GuiRgba8888CompositorTileRlePresentDispatchLoopState \pending:
+    field::get pending "previous"
+
 //: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_next: pending の success state を[返/かえ]す
 //:
 //: neplg2:test[skip]

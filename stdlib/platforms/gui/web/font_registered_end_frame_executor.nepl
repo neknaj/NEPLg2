@@ -17,6 +17,7 @@
 #import "std/gui/compositor_tile_present_command_cursor" as *
 #import "std/gui/compositor_tile_present_dispatch_loop" as *
 #import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_attempt_driver" as *
 #import "std/gui/compositor_tile_present_host_execution_driver" as *
 #import "std/gui/compositor_tile_present_host_executor" as *
 #import "std/gui/compositor_tile_present_schedule" as *
@@ -172,5 +173,5 @@ pub fn gui_font_web_registered_end_frame_execution_error_free %fn GuiFontWebRegi
         GuiFontWebRegisteredEndFrameExecutionErrorRecovery::CompletionFailed payload:
             let parts %GuiFontWebRegisteredEndFrameExecutionCompleteErrorParts gui_font_web_registered_end_frame_execution_complete_error_into_parts payload
             let lower field::get parts "lower"
-            let _attempt gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_lower lower
+            gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_error_close gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_lower lower
             gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get parts "step"

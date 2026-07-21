@@ -17,6 +17,7 @@
 #import "std/gui/compositor_tile_present_command_cursor" as *
 #import "std/gui/compositor_tile_present_dispatch_loop" as *
 #import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_attempt_driver" as *
 #import "std/gui/compositor_tile_present_host_execution_driver" as *
 #import "std/gui/compositor_tile_present_host_executor" as *
 #import "std/gui/compositor_tile_present_schedule" as *
@@ -42,13 +43,31 @@ pub struct GuiFontWebRegisteredRunExecutionScheduleError:
     spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
     lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunScheduleError
 
+pub struct GuiFontWebRegisteredRunExecutionScheduleErrorParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunScheduleError
+
 pub struct GuiFontWebRegisteredRunExecutionHostRequestError:
     previous_category %Option GuiError
     previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
     spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
     lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunHostRequestError
 
+pub struct GuiFontWebRegisteredRunExecutionHostRequestErrorParts:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunHostRequestError
+
 pub struct GuiFontWebRegisteredRunExecutionUnexpectedCompleted:
+    previous_category %Option GuiError
+    previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
+    spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
+    step %GuiRgba8888CompositorTileRlePresentCommandCursorStep
+
+pub struct GuiFontWebRegisteredRunExecutionUnexpectedCompletedParts:
     previous_category %Option GuiError
     previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic
     spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget
@@ -69,6 +88,12 @@ pub struct GuiFontWebRegisteredRunExecutionCompleteErrorParts:
     lower %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError
 
 pub enum GuiFontWebRegisteredRunExecutionError:
+    ScheduleFailed %GuiFontWebRegisteredRunExecutionScheduleError
+    HostRequestFailed %GuiFontWebRegisteredRunExecutionHostRequestError
+    UnexpectedSessionCompleted %GuiFontWebRegisteredRunExecutionUnexpectedCompleted
+    CompletionFailed %GuiFontWebRegisteredRunExecutionCompleteError
+
+pub enum GuiFontWebRegisteredRunExecutionErrorRecovery:
     ScheduleFailed %GuiFontWebRegisteredRunExecutionScheduleError
     HostRequestFailed %GuiFontWebRegisteredRunExecutionHostRequestError
     UnexpectedSessionCompleted %GuiFontWebRegisteredRunExecutionUnexpectedCompleted
@@ -120,3 +145,33 @@ pub fn gui_font_web_registered_run_execution_complete_error_category_value %fn &
 //: completion failureのcursorとowner-bearing F5nh lower recoveryを分断せずcallerへ移す
 pub fn gui_font_web_registered_run_execution_complete_error_into_parts %fn GuiFontWebRegisteredRunExecutionCompleteError GuiFontWebRegisteredRunExecutionCompleteErrorParts \error:
     GuiFontWebRegisteredRunExecutionCompleteErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "step" field::get error "lower"
+
+pub fn gui_font_web_registered_run_execution_schedule_error_into_parts %fn GuiFontWebRegisteredRunExecutionScheduleError GuiFontWebRegisteredRunExecutionScheduleErrorParts \error:
+    GuiFontWebRegisteredRunExecutionScheduleErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "lower"
+
+pub fn gui_font_web_registered_run_execution_host_request_error_into_parts %fn GuiFontWebRegisteredRunExecutionHostRequestError GuiFontWebRegisteredRunExecutionHostRequestErrorParts \error:
+    GuiFontWebRegisteredRunExecutionHostRequestErrorParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "lower"
+
+pub fn gui_font_web_registered_run_execution_unexpected_completed_into_parts %fn GuiFontWebRegisteredRunExecutionUnexpectedCompleted GuiFontWebRegisteredRunExecutionUnexpectedCompletedParts \error:
+    GuiFontWebRegisteredRunExecutionUnexpectedCompletedParts field::get error "previous_category" field::get error "previous_diagnostic" field::get error "spent_budget" field::get error "step"
+
+pub fn gui_font_web_registered_run_execution_error_into_recovery %fn GuiFontWebRegisteredRunExecutionError GuiFontWebRegisteredRunExecutionErrorRecovery \error:
+    match error:
+        GuiFontWebRegisteredRunExecutionError::ScheduleFailed payload: GuiFontWebRegisteredRunExecutionErrorRecovery::ScheduleFailed payload
+        GuiFontWebRegisteredRunExecutionError::HostRequestFailed payload: GuiFontWebRegisteredRunExecutionErrorRecovery::HostRequestFailed payload
+        GuiFontWebRegisteredRunExecutionError::UnexpectedSessionCompleted payload: GuiFontWebRegisteredRunExecutionErrorRecovery::UnexpectedSessionCompleted payload
+        GuiFontWebRegisteredRunExecutionError::CompletionFailed payload: GuiFontWebRegisteredRunExecutionErrorRecovery::CompletionFailed payload
+
+pub fn gui_font_web_registered_run_execution_error_free %fn GuiFontWebRegisteredRunExecutionError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    match gui_font_web_registered_run_execution_error_into_recovery error:
+        GuiFontWebRegisteredRunExecutionErrorRecovery::ScheduleFailed payload:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_schedule_error_free field::get payload "lower"
+        GuiFontWebRegisteredRunExecutionErrorRecovery::HostRequestFailed payload:
+            gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_host_request_error_free field::get payload "lower"
+        GuiFontWebRegisteredRunExecutionErrorRecovery::UnexpectedSessionCompleted payload:
+            gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get payload "step"
+        GuiFontWebRegisteredRunExecutionErrorRecovery::CompletionFailed payload:
+            let parts %GuiFontWebRegisteredRunExecutionCompleteErrorParts gui_font_web_registered_run_execution_complete_error_into_parts payload
+            let lower field::get parts "lower"
+            gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_error_close gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_lower lower
+            gui_rgba8888_compositor_tile_rle_present_command_cursor_step_free field::get parts "step"

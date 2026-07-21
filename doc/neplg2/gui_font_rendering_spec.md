@@ -8835,3 +8835,7 @@ F5oad ownerをformal partsで一度だけ消費し、exact lowerをF5nzr record�
 ### F5oaf Web terminal completion
 
 F5oae successを一度だけ分解し、actual completionがCompletedの場合だけ同居するexact EndFrame stepをF5nzt共通transitionへ渡す。得たterminal ownerをF5nzvへ渡してterminal Completedへ閉じる。Continue/Yield、terminal transition failure、cleanup failureはprovenanceとspent budgetを保持するtyped errorであり、schedule、request、session、budgetを再構築しない。
+
+### F5oag Web resumed frame loop
+
+`font_registered_resumed_web_loop` はF5oaa concrete Yield ownerだけを入力とし、ResumeSlice、Run、EndFrame、terminal completionを順に各一度実行する。errorは各段のlower ownerをそのまま保持し、Run executorを含む全段にconsuming cleanupを要求する。固定Begin/Run/End frameの検証境界であり、任意長command列、queue/timer、failure resumeは提供しない。

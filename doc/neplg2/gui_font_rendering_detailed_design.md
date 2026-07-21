@@ -11274,3 +11274,7 @@ The adapter consumes the sole F5oad owner and transfers its exact lower authorit
 ### F5oaf Web terminal completion
 
 The terminal adapter consumes the sole F5oae success and accepts only its actual Completed state. It transfers the colocated exact EndFrame step through the shared F5nzt transition exactly once, then consumes the terminal owner through F5nzv exactly once. Phase, cursor, and cleanup failures retain provenance and exhausted-budget evidence; consumed schedule, request, session, and retry authority are never reconstructed.
+
+### F5oag Web resumed frame loop
+
+The resumed-loop adapter accepts only the concrete unresumed Yield owner from F5oaa. It selects ResumeSlice internally, then invokes the F5oab next-command step, F5oac Run execution, F5oad EndFrame step, F5oae EndFrame execution, and F5oaf terminal conversion exactly once and in order. Each error variant owns the complete lower recovery value and has a consuming cleanup path. The fixed chain is not an arbitrary-length queue or timer loop.

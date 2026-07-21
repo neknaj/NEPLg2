@@ -36,7 +36,8 @@ assert.doesNotMatch(webExecutor, /dispatch_loop_step_record|schedule_only_step_i
 assert.match(webExecutor, /GuiFontWebRegisteredRunExecutionSuccessParts/);
 assert.match(webExecutor, /GuiFontWebRegisteredRunExecutionCompleteErrorParts:[\s\S]*step .*\r?\n\s*lower /);
 assert.match(webExecutor, /run_execution_complete_error_into_parts[\s\S]*field::get error "step" field::get error "lower"/);
-assert.doesNotMatch(webExecutor, /run_execution_error_free/);
+assert.match(webExecutor, /run_execution_error_into_recovery[\s\S]*ScheduleFailed[\s\S]*HostRequestFailed[\s\S]*UnexpectedSessionCompleted[\s\S]*CompletionFailed/);
+assert.match(webExecutor, /run_execution_error_free[\s\S]*attempt_driver_error_close[\s\S]*command_cursor_step_free/);
 assert.doesNotMatch(webExecutor, /impl (Clone|Copy) for GuiFontWebRegisteredRunExecution/);
 
 assert.match(webRuntime, /compositor_tile_present_begin\(\)[\s\S]*return 0/);

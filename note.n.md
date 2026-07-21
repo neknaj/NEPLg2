@@ -1,3 +1,11 @@
+# 2026-07-22 GUI font F5oag Web resumed frame loop
+
+- F5oaaのconcrete未resume YieldからF5oab〜F5oafを順に各一度呼ぶproduction APIを追加し、actual RunとEndFrameを経てterminal Completedへ閉じた。
+- F5oac Run executorの全error variantへowner-bearing recovery/freeを追加し、上位loop failureから下位authorityを再構築せず閉じられるようにした。
+- runtimeはsuccessとactual Run failureを同一WASMで実行し、evidence 510、Begin/Run/End 2/2/1、provenance、spent Exhausted、command count 2、pixel count 16、drain Ended、top-level failure cleanupを検査した。
+- 専用normal isolation、F5oag/既存Run/Web GUI font contract、native/wasm workspace check、release CLI build、release trunk build、trunk後Playground editor CLI JSON 13/13、issues/diff checkを通過した。既知のdead-code warning以外に新規警告はない。
+- 最終目標は未完了。次はRetryReadyからの統一入口、任意長command/queue/timer loop、native executor/provider、text shaping/layout、rasterization、native/GUI presentationへ進む。
+
 # 2026-07-22 GUI font F5oaf Web terminal completion
 
 - F5nzp schedule-only authorityへpre-stateとexact recordを追加し、same-record host request adopterの成功pending/失敗rollback所有権を線形化した。

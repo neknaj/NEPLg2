@@ -14025,3 +14025,7 @@ F5oad ownerを一度だけparts化し、F5nzr/F5nzs、EndFrame-only same-record 
 ### F5oaf Web terminal completion
 
 F5oae successを一度だけparts化し、actual Completed stateとexact EndFrame stepをF5nzt共通transitionへ渡す。terminal ownerをF5nzvへ一度渡し、actual completionとterminal completion、provenance、spent budgetをsuccessへ保持する。runtimeはBegin/Run/End各1回とterminal stateを固定し、複数command loop、native provider、layout/raster/presentationは後続へ残す。
+
+### F5oag Web resumed frame loop
+
+F5oaaの未resume Yieldを固定ResumeSliceで一度再開し、F5oabからF5oafまでを一つのproduction APIで順に実行する。RunとEndFrameは各一度だけactual Web executorへ渡し、全failureは下位ownerを保持したまま回収または解放できる。これはBegin/Run/Endの固定2 command continuationであり、任意長queue/timer loop、fresh BeginFrame入口、native provider、layout/raster/presentationは後続へ残す。

@@ -1,0 +1,76 @@
+//: # Web registered resumed frame loop
+//: 未resumeのYieldからRunとEndFrameを各一度実行し、terminal Completedへ閉じます。
+
+#indent 4
+
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_success_phase" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler" as *
+#import "platforms/gui/web/font_registered_end_frame_command" as *
+#import "platforms/gui/web/font_registered_end_frame_executor" as *
+#import "platforms/gui/web/font_registered_run_executor" as *
+#import "platforms/gui/web/font_registered_terminal_completion" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+pub enum GuiFontWebRegisteredResumedWebLoopError:
+    UnexpectedAbortReady %GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwner
+    NextCommandFailed %GuiFontWebRegisteredBeginFrameRetryYieldNextCommandError
+    RunExecutionFailed %GuiFontWebRegisteredRunExecutionError
+    EndFrameCommandFailed %GuiFontWebRegisteredEndFrameCommandError
+    EndFrameExecutionFailed %GuiFontWebRegisteredEndFrameExecutionError
+    TerminalCompletionFailed %GuiFontWebRegisteredTerminalCompletionError
+
+pub enum GuiFontWebRegisteredResumedWebLoopErrorRecovery:
+    UnexpectedAbortReady %GuiFontWebRegisteredBeginFrameRetryYieldAbortReadyOwner
+    NextCommandFailed %GuiFontWebRegisteredBeginFrameRetryYieldNextCommandError
+    RunExecutionFailed %GuiFontWebRegisteredRunExecutionError
+    EndFrameCommandFailed %GuiFontWebRegisteredEndFrameCommandError
+    EndFrameExecutionFailed %GuiFontWebRegisteredEndFrameExecutionError
+    TerminalCompletionFailed %GuiFontWebRegisteredTerminalCompletionError
+
+//: Yield authorityを固定ResumeSliceで再開し、RunとEndFrameのactual Web実行をterminalへ接続する
+pub fn gui_font_web_registered_resumed_web_loop_execute %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner Result GuiFontWebRegisteredTerminalCompletionSuccess GuiFontWebRegisteredResumedWebLoopError \host\policy\support\owner:
+    match gui_font_web_registered_begin_frame_retry_yield_scheduler_decide owner GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::ResumeSlice:
+        GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::AbortReady abort_ready:
+            Result::Err GuiFontWebRegisteredResumedWebLoopError::UnexpectedAbortReady abort_ready
+        GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::ResumePending pending:
+            match gui_font_web_registered_begin_frame_retry_yield_resume_and_step_next_command pending:
+                Result::Err error: Result::Err GuiFontWebRegisteredResumedWebLoopError::NextCommandFailed error
+                Result::Ok next:
+                    match gui_font_web_registered_retry_yield_next_command_execute_run host policy support next:
+                        Result::Err error: Result::Err GuiFontWebRegisteredResumedWebLoopError::RunExecutionFailed error
+                        Result::Ok run:
+                            match gui_font_web_registered_run_execution_success_step_end_frame run:
+                                Result::Err error: Result::Err GuiFontWebRegisteredResumedWebLoopError::EndFrameCommandFailed error
+                                Result::Ok end_frame:
+                                    match gui_font_web_registered_end_frame_command_execute host policy support end_frame:
+                                        Result::Err error: Result::Err GuiFontWebRegisteredResumedWebLoopError::EndFrameExecutionFailed error
+                                        Result::Ok execution:
+                                            match gui_font_web_registered_end_frame_execution_into_terminal_completion execution:
+                                                Result::Err error: Result::Err GuiFontWebRegisteredResumedWebLoopError::TerminalCompletionFailed error
+                                                Result::Ok completion: Result::Ok completion
+
+pub fn gui_font_web_registered_resumed_web_loop_error_into_recovery %fn GuiFontWebRegisteredResumedWebLoopError GuiFontWebRegisteredResumedWebLoopErrorRecovery \error:
+    match error:
+        GuiFontWebRegisteredResumedWebLoopError::UnexpectedAbortReady payload: GuiFontWebRegisteredResumedWebLoopErrorRecovery::UnexpectedAbortReady payload
+        GuiFontWebRegisteredResumedWebLoopError::NextCommandFailed payload: GuiFontWebRegisteredResumedWebLoopErrorRecovery::NextCommandFailed payload
+        GuiFontWebRegisteredResumedWebLoopError::RunExecutionFailed payload: GuiFontWebRegisteredResumedWebLoopErrorRecovery::RunExecutionFailed payload
+        GuiFontWebRegisteredResumedWebLoopError::EndFrameCommandFailed payload: GuiFontWebRegisteredResumedWebLoopErrorRecovery::EndFrameCommandFailed payload
+        GuiFontWebRegisteredResumedWebLoopError::EndFrameExecutionFailed payload: GuiFontWebRegisteredResumedWebLoopErrorRecovery::EndFrameExecutionFailed payload
+        GuiFontWebRegisteredResumedWebLoopError::TerminalCompletionFailed payload: GuiFontWebRegisteredResumedWebLoopErrorRecovery::TerminalCompletionFailed payload
+
+pub fn gui_font_web_registered_resumed_web_loop_error_is_run_execution_failed %fn &GuiFontWebRegisteredResumedWebLoopError bool \error:
+    match *error:
+        GuiFontWebRegisteredResumedWebLoopError::RunExecutionFailed _: true
+        _: false
+
+pub fn gui_font_web_registered_resumed_web_loop_error_free %fn GuiFontWebRegisteredResumedWebLoopError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    match gui_font_web_registered_resumed_web_loop_error_into_recovery error:
+        GuiFontWebRegisteredResumedWebLoopErrorRecovery::UnexpectedAbortReady payload: gui_font_web_registered_begin_frame_retry_yield_abort_ready_owner_free payload
+        GuiFontWebRegisteredResumedWebLoopErrorRecovery::NextCommandFailed payload: gui_font_web_registered_begin_frame_retry_yield_next_command_error_free payload
+        GuiFontWebRegisteredResumedWebLoopErrorRecovery::RunExecutionFailed payload: gui_font_web_registered_run_execution_error_free payload
+        GuiFontWebRegisteredResumedWebLoopErrorRecovery::EndFrameCommandFailed payload: gui_font_web_registered_end_frame_command_error_free payload
+        GuiFontWebRegisteredResumedWebLoopErrorRecovery::EndFrameExecutionFailed payload: gui_font_web_registered_end_frame_execution_error_free payload
+        GuiFontWebRegisteredResumedWebLoopErrorRecovery::TerminalCompletionFailed payload: gui_font_web_registered_terminal_completion_error_free payload

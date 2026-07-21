@@ -1,0 +1,111 @@
+//: # Web registered resumed frame loop test adapter
+//: actual BeginFrame Yieldを一つのproduction呼出しでRun、EndFrame、terminalへ接続します。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler_test" as fixture with tests
+#import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler" as *
+#import "platforms/gui/web/font_registered_resumed_web_loop" as *
+#import "platforms/gui/web/font_registered_run_executor" as *
+#import "platforms/gui/web/font_registered_terminal_completion" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/compositor_tile_present_virtual_drain" as *
+#import "std/gui/host" as *
+
+fn gui_font_web_registered_resumed_web_loop_test_provenance %fn Option GuiError fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget i32 \category\diagnostic\budget:
+    let a %i32 match category:
+        Option::Some value:
+            match value:
+                GuiError::Unsupported: 1
+                _: 0
+        _: 0
+    let b %i32 add a match diagnostic:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic::SinkRejected _: 2
+        _: 0
+    add b match budget:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget::Exhausted: 4
+        _: 0
+
+fn gui_font_web_registered_resumed_web_loop_test_terminal %fn GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion i32 \completion:
+    match completion:
+        GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed state:
+            let dispatch gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch &state
+            let schedule gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &dispatch
+            let drain gui_rgba8888_compositor_tile_rle_present_schedule_state_drain &schedule
+            let a %i32 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &schedule 2 then 8 else 0
+            let b %i32 if eq gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &schedule 16 then 16 else 0
+            let c %i32 match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase &drain:
+                GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::Ended: 32
+                _: 0
+            add add a b c
+        _: 0
+
+fn gui_font_web_registered_resumed_web_loop_test_yield_owner_free %fn GuiFontWebRegisteredBeginFrameRetrySuccessYieldOwner i32 \owner:
+    match gui_font_web_registered_begin_frame_retry_yield_scheduler_decide owner GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::Abort:
+        GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::ResumePending pending:
+            match gui_font_web_registered_begin_frame_retry_yield_resume_pending_owner_free pending:
+                Result::Err _: sub 0 1
+                Result::Ok _: 0
+        GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::AbortReady abort_ready:
+            match gui_font_web_registered_begin_frame_retry_yield_abort_ready_owner_free abort_ready:
+                Result::Err _: sub 0 1
+                Result::Ok _: 0
+
+#test
+pub fn gui_font_web_registered_resumed_web_loop_test_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_begin_frame_retry_yield_scheduler_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok owner:
+            match gui_rgba8888_compositor_tile_rle_present_schedule_policy 4 64:
+                Result::Err _:
+                    gui_font_web_registered_resumed_web_loop_test_yield_owner_free owner
+                Result::Ok policy:
+                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                    match gui_font_web_registered_resumed_web_loop_execute &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen owner:
+                        Result::Err error:
+                            match gui_font_web_registered_resumed_web_loop_error_free error:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: 0
+                        Result::Ok success:
+                            let parts %GuiFontWebRegisteredTerminalCompletionSuccessParts gui_font_web_registered_terminal_completion_success_into_parts success
+                            let previous_category field::get parts "previous_category"
+                            let previous_diagnostic field::get parts "previous_diagnostic"
+                            let spent_budget field::get parts "spent_budget"
+                            let actual field::get parts "actual_completion"
+                            let terminal field::get parts "terminal_completion"
+                            let provenance %i32 gui_font_web_registered_resumed_web_loop_test_provenance previous_category previous_diagnostic spent_budget
+                            let actual_evidence %i32 match gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion &actual:
+                                GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed _: 64
+                                _: 0
+                            add add 128 add provenance actual_evidence gui_font_web_registered_resumed_web_loop_test_terminal terminal
+
+#test
+pub fn gui_font_web_registered_resumed_web_loop_test_run_failure %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_begin_frame_retry_yield_scheduler_test_owner _unit:
+        Result::Err evidence: evidence
+        Result::Ok owner:
+            match gui_rgba8888_compositor_tile_rle_present_schedule_policy 4 64:
+                Result::Err _: gui_font_web_registered_resumed_web_loop_test_yield_owner_free owner
+                Result::Ok policy:
+                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                    match gui_font_web_registered_resumed_web_loop_execute &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen owner:
+                        Result::Err error:
+                            let expected %bool gui_font_web_registered_resumed_web_loop_error_is_run_execution_failed &error
+                            match gui_font_web_registered_resumed_web_loop_error_free error:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: if expected then 255 else 0
+                        Result::Ok _: 0
+
+#test
+pub fn gui_font_web_registered_resumed_web_loop_test_runtime_contract %impure fn unit i32 \_unit:
+    add gui_font_web_registered_resumed_web_loop_test_contract _unit gui_font_web_registered_resumed_web_loop_test_run_failure _unit

@@ -239,6 +239,23 @@ pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_dri
 pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_lower %fn GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError \failure:
     field::get failure "lower"
 
+//: attempt failureに残るpendingまたはrecovery stateを全variantで消費する
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_error_close %fn GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError unit \error:
+    match error:
+        GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError::AttemptActionMismatch mismatch:
+            let driver gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_driver mismatch
+            let _state gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_abort driver
+            unit
+        GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError::SinkDriverFailed failure:
+            match gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_lower failure:
+                GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError::SinkRejected rejection:
+                    let driver gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_rejected_driver rejection
+                    let _state gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_abort driver
+                    unit
+                GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError::DriverCompletionFailed failure:
+                    let _driver_error gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_completion_failed_driver_error &failure
+                    unit
+
 //: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_error_category_value: attempt driver error category を[返/かえ]す
 //:
 //: neplg2:test[skip]
