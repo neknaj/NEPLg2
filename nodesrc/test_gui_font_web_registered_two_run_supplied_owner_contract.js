@@ -24,10 +24,12 @@ assert.match(source, /GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Yiel
 assert.match(source, /begin_frame_retry_yield_scheduler_decide owner GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::ResumeSlice/);
 assert.match(source, /begin_frame_retry_yield_resume_and_step_next_command pending/);
 assert.match(source, /retry_yield_next_command_execute_run &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen next/);
+assert.match(source, /run_execution_success_into_phase success/);
+assert.match(source, /run_success_continue_step_next_command owner/);
+assert.match(source, /GuiFontWebRegisteredRunNextCommandPhaseOwner::Run owner/);
 assert.match(source, /present_frame_descriptor_expected_run_count &descriptor 2/);
 assert.match(source, /present_frame_descriptor_expected_pixel_count &descriptor 16/);
 assert.doesNotMatch(source, /GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner [A-Z]/);
-assert.doesNotMatch(source, /GuiRgba8888CompositorTileRlePresentCommand::Run /);
 assert.match(fixture, /owner_from_completed[\s\S]*completed_owner_into_compositor_tile_rle_begin_frame_record_budget completed surface frame_config tile_config 0 64/);
 
 process.stdout.write("registered two-run supplied owner contract passed\n");

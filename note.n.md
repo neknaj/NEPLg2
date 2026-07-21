@@ -169283,3 +169283,7 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - supplied Begin成功のYield ownerを既存schedulerで一度だけresumeし、production next-command ownerを既存Web Run executorへmoveしてactual Run1へ接続した。command、cursor、state、spent budgetは再構築していない。
 - F5oal Run2とactual second Runは未完了のためF5oanをopenに維持する。
+## 2026-07-22 F5oan genuine Run2 handoff checkpoint
+
+- actual Run1 successを既存success phaseとnext-command classifierへmoveし、F5oalのtyped Run owner/resultからgenuine Run2 variantをborrow観測してauthorityを閉じる。Run command、cursor、stateは手組みしない。
+- Run2 payloadとactual second Runは未完了としてF5oanをopenに維持する。
