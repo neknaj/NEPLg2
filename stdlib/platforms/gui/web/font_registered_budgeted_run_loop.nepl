@@ -41,10 +41,13 @@ pub fn gui_font_web_registered_budgeted_run_loop_enqueue_ready %fn GuiFontWebReg
 //: one-shot timerのhost受理後だけSuspended outcomeをpending ownerへ封印します。
 pub fn gui_font_web_registered_budgeted_run_loop_schedule_suspended %impure fn GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner impure fn WindowId impure fn TimerId impure fn i32 Result GuiFontWebRegisteredBudgetedRunLoopTimerPending GuiFontWebRegisteredBudgetedRunLoopScheduleError \owner\window\timer\delay_ms:
     let request %TimerRequest timer_request window timer delay_ms false
-    match gui_web_request_timer &request:
-        Result::Err lower: Result::Err GuiFontWebRegisteredBudgetedRunLoopScheduleError owner lower
-        Result::Ok _:
-            Result::Ok GuiFontWebRegisteredBudgetedRunLoopTimerPending (field::get owner "run_owner") (field::get owner "budget") request
+    if le delay_ms 0:
+        then Result::Err GuiFontWebRegisteredBudgetedRunLoopScheduleError owner GuiError::InvalidCommand
+        else:
+            match gui_web_request_timer &request:
+                Result::Err lower: Result::Err GuiFontWebRegisteredBudgetedRunLoopScheduleError owner lower
+                Result::Ok _:
+                    Result::Ok GuiFontWebRegisteredBudgetedRunLoopTimerPending (field::get owner "run_owner") (field::get owner "budget") request
 
 pub fn gui_font_web_registered_budgeted_run_loop_timer_request %fn &GuiFontWebRegisteredBudgetedRunLoopTimerPending TimerRequest \pending:
     *field::get_ref pending "request"

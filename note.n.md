@@ -169353,3 +169353,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - timer wakeは`GuiWebEvent`のwindow、timer id、非負tickを照合し、一致時だけ保持済みslice limitからresumeする。登録失敗はSuspended ownerとGuiErrorをtyped partsで回収できる。
 - subagent reviewのwindow照合、host acceptance、不正tick、failure owner回収のMajorを修正した。`trunk build`とPlayground editor JSON 13/13を通過した。
 - F5oaxはfixedだが全体目標は未完了。次はこのqueue/timer owner境界をbudgeted driverのactual polling loopへ接続し、Ready即時再投入、mismatch保持、timer wake後の再実行を同一runtimeで検証する。その後fresh entry、native provider、layout/raster/presentationへ進む。`plan.md`は変更していない。
+# 2026-07-22 GUI font F5oay actual polling transition checkpoint
+
+- budgeted driverのReady実行、Ready即時再投入、Suspended timer登録、input poll、matching wake後の再実行、全terminal/failure cleanupをbounded production transitionへ接続した。
+- subagent reviewのMajorに従い、shared queueのunmatched eventを捨てずpendingと共にrouterへ返すownerを追加し、timer clearになるdelay 0以下をhost call前にowner-bearing errorとして拒否した。ScheduleFailed/PollFailed cleanup contractも追加した。
+- `trunk build`とPlayground editor JSON 13/13は通過した。一方Node v22.23.1では既存/new `runSingle` runtimeがguest終了後にJS assertion/JSONへ戻らず、actual evidenceは未確定である。無効だったharness試行はrevertし、専用bug issueを追加した。
+- F5oayはinvestigatingであり全体目標も未完了。次はNode 22 harnessをchild/worker isolationで修正し、evidence 13/14/12とBegin/Run/End 3/4/0、timer/poll 3/3を確認してF5oayをfixedにする。その後fresh entry、native provider、layout/raster/presentationへ進む。`plan.md`は変更していない。

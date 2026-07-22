@@ -1,0 +1,101 @@
+//: # Web registered budgeted Run actual polling transition
+//: queued Run実行とformal Web timer event待機をbounded owner transitionとして接続します。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_budgeted_run_driver" as *
+#import "platforms/gui/web/font_registered_budgeted_run_loop" as *
+#import "platforms/gui/web/input" as *
+#import "std/gui" as *
+
+pub struct GuiFontWebRegisteredBudgetedRunPollingLoopPollFailed:
+    pending %GuiFontWebRegisteredBudgetedRunLoopTimerPending
+    lower %GuiError
+
+pub struct GuiFontWebRegisteredBudgetedRunPollingLoopUnmatched:
+    pending %GuiFontWebRegisteredBudgetedRunLoopTimerPending
+    event %GuiWebEvent
+
+pub struct GuiFontWebRegisteredBudgetedRunPollingLoopUnmatchedParts:
+    pending %GuiFontWebRegisteredBudgetedRunLoopTimerPending
+    event %GuiWebEvent
+
+pub enum GuiFontWebRegisteredBudgetedRunPollingLoopOutcome:
+    Ready %GuiFontWebRegisteredBudgetedRunLoopReady
+    Waiting %GuiFontWebRegisteredBudgetedRunLoopTimerPending
+    Unmatched %GuiFontWebRegisteredBudgetedRunPollingLoopUnmatched
+    ScheduleFailed %GuiFontWebRegisteredBudgetedRunLoopScheduleError
+    PollFailed %GuiFontWebRegisteredBudgetedRunPollingLoopPollFailed
+    TotalExhausted %GuiFontWebRegisteredBudgetedRunDriverTotalExhaustedOwner
+    BeginFrame %GuiFontWebRegisteredBudgetedRunDriverBeginFrameOwner
+    EndFrame %GuiFontWebRegisteredBudgetedRunDriverEndFrameOwner
+    CursorCompleted %GuiFontWebRegisteredBudgetedRunDriverCursorCompletedOwner
+    Completed %GuiFontWebRegisteredBudgetedRunDriverCompletedOwner
+    ExecutionFailed %GuiFontWebRegisteredBudgetedRunDriverExecutionFailedOwner
+    NextCommandFailed %GuiFontWebRegisteredBudgetedRunDriverNextCommandFailedOwner
+
+//: queue先頭のReady ownerを一度だけactual driverへ渡し、次authorityへ分類します。
+pub fn gui_font_web_registered_budgeted_run_polling_loop_execute_ready %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredBudgetedRunLoopReady impure fn WindowId impure fn TimerId impure fn i32 GuiFontWebRegisteredBudgetedRunPollingLoopOutcome \host\policy\support\ready\window\timer\delay_ms:
+    let run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner field::get ready "run_owner"
+    let budget %GuiFontWebRegisteredCommandDriverBudgetOwner field::get ready "budget"
+    match gui_font_web_registered_budgeted_run_driver_execute host policy support run_owner budget:
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::Ready owner:
+            GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Ready gui_font_web_registered_budgeted_run_loop_enqueue_ready owner
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended owner:
+            match gui_font_web_registered_budgeted_run_loop_schedule_suspended owner window timer delay_ms:
+                Result::Err error: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::ScheduleFailed error
+                Result::Ok pending: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Waiting pending
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::TotalExhausted owner: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::TotalExhausted owner
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::BeginFrame owner: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::BeginFrame owner
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::EndFrame owner: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::EndFrame owner
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::CursorCompleted owner: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::CursorCompleted owner
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::Completed owner: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Completed owner
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::ExecutionFailed owner: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::ExecutionFailed owner
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed owner: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::NextCommandFailed owner
+
+//: input queueを一度だけpollし、matching timerならReadyへ戻します。
+pub fn gui_font_web_registered_budgeted_run_polling_loop_poll_waiting %impure fn GuiFontWebRegisteredBudgetedRunLoopTimerPending GuiFontWebRegisteredBudgetedRunPollingLoopOutcome \pending:
+    match gui_web_poll_event_result unit:
+        Result::Err lower: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::PollFailed GuiFontWebRegisteredBudgetedRunPollingLoopPollFailed pending lower
+        Result::Ok maybe_event:
+            match maybe_event:
+                Option::None: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Waiting pending
+                Option::Some event:
+                    match gui_font_web_registered_budgeted_run_loop_wake pending &event:
+                        GuiFontWebRegisteredBudgetedRunLoopWake::Waiting owner: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Unmatched GuiFontWebRegisteredBudgetedRunPollingLoopUnmatched owner event
+                        GuiFontWebRegisteredBudgetedRunLoopWake::Ready owner: GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Ready owner
+
+//: unmatched eventを上位routerへ戻すためpendingとeventを型付きで回収します。
+pub fn gui_font_web_registered_budgeted_run_polling_loop_unmatched_into_parts %fn GuiFontWebRegisteredBudgetedRunPollingLoopUnmatched GuiFontWebRegisteredBudgetedRunPollingLoopUnmatchedParts \owner:
+    GuiFontWebRegisteredBudgetedRunPollingLoopUnmatchedParts (field::get owner "pending") (field::get owner "event")
+
+pub fn gui_font_web_registered_budgeted_run_polling_loop_outcome_free %fn GuiFontWebRegisteredBudgetedRunPollingLoopOutcome Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \outcome:
+    match outcome:
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Ready owner:
+            gui_font_web_registered_budgeted_run_loop_ready_free owner
+            Result::Ok unit
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Waiting owner:
+            gui_font_web_registered_budgeted_run_loop_timer_pending_free owner
+            Result::Ok unit
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Unmatched owner:
+            let _event %GuiWebEvent field::get owner "event"
+            gui_font_web_registered_budgeted_run_loop_timer_pending_free field::get owner "pending"
+            Result::Ok unit
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::ScheduleFailed error:
+            let parts %GuiFontWebRegisteredBudgetedRunLoopScheduleErrorParts gui_font_web_registered_budgeted_run_loop_schedule_error_into_parts error
+            let _lower %GuiError field::get parts "lower"
+            gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended field::get parts "owner"
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::PollFailed error:
+            let _lower %GuiError field::get error "lower"
+            gui_font_web_registered_budgeted_run_loop_timer_pending_free field::get error "pending"
+            Result::Ok unit
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::TotalExhausted owner: gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::TotalExhausted owner
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::BeginFrame owner: gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::BeginFrame owner
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::EndFrame owner: gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::EndFrame owner
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::CursorCompleted owner: gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::CursorCompleted owner
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Completed owner: gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::Completed owner
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::ExecutionFailed owner: gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::ExecutionFailed owner
+        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::NextCommandFailed owner: gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed owner

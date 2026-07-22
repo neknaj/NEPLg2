@@ -1,0 +1,116 @@
+//: # Web registered budgeted Run actual polling transition test
+//: two-Run authorityをReady、Suspended、timer wake、terminalまでproduction transitionへ通します。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_budgeted_run_polling_loop" as *
+#import "platforms/gui/web/font_registered_command_driver_budget" as *
+#import "platforms/gui/web/font_registered_two_run_supplied_owner_test" as fixture with tests
+#import "platforms/gui/web/input" as *
+#import "std/gui" as *
+
+pub fn gui_font_web_registered_budgeted_run_polling_loop_test_failure_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_two_run_supplied_owner_test_fresh_run_owner _unit:
+        Result::Err _: 0
+        Result::Ok run_owner:
+            match gui_font_web_registered_command_driver_budget_start 3 1:
+                Result::Err _:
+                    gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                    1
+                Result::Ok budget:
+                    match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:
+                        Result::Err _:
+                            gui_font_web_registered_command_driver_budget_owner_free budget
+                            gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                            2
+                        Result::Ok policy:
+                            match window_id_result 3:
+                                Result::Err _:
+                                    gui_font_web_registered_command_driver_budget_owner_free budget
+                                    gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                                    3
+                                Result::Ok window:
+                                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                                    let ready0 %GuiFontWebRegisteredBudgetedRunLoopReady GuiFontWebRegisteredBudgetedRunLoopReady run_owner budget
+                                    match gui_font_web_registered_budgeted_run_polling_loop_execute_ready &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen ready0 window (timer_id 7) 1:
+                                        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Ready ready1:
+                                            match gui_font_web_registered_budgeted_run_polling_loop_execute_ready &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen ready1 window (timer_id 7) 1:
+                                                GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::ScheduleFailed error:
+                                                    match gui_font_web_registered_budgeted_run_polling_loop_outcome_free GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::ScheduleFailed error:
+                                                        Result::Err _: sub 0 1
+                                                        Result::Ok _: 13
+                                                GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Waiting pending:
+                                                    match gui_font_web_registered_budgeted_run_polling_loop_poll_waiting pending:
+                                                        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::PollFailed error:
+                                                            match gui_font_web_registered_budgeted_run_polling_loop_outcome_free GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::PollFailed error:
+                                                                Result::Err _: sub 0 1
+                                                                Result::Ok _: 14
+                                                        other:
+                                                            gui_font_web_registered_budgeted_run_polling_loop_outcome_free other
+                                                            4
+                                                other:
+                                                    gui_font_web_registered_budgeted_run_polling_loop_outcome_free other
+                                                    5
+                                        other:
+                                            gui_font_web_registered_budgeted_run_polling_loop_outcome_free other
+                                            6
+
+pub fn gui_font_web_registered_budgeted_run_polling_loop_test_contract %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_two_run_supplied_owner_test_fresh_run_owner _unit:
+        Result::Err _: 0
+        Result::Ok run_owner:
+            match gui_font_web_registered_command_driver_budget_start 3 1:
+                Result::Err _:
+                    gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                    1
+                Result::Ok budget:
+                    match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:
+                        Result::Err _:
+                            gui_font_web_registered_command_driver_budget_owner_free budget
+                            gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                            2
+                        Result::Ok policy:
+                            match window_id_result 3:
+                                Result::Err _:
+                                    gui_font_web_registered_command_driver_budget_owner_free budget
+                                    gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                                    3
+                                Result::Ok window:
+                                    let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                                    let ready0 %GuiFontWebRegisteredBudgetedRunLoopReady GuiFontWebRegisteredBudgetedRunLoopReady run_owner budget
+                                    match gui_font_web_registered_budgeted_run_polling_loop_execute_ready &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen ready0 window (timer_id 7) 1:
+                                        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Ready ready1:
+                                            match gui_font_web_registered_budgeted_run_polling_loop_execute_ready &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen ready1 window (timer_id 7) 1:
+                                                GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Waiting pending:
+                                                    match gui_font_web_registered_budgeted_run_polling_loop_poll_waiting pending:
+                                                        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Unmatched unmatched:
+                                                            let parts %GuiFontWebRegisteredBudgetedRunPollingLoopUnmatchedParts gui_font_web_registered_budgeted_run_polling_loop_unmatched_into_parts unmatched
+                                                            let _event %GuiWebEvent field::get parts "event"
+                                                            let retained %GuiFontWebRegisteredBudgetedRunLoopTimerPending field::get parts "pending"
+                                                            match gui_font_web_registered_budgeted_run_polling_loop_poll_waiting retained:
+                                                                GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::Ready resumed:
+                                                                    let total_ok %bool eq gui_font_web_registered_command_driver_budget_total_remaining field::get_ref &resumed "budget" 2
+                                                                    let slice_ok %bool eq gui_font_web_registered_command_driver_budget_slice_remaining field::get_ref &resumed "budget" 1
+                                                                    match gui_font_web_registered_budgeted_run_polling_loop_execute_ready &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen resumed window (timer_id 7) 1:
+                                                                        GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::EndFrame terminal:
+                                                                            match gui_font_web_registered_budgeted_run_polling_loop_outcome_free GuiFontWebRegisteredBudgetedRunPollingLoopOutcome::EndFrame terminal:
+                                                                                Result::Err _: sub 0 1
+                                                                                Result::Ok _: if and total_ok slice_ok then 12 else 4
+                                                                        other:
+                                                                            gui_font_web_registered_budgeted_run_polling_loop_outcome_free other
+                                                                            5
+                                                                other:
+                                                                    gui_font_web_registered_budgeted_run_polling_loop_outcome_free other
+                                                                    6
+                                                        other:
+                                                            gui_font_web_registered_budgeted_run_polling_loop_outcome_free other
+                                                            7
+                                                other:
+                                                    gui_font_web_registered_budgeted_run_polling_loop_outcome_free other
+                                                    8
+                                        other:
+                                            gui_font_web_registered_budgeted_run_polling_loop_outcome_free other
+                                            9

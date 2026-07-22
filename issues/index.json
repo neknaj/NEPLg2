@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-22T03:57:12.790Z",
+  "generated_at": "2026-07-22T04:15:44.566Z",
   "counts": {
-    "total": 1461,
-    "open": 60,
+    "total": 1463,
+    "open": 62,
     "resolved": 1401,
     "by_area": {
       "stdlib": {
@@ -25,6 +25,16 @@
         "total": 119,
         "open": 4,
         "resolved": 115
+      },
+      "stdlib/gui": {
+        "total": 2,
+        "open": 1,
+        "resolved": 1
+      },
+      "tooling/test": {
+        "total": 1,
+        "open": 1,
+        "resolved": 0
       },
       "tools": {
         "total": 24,
@@ -117,11 +127,6 @@
         "resolved": 3
       },
       "STDLIB-TEST": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
-      },
-      "stdlib/gui": {
         "total": 1,
         "open": 0,
         "resolved": 1
@@ -623,6 +628,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3.md"
+    },
+    {
+      "id": "ISS-20260722T035939321Z-WEB-FONT-BUDGETED-RUN-ACTUAL-POLLING-6CD891C7",
+      "title": "Web font budgeted Run actual polling loop transition",
+      "area": "stdlib/gui",
+      "status": "investigating",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_budgeted_run_polling_loop.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T035939321Z-WEB-FONT-BUDGETED-RUN-ACTUAL-POLLING-6CD891C7.md"
+    },
+    {
+      "id": "ISS-20260722T040952289Z-NODE-22-WASI-RUNTIME-HARNESS-EXITS-B-B4756601",
+      "title": "Node 22 WASI runtime harness exits before assertions",
+      "area": "tooling/test",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "nodesrc/run_test.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T040952289Z-NODE-22-WASI-RUNTIME-HARNESS-EXITS-B-B4756601.md"
     },
     {
       "id": "ISS-20260611T164150959Z-CANVAS-EDITOR-RENDER-AND-MOVEMENT-PA-EB04351C",
