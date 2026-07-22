@@ -1,0 +1,77 @@
+//: # Web registered fresh Run owner producer test
+//: actual cursor authorityのEndFrame/Completed出力をNotRunとして保持し、安全に閉じることを検証します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_next_command" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler" as *
+#import "platforms/gui/web/font_registered_fresh_run_owner" as *
+#import "platforms/gui/web/font_registered_run_executor_test" as fixture with tests
+#import "platforms/gui/web/font_registered_run_next_command" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+
+fn gui_font_web_registered_fresh_run_owner_test_end_frame %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_run_executor_test_fresh_run_owner _unit:
+        Result::Err _: 0
+        Result::Ok run_owner:
+            let parts %GuiFontWebRegisteredRunNextCommandPhaseRunOwnerParts gui_font_web_registered_run_next_command_phase_run_owner_into_parts run_owner
+            let cursor %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner field::get parts "step"
+            match gui_rgba8888_compositor_tile_rle_present_command_cursor_step cursor:
+                Result::Err error:
+                    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_free error
+                    0
+                Result::Ok end_step:
+                    let lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwner field::get parts "state" end_step
+                    let outer %GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner field::get parts "previous_category" field::get parts "previous_diagnostic" field::get parts "spent_budget" lower
+                    match gui_font_web_registered_fresh_run_owner_produce outer:
+                        GuiFontWebRegisteredFreshRunOwnerResult::Run unexpected:
+                            gui_font_web_registered_run_next_command_phase_run_owner_free unexpected
+                            0
+                        GuiFontWebRegisteredFreshRunOwnerResult::NotRun owner:
+                            let result_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_result field::get_ref &owner "next_owner":
+                                GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+                                    match command:
+                                        GuiRgba8888CompositorTileRlePresentCommand::EndFrame _: true
+                                        _: false
+                                _: false
+                            match gui_font_web_registered_begin_frame_retry_yield_next_command_owner_free owner:
+                                Result::Err _: sub 0 1
+                                Result::Ok _: if result_ok then 3 else 1
+
+fn gui_font_web_registered_fresh_run_owner_test_completed %impure fn unit i32 \_unit:
+    match fixture::gui_font_web_registered_run_executor_test_fresh_run_owner _unit:
+        Result::Err _: 0
+        Result::Ok run_owner:
+            let parts %GuiFontWebRegisteredRunNextCommandPhaseRunOwnerParts gui_font_web_registered_run_next_command_phase_run_owner_into_parts run_owner
+            let cursor1 %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner field::get parts "step"
+            match gui_rgba8888_compositor_tile_rle_present_command_cursor_step cursor1:
+                Result::Err error:
+                    gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_free error
+                    0
+                Result::Ok end_step:
+                    let cursor2 %GuiRgba8888CompositorTileRlePresentCommandCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_step_finish_owner end_step
+                    match gui_rgba8888_compositor_tile_rle_present_command_cursor_step cursor2:
+                        Result::Err error:
+                            gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_free error
+                            0
+                        Result::Ok completed_step:
+                            let lower %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwner field::get parts "state" completed_step
+                            let outer %GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner field::get parts "previous_category" field::get parts "previous_diagnostic" field::get parts "spent_budget" lower
+                            match gui_font_web_registered_fresh_run_owner_produce outer:
+                                GuiFontWebRegisteredFreshRunOwnerResult::Run unexpected:
+                                    gui_font_web_registered_run_next_command_phase_run_owner_free unexpected
+                                    0
+                                GuiFontWebRegisteredFreshRunOwnerResult::NotRun owner:
+                                    let result_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_result field::get_ref &owner "next_owner":
+                                        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed: true
+                                        _: false
+                                    match gui_font_web_registered_begin_frame_retry_yield_next_command_owner_free owner:
+                                        Result::Err _: sub 0 1
+                                        Result::Ok _: if result_ok then 5 else 1
+
+#test
+pub fn gui_font_web_registered_fresh_run_owner_test_contract %impure fn unit i32 \_unit:
+    add (gui_font_web_registered_fresh_run_owner_test_end_frame _unit) (gui_font_web_registered_fresh_run_owner_test_completed _unit)

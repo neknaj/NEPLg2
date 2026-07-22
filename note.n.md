@@ -1,3 +1,9 @@
+# 2026-07-22 GUI font F5oaw fresh NotRun cleanup
+
+- F5oat actual fresh Run phase ownerのcontinuation cursorをテストadapter内で1回/2回進め、同じstate/provenanceを持つEndFrame/Completed next-command ownerを作り、fresh producerがNotRunとして元ownerを返すことを検証した。
+- EndFrame/Completedの返却ownerはconsuming cleanupまで成功し、runtimeはevidence 8、Web Begin/Run/End 2/0/0で通過した。subagent reviewはBlocker/Major/Minorすべて0だった。
+- F5oawはfixedだが全体目標は未完了。次はbudgeted driverをqueue/timer actual Web loopへ接続し、その後fresh entry、native provider、layout/raster/presentationへ進む。`plan.md`は変更していない。
+
 # 2026-07-22 GUI font F5oav budget exhaustion actual paths
 
 - two-Run fresh authorityで、total 1 / slice 1の2回目RunをTotalExhaustedとしてhost実行前に停止し、別authorityのtotal 2 / slice 1では2回目RunをSuspendedとして停止して保持済みslice limitだけでresumeするactual試験を追加した。

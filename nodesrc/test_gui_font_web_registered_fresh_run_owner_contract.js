@@ -13,4 +13,8 @@ assert.match(source, /PhaseRunOwner field::get parts "previous_category" field::
 assert.match(source, /_: GuiFontWebRegisteredFreshRunOwnerResult::NotRun owner/g);
 assert.doesNotMatch(source, /run_executor|execution_success/);
 
+const testSource = fs.readFileSync(path.resolve(__dirname, "..", "stdlib", "platforms", "gui", "web", "font_registered_fresh_run_owner_test.nepl"), "utf8");
+assert.match(testSource, /FreshRunOwnerResult::NotRun owner:[\s\S]*next_command_owner_free owner/);
+assert.match(testSource, /PresentCommand::EndFrame _:[\s\S]*PresentCommandCursorStepResult::Completed/);
+
 process.stdout.write(`${JSON.stringify({ ok: true, contract: "fresh-run-owner" })}\n`);
