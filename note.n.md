@@ -1,3 +1,9 @@
+# 2026-07-22 GUI font F5oav budget exhaustion actual paths
+
+- two-Run fresh authorityで、total 1 / slice 1の2回目RunをTotalExhaustedとしてhost実行前に停止し、別authorityのtotal 2 / slice 1では2回目RunをSuspendedとして停止して保持済みslice limitだけでresumeするactual試験を追加した。
+- 経路別runtimeはTotalExhausted evidence 5・Web Begin/Run/End 1/1/0、Suspended-resume evidence 11・1/2/0で通過した。subagent reviewはBlocker/Majorなし。合算counterが経路間のcall配分を隠すMinorを別runSingleへ分離して修正した。
+- F5oavはfixedだが全体目標は未完了。次はfresh producerのNotRun/Completed executable cleanupを検証し、その後queue/timer loop、fresh entry、native provider、layout/raster/presentationへ進む。`plan.md`は変更していない。
+
 # 2026-07-22 GUI font F5oau budgeted Run Ready reentry
 
 - two-Run cursorの最初の未実行Runをfresh ownerとしてF5oas driverへ渡し、1回目のReadyが保持するexact Run ownerと残budgetを再発行せず2回目へ再投入するactual fixtureを追加した。

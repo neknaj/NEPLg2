@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-22T02:50:43.494Z",
+  "generated_at": "2026-07-22T03:20:07.600Z",
   "counts": {
-    "total": 1458,
+    "total": 1459,
     "open": 60,
-    "resolved": 1398,
+    "resolved": 1399,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 44,
+        "total": 45,
         "open": 0,
-        "resolved": 44
+        "resolved": 45
       },
       "nodesrc": {
         "total": 16,
@@ -12408,6 +12408,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260722T160000000Z-F5OAU-WEB-BUDGETED-RUN-READY-REENTRY-3C91A7E2.md"
+    },
+    {
+      "id": "ISS-20260722T170000000Z-F5OAV-WEB-BUDGET-EXHAUSTION-ACTUAL-6D2B14F8",
+      "title": "F5oav Web budget exhaustion actual paths",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_budgeted_run_driver_test.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T170000000Z-F5OAV-WEB-BUDGET-EXHAUSTION-ACTUAL-6D2B14F8.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

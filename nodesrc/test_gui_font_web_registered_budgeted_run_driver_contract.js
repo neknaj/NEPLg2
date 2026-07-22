@@ -17,6 +17,8 @@ assert.match(source, /RunPhaseHandoffResult::Yield continuation: gui_font_web_re
 assert.match(source, /RunNextCommandPhaseOwner::Run owner: GuiFontWebRegisteredBudgetedRunDriverOutcome::Ready/);
 assert.match(testSource, /budget_start 2 2/);
 assert.match(testSource, /BudgetedRunDriverOutcome::Ready ready:[\s\S]*field::get ready "run_owner"[\s\S]*field::get ready "budget"[\s\S]*budgeted_run_driver_execute/);
+assert.match(testSource, /budget_start 1 1[\s\S]*BudgetedRunDriverOutcome::TotalExhausted/);
+assert.match(testSource, /budget_start 2 1[\s\S]*BudgetedRunDriverOutcome::Suspended suspended:[\s\S]*budget_resume_slice field::get suspended "budget"/);
 assert.doesNotMatch(source, /RunNextCommandPhaseOwner::Run owner:\s*gui_font_web_registered_budgeted_run_driver_execute/);
 assert.match(source, /budgeted_run_driver_outcome_free[\s\S]*Outcome::Ready[\s\S]*Outcome::Suspended[\s\S]*Outcome::ExecutionFailed[\s\S]*Outcome::NextCommandFailed/);
 
