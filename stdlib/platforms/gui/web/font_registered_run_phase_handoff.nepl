@@ -1,0 +1,30 @@
+//: # Web registered Run phase handoff
+//: F5oal typed Run authorityをactual Web実行後のF5oai phaseへ接続します。
+
+#indent 4
+
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_run_executor" as *
+#import "platforms/gui/web/font_registered_run_next_command" as *
+#import "platforms/gui/web/font_registered_run_phase_executor" as *
+#import "platforms/gui/web/font_registered_run_success_phase" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+pub enum GuiFontWebRegisteredRunPhaseHandoffResult:
+    Continue %GuiFontWebRegisteredRunSuccessPhaseContinueOwner
+    Yield %GuiFontWebRegisteredRunSuccessPhaseYieldOwner
+    Completed %GuiFontWebRegisteredRunSuccessPhaseCompletedOwner
+    Failed %GuiFontWebRegisteredRunExecutionError
+
+//: exact Run ownerを一度actual実行し、成功authorityを全域phase分類へ一度だけ渡す
+pub fn gui_font_web_registered_run_phase_handoff_execute %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredRunNextCommandPhaseRunOwner GuiFontWebRegisteredRunPhaseHandoffResult \host\policy\support\owner:
+    match gui_font_web_registered_run_next_command_phase_run_execute host policy support owner:
+        Result::Err error: GuiFontWebRegisteredRunPhaseHandoffResult::Failed error
+        Result::Ok success:
+            let phase %GuiFontWebRegisteredRunSuccessPhaseOwner gui_font_web_registered_run_execution_success_into_phase success
+            match phase:
+                GuiFontWebRegisteredRunSuccessPhaseOwner::Continue continuation: GuiFontWebRegisteredRunPhaseHandoffResult::Continue continuation
+                GuiFontWebRegisteredRunSuccessPhaseOwner::Yield continuation: GuiFontWebRegisteredRunPhaseHandoffResult::Yield continuation
+                GuiFontWebRegisteredRunSuccessPhaseOwner::Completed completed: GuiFontWebRegisteredRunPhaseHandoffResult::Completed completed

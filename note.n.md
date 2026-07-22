@@ -1,3 +1,9 @@
+# 2026-07-22 GUI font F5oap Web Run phase handoff executor
+
+- F5oal typed Run ownerを既存actual Web phase executorへ一度渡し、成功authorityを既存F5oai classifierへ一度渡すproduction handoffを追加した。失敗は既存owner-bearing Run execution errorを保持する。
+- 当初の`Result<phase owner enum, error>`はactual Resource checkerで各phase payloadのmaybe-leakとなり、typed localを挟んでも解消しなかった。Continue / Yield / Completed concrete ownerとFailed errorを同じtop-level enumへ直接移す設計に変更し、nested exclusive ownerを根本から除去した。
+- production two-Run runtimeはpayload offset 15 / count 1、evidence 31、Begin 1 / Run 2 / End 0、exit 0で通過した。subagent最終reviewはBlocker/Major/Minor 0/0/0。F5oapはfixedだが、任意長bounded command driver、queue/timer actual Web loop、fresh entry、native provider、layout/raster/presentationとGUI/font全体は未完成である。`plan.md`は変更していない。
+
 # 2026-07-22 GUI font F5oaj bounded Web Run phase driver
 
 - F5oai phase ownerからContinueを直接、Yieldを一度suspend/resumeして既存EndFrame/terminal chainへ進めるbounded one-command production driverを追加した。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-22T00:05:50.648Z",
+  "generated_at": "2026-07-22T00:34:37.122Z",
   "counts": {
-    "total": 1452,
+    "total": 1453,
     "open": 60,
-    "resolved": 1392,
+    "resolved": 1393,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 38,
+        "total": 39,
         "open": 0,
-        "resolved": 38
+        "resolved": 39
       },
       "nodesrc": {
         "total": 16,
@@ -12318,6 +12318,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260722T100000000Z-F5OAN-TWO-RUN-PRODUCTION-FIXTURE-92A6C351.md"
+    },
+    {
+      "id": "ISS-20260722T110000000Z-F5OAP-WEB-RUN-PHASE-HANDOFF-EXECUTOR-6C4A298E",
+      "title": "F5oap Web Run phase handoff executor",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_run_phase_handoff.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T110000000Z-F5OAP-WEB-RUN-PHASE-HANDOFF-EXECUTOR-6C4A298E.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
