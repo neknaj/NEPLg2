@@ -12,6 +12,7 @@
 #import "platforms/gui/web/font_registered_command_driver_budget" as *
 #import "platforms/gui/web/font_registered_run_executor_test" as fixture with tests
 #import "platforms/gui/web/font_registered_run_next_command" as *
+#import "platforms/gui/web/font_registered_two_run_supplied_owner_test" as two_run_fixture with tests
 #import "std/gui/compositor_tile_present_host_executor" as *
 #import "std/gui/compositor_tile_present_schedule" as *
 #import "std/gui/host" as *
@@ -63,6 +64,58 @@ fn gui_font_web_registered_budgeted_run_driver_test_actual %impure fn unit i32 \
                                     gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed unexpected
                                     17
 
+fn gui_font_web_registered_budgeted_run_driver_test_unexpected %fn GuiFontWebRegisteredBudgetedRunDriverOutcome fn i32 i32 \outcome\evidence:
+    gui_font_web_registered_budgeted_run_driver_outcome_free outcome
+    evidence
+
+fn gui_font_web_registered_budgeted_run_driver_test_ready_reentry_actual %impure fn unit i32 \_unit:
+    match two_run_fixture::gui_font_web_registered_two_run_supplied_owner_test_fresh_run_owner _unit:
+        Result::Err _: 0
+        Result::Ok run_owner:
+            match gui_font_web_registered_command_driver_budget_start 2 2:
+                Result::Err _:
+                    gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                    0
+                Result::Ok budget:
+                    match gui_rgba8888_compositor_tile_rle_present_schedule_policy 2 32:
+                        Result::Err _:
+                            gui_font_web_registered_command_driver_budget_owner_free budget
+                            gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                            0
+                        Result::Ok policy:
+                            let host %GuiHost gui_host_new (gui_capabilities_offscreen_pixel 64 64) none
+                            match gui_font_web_registered_budgeted_run_driver_execute &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen run_owner budget:
+                                GuiFontWebRegisteredBudgetedRunDriverOutcome::Ready ready:
+                                    let first_budget_ok %bool and eq gui_font_web_registered_command_driver_budget_total_remaining field::get_ref &ready "budget" 1 eq gui_font_web_registered_command_driver_budget_slice_remaining field::get_ref &ready "budget" 1
+                                    let next_run %GuiFontWebRegisteredRunNextCommandPhaseRunOwner field::get ready "run_owner"
+                                    let next_budget %GuiFontWebRegisteredCommandDriverBudgetOwner field::get ready "budget"
+                                    match gui_font_web_registered_budgeted_run_driver_execute &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen next_run next_budget:
+                                        GuiFontWebRegisteredBudgetedRunDriverOutcome::EndFrame terminal:
+                                            let final_budget_ok %bool and eq gui_font_web_registered_command_driver_budget_total_remaining field::get_ref &terminal "budget" 0 eq gui_font_web_registered_command_driver_budget_slice_remaining field::get_ref &terminal "budget" 0
+                                            match gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::EndFrame terminal:
+                                                Result::Err _: sub 0 1
+                                                Result::Ok _: if and first_budget_ok final_budget_ok then 7 else 1
+                                        GuiFontWebRegisteredBudgetedRunDriverOutcome::Ready unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::Ready unexpected 2
+                                        GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended unexpected 2
+                                        GuiFontWebRegisteredBudgetedRunDriverOutcome::TotalExhausted unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::TotalExhausted unexpected 2
+                                        GuiFontWebRegisteredBudgetedRunDriverOutcome::BeginFrame unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::BeginFrame unexpected 2
+                                        GuiFontWebRegisteredBudgetedRunDriverOutcome::CursorCompleted unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::CursorCompleted unexpected 2
+                                        GuiFontWebRegisteredBudgetedRunDriverOutcome::Completed unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::Completed unexpected 2
+                                        GuiFontWebRegisteredBudgetedRunDriverOutcome::ExecutionFailed unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::ExecutionFailed unexpected 2
+                                        GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed unexpected 2
+                                GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended unexpected 3
+                                GuiFontWebRegisteredBudgetedRunDriverOutcome::TotalExhausted unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::TotalExhausted unexpected 3
+                                GuiFontWebRegisteredBudgetedRunDriverOutcome::BeginFrame unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::BeginFrame unexpected 3
+                                GuiFontWebRegisteredBudgetedRunDriverOutcome::EndFrame unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::EndFrame unexpected 3
+                                GuiFontWebRegisteredBudgetedRunDriverOutcome::CursorCompleted unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::CursorCompleted unexpected 3
+                                GuiFontWebRegisteredBudgetedRunDriverOutcome::Completed unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::Completed unexpected 3
+                                GuiFontWebRegisteredBudgetedRunDriverOutcome::ExecutionFailed unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::ExecutionFailed unexpected 3
+                                GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed unexpected: gui_font_web_registered_budgeted_run_driver_test_unexpected GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed unexpected 3
+
 #test
 pub fn gui_font_web_registered_budgeted_run_driver_test_contract %impure fn unit i32 \_unit:
     gui_font_web_registered_budgeted_run_driver_test_actual _unit
+
+#test
+pub fn gui_font_web_registered_budgeted_run_driver_test_ready_reentry_contract %impure fn unit i32 \_unit:
+    gui_font_web_registered_budgeted_run_driver_test_ready_reentry_actual _unit

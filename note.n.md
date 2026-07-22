@@ -1,3 +1,9 @@
+# 2026-07-22 GUI font F5oau budgeted Run Ready reentry
+
+- two-Run cursorの最初の未実行Runをfresh ownerとしてF5oas driverへ渡し、1回目のReadyが保持するexact Run ownerと残budgetを再発行せず2回目へ再投入するactual fixtureを追加した。
+- budgetは2/2から1/1、0/0へ単調減少し、runtimeはEndFrame evidence 7、Web Begin/Run/End 1/2/0で通過した。subagent reviewはBlocker/Majorなし。Minorのdescriptor evidenceを返すという不正確なコメントを実装に合わせて修正した。
+- F5oauはfixedだが全体目標は未完了。次はTotalExhausted、Suspended、NotRun/Completed cleanupをactual検証し、その後queue/timer loop、fresh entry、native provider、layout/raster/presentationへ進む。`plan.md`は変更していない。
+
 # 2026-07-22 GUI font F5oat fresh pre-Run owner producer
 
 - retry Yield再開後の未実行next-command authorityをborrowed resultで確認し、Runの場合だけprovenance、state、stepをF5oas driver用Run ownerへ線形移送するproducerを追加した。Run以外は元ownerを保持し、実行済みsuccessからのreplay再構築をactual runtimeから除去した。

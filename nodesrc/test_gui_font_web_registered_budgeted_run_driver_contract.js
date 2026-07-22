@@ -7,6 +7,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const source = fs.readFileSync(path.join(root, "stdlib/platforms/gui/web/font_registered_budgeted_run_driver.nepl"), "utf8");
+const testSource = fs.readFileSync(path.join(root, "stdlib/platforms/gui/web/font_registered_budgeted_run_driver_test.nepl"), "utf8");
 
 assert.match(source, /pub struct GuiFontWebRegisteredBudgetedRunDriverReadyOwner:\s*\n\s*run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner\s*\n\s*budget %GuiFontWebRegisteredCommandDriverBudgetOwner/);
 assert.match(source, /pub struct GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner:\s*\n\s*run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner\s*\n\s*budget %GuiFontWebRegisteredCommandDriverSliceExhaustedOwner/);
@@ -14,6 +15,8 @@ assert.match(source, /budgeted_run_driver_execute[\s\S]*budget_take budget[\s\S]
 assert.match(source, /RunPhaseHandoffResult::Continue continuation: gui_font_web_registered_budgeted_run_driver_continue host policy support continuation next_budget/);
 assert.match(source, /RunPhaseHandoffResult::Yield continuation: gui_font_web_registered_budgeted_run_driver_yield host policy support continuation next_budget/);
 assert.match(source, /RunNextCommandPhaseOwner::Run owner: GuiFontWebRegisteredBudgetedRunDriverOutcome::Ready/);
+assert.match(testSource, /budget_start 2 2/);
+assert.match(testSource, /BudgetedRunDriverOutcome::Ready ready:[\s\S]*field::get ready "run_owner"[\s\S]*field::get ready "budget"[\s\S]*budgeted_run_driver_execute/);
 assert.doesNotMatch(source, /RunNextCommandPhaseOwner::Run owner:\s*gui_font_web_registered_budgeted_run_driver_execute/);
 assert.match(source, /budgeted_run_driver_outcome_free[\s\S]*Outcome::Ready[\s\S]*Outcome::Suspended[\s\S]*Outcome::ExecutionFailed[\s\S]*Outcome::NextCommandFailed/);
 

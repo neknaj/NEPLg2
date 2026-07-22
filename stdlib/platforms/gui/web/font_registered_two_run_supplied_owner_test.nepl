@@ -24,6 +24,7 @@
 #import "platforms/gui/web/font_registered_begin_frame_retry_executor" as *
 #import "platforms/gui/web/font_registered_begin_frame_retry_success_phase" as *
 #import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler" as *
+#import "platforms/gui/web/font_registered_fresh_run_owner" as *
 #import "platforms/gui/web/font_registered_run_executor" as *
 #import "platforms/gui/web/font_registered_run_next_command" as *
 #import "platforms/gui/web/font_registered_run_phase_handoff" as *
@@ -138,6 +139,48 @@ fn gui_font_web_registered_two_run_supplied_owner_test_after_run1 %impure fn &Gu
         GuiFontWebRegisteredRunSuccessPhaseOwner::Completed owner:
             gui_font_web_registered_run_success_phase_completed_owner_free owner
             0
+
+//: two-run cursorの最初の未実行Runを同じfixtureから返します。
+pub fn gui_font_web_registered_two_run_supplied_owner_test_fresh_run_owner %impure fn unit Result GuiFontWebRegisteredRunNextCommandPhaseRunOwner i32 \_unit:
+    match two_run_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_two_run_fixture_test_completed 473:
+        Option::None: Result::Err sub 0 1
+        Option::Some completed:
+            match begin_fixture::gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_virtual_drain_test_owner_from_completed completed:
+                Result::Err evidence: Result::Err evidence
+                Result::Ok virtual_owner:
+                    match gui_font_web_registered_two_run_supplied_owner_test_retry_ready virtual_owner:
+                        Result::Err evidence: Result::Err evidence
+                        Result::Ok ready:
+                            let retry_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryReadyOwner field::get ready "owner"
+                            let _descriptor_evidence %i32 field::get ready "descriptor_evidence"
+                            match gui_font_web_registered_begin_frame_retry_execute retry_owner:
+                                Result::Err failure:
+                                    gui_font_web_registered_begin_frame_retry_execution_failure_free failure
+                                    Result::Err sub 0 11
+                                Result::Ok success:
+                                    match gui_font_web_registered_begin_frame_retry_execution_success_into_phase success:
+                                        GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Continue owner:
+                                            gui_font_web_registered_begin_frame_retry_success_continue_owner_free owner
+                                            Result::Err 0
+                                        GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Completed owner:
+                                            gui_font_web_registered_begin_frame_retry_success_completed_owner_free owner
+                                            Result::Err 0
+                                        GuiFontWebRegisteredBeginFrameRetrySuccessPhaseOwner::Yield owner:
+                                            match gui_font_web_registered_begin_frame_retry_yield_scheduler_decide owner GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::ResumeSlice:
+                                                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::AbortReady aborted:
+                                                    gui_font_web_registered_begin_frame_retry_yield_abort_ready_owner_free aborted
+                                                    Result::Err 0
+                                                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::ResumePending pending:
+                                                    match gui_font_web_registered_begin_frame_retry_yield_resume_and_step_next_command pending:
+                                                        Result::Err error:
+                                                            gui_font_web_registered_begin_frame_retry_yield_next_command_error_free error
+                                                            Result::Err 0
+                                                        Result::Ok next:
+                                                            match gui_font_web_registered_fresh_run_owner_produce next:
+                                                                GuiFontWebRegisteredFreshRunOwnerResult::Run owner: Result::Ok owner
+                                                                GuiFontWebRegisteredFreshRunOwnerResult::NotRun unexpected:
+                                                                    gui_font_web_registered_begin_frame_retry_yield_next_command_owner_free unexpected
+                                                                    Result::Err 0
 
 //: supplied owner の descriptor を Web import が受け、exact two-run authority を Yield に保持することを検証する
 #test
