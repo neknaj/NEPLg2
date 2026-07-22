@@ -169292,3 +169292,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 
 - actual Run1 successからproduction next-command classifierで得たF5oal Run ownerをborrowし、exact Run2 payloadがpixel offset 15 / count 1であることを既存row tile RLE accessorで固定した。command、cursor、stateを再構築せず、観測後はownerを既存free APIで閉じる。
 - actual second Runとruntime evidenceは未完了のためF5oanをopenに維持する。既知の長時間runtime probeをこのsource-level checkpointの成功とは扱わない。`plan.md`は変更していない。
+
+## 2026-07-22 F5oan actual second Run checkpoint
+
+- F5oal typed Run ownerを消費する独立Web phase executorを追加し、provenance、spent budget、dispatch state、exact Run stepをlower Run recordへ一度だけ移した。Run1とRun2は同じproduction record executorを使い、schedule、same-record host request、session、Web executorを順に実行する。
+- 初回reviewで検出したrun executorとnext-command/success-phase間の循環依存は、両者をimportする独立phase executorへadapterを分離して解消した。command、cursor、state、completionは再構築していない。
+- actual WASI runtimeはevidence 31、Begin 1 / Run 2 / End 0、exit 0で完走した。F5oanはfixedとするが、Run handoff executor、任意長command driver、queue/timer actual Web loop、native executor/provider、layout/rasterization/presentationとGUI/font全体は未完成である。`plan.md`は変更していない。

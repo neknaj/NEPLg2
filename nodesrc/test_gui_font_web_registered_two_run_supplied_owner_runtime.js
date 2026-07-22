@@ -31,9 +31,9 @@ fn main %impure fn void i32 \\void:
         },
     });
     assert.equal(result.ok, true, result.error);
-    assert.equal(result.return_value, 15);
-    assert.deepEqual(calls, { begin: 1, run: 1, end: 0 });
-    return { ok: true, evidence: 15, calls };
+    assert.equal(result.return_value, 31);
+    assert.deepEqual(calls, { begin: 1, run: 2, end: 0 });
+    return { ok: true, evidence: 31, calls };
 }
 
 if (require.main === module) {

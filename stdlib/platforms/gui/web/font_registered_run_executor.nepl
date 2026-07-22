@@ -99,14 +99,7 @@ pub enum GuiFontWebRegisteredRunExecutionErrorRecovery:
     UnexpectedSessionCompleted %GuiFontWebRegisteredRunExecutionUnexpectedCompleted
     CompletionFailed %GuiFontWebRegisteredRunExecutionCompleteError
 
-//: Run authorityをschedule、same-record request、F5nh session、Web executorへ順に一度ずつ渡す
-pub fn gui_font_web_registered_retry_yield_next_command_execute_run %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner Result GuiFontWebRegisteredRunExecutionSuccess GuiFontWebRegisteredRunExecutionError \host\policy\support\owner:
-    let parts %GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwnerParts gui_font_web_registered_begin_frame_retry_yield_next_command_owner_into_parts owner
-    let previous_category %Option GuiError field::get parts "previous_category"
-    let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
-    let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
-    let next_owner field::get parts "next_owner"
-    let record_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_into_run_record next_owner
+pub fn gui_font_web_registered_run_record_execute %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn Option GuiError impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner Result GuiFontWebRegisteredRunExecutionSuccess GuiFontWebRegisteredRunExecutionError \host\policy\support\previous_category\previous_diagnostic\spent_budget\record_owner:
     match gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_run_record_owner_into_schedule policy record_owner:
         Result::Err lower:
             Result::Err GuiFontWebRegisteredRunExecutionError::ScheduleFailed GuiFontWebRegisteredRunExecutionScheduleError previous_category previous_diagnostic spent_budget lower
@@ -129,6 +122,16 @@ pub fn gui_font_web_registered_retry_yield_next_command_execute_run %impure fn &
                                     Result::Err GuiFontWebRegisteredRunExecutionError::CompletionFailed GuiFontWebRegisteredRunExecutionCompleteError previous_category previous_diagnostic spent_budget step lower
                                 Result::Ok completion:
                                     Result::Ok GuiFontWebRegisteredRunExecutionSuccess previous_category previous_diagnostic spent_budget step completion
+
+//: Run authorityをschedule、same-record request、F5nh session、Web executorへ順に一度ずつ渡す
+pub fn gui_font_web_registered_retry_yield_next_command_execute_run %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner Result GuiFontWebRegisteredRunExecutionSuccess GuiFontWebRegisteredRunExecutionError \host\policy\support\owner:
+    let parts %GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwnerParts gui_font_web_registered_begin_frame_retry_yield_next_command_owner_into_parts owner
+    let previous_category %Option GuiError field::get parts "previous_category"
+    let previous_diagnostic %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionFailureRecoveryDiagnostic field::get parts "previous_diagnostic"
+    let spent_budget %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryBudget field::get parts "spent_budget"
+    let next_owner field::get parts "next_owner"
+    let record_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_into_run_record next_owner
+    gui_font_web_registered_run_record_execute host policy support previous_category previous_diagnostic spent_budget record_owner
 
 pub fn gui_font_web_registered_run_execution_success_completion %fn &GuiFontWebRegisteredRunExecutionSuccess GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion \owner:
     gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion field::get_ref owner "completion"

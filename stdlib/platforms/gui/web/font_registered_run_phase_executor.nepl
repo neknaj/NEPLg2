@@ -1,0 +1,25 @@
+//: # Web registered Run phase executor
+//: F5oal typed Run authorityを既存Run executorへowner-safeに接続します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_run_record" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_retry_policy" as *
+#import "core/field" as field
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_run_executor" as *
+#import "platforms/gui/web/font_registered_run_next_command" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+//: F5oal Run ownerのprovenance、state、exact stepを一度だけlower Run recordへ移す
+pub fn gui_font_web_registered_run_next_command_phase_run_execute %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredRunNextCommandPhaseRunOwner Result GuiFontWebRegisteredRunExecutionSuccess GuiFontWebRegisteredRunExecutionError \host\policy\support\owner:
+    let parts %GuiFontWebRegisteredRunNextCommandPhaseRunOwnerParts gui_font_web_registered_run_next_command_phase_run_owner_into_parts owner
+    let previous_category field::get parts "previous_category"
+    let previous_diagnostic field::get parts "previous_diagnostic"
+    let spent_budget field::get parts "spent_budget"
+    let state field::get parts "state"
+    let step field::get parts "step"
+    let record_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedRunRecordOwner gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_command_step_into_run_record state step
+    gui_font_web_registered_run_record_execute host policy support previous_category previous_diagnostic spent_budget record_owner

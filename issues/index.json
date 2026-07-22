@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-21T23:45:29.157Z",
+  "generated_at": "2026-07-22T00:05:50.648Z",
   "counts": {
     "total": 1452,
-    "open": 61,
-    "resolved": 1391,
+    "open": 60,
+    "resolved": 1392,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -15,11 +15,6 @@
         "total": 665,
         "open": 28,
         "resolved": 637
-      },
-      "gui-font": {
-        "total": 38,
-        "open": 1,
-        "resolved": 37
       },
       "RESOURCE": {
         "total": 5,
@@ -100,6 +95,11 @@
         "total": 39,
         "open": 0,
         "resolved": 39
+      },
+      "gui-font": {
+        "total": 38,
+        "open": 0,
+        "resolved": 38
       },
       "nodesrc": {
         "total": 16,
@@ -528,21 +528,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
-    },
-    {
-      "id": "ISS-20260722T100000000Z-F5OAN-TWO-RUN-PRODUCTION-FIXTURE-92A6C351",
-      "title": "F5oan production two-Run fixture",
-      "area": "gui-font",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-07-22",
-      "updated": "2026-07-22",
-      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_two_run_fixture_test.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260722T100000000Z-F5OAN-TWO-RUN-PRODUCTION-FIXTURE-92A6C351.md"
     },
     {
       "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
@@ -12318,6 +12303,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260722T090000000Z-F5OAM-WEB-RUN-PHASE-HANDOFF-8195F247.md"
+    },
+    {
+      "id": "ISS-20260722T100000000Z-F5OAN-TWO-RUN-PRODUCTION-FIXTURE-92A6C351",
+      "title": "F5oan production two-Run fixture",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_two_run_fixture_test.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T100000000Z-F5OAN-TWO-RUN-PRODUCTION-FIXTURE-92A6C351.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

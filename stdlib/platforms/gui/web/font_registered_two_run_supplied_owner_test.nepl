@@ -26,6 +26,7 @@
 #import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler" as *
 #import "platforms/gui/web/font_registered_run_executor" as *
 #import "platforms/gui/web/font_registered_run_next_command" as *
+#import "platforms/gui/web/font_registered_run_phase_executor" as *
 #import "platforms/gui/web/font_registered_run_success_phase" as *
 #import "std/gui/compositor_tile_present" as *
 #import "std/gui/compositor_tile_present_host_execution" as *
@@ -84,7 +85,7 @@ fn gui_font_web_registered_two_run_supplied_owner_test_retry_ready %impure fn Gu
                                                         GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameHostActionRetryPolicyDecisionOwner::RetryReady ready:
                                                             Result::Ok GuiFontWebRegisteredTwoRunSuppliedOwnerTestReady ready descriptor_evidence
 
-fn gui_font_web_registered_two_run_supplied_owner_test_run2_evidence %fn GuiFontWebRegisteredRunNextCommandOwner i32 \next:
+fn gui_font_web_registered_two_run_supplied_owner_test_run2_evidence %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiFontWebRegisteredRunNextCommandOwner i32 \host\policy\next:
     match gui_font_web_registered_run_next_command_owner_into_phase next:
         GuiFontWebRegisteredRunNextCommandPhaseOwner::Run owner:
             let command_ok %bool match gui_font_web_registered_run_next_command_phase_run_owner_result &owner:
@@ -94,9 +95,14 @@ fn gui_font_web_registered_two_run_supplied_owner_test_run2_evidence %fn GuiFont
                             and eq gui_rgba8888_row_tile_rle_run_pixel_offset &run 15 eq gui_rgba8888_row_tile_rle_run_pixel_count &run 1
                         _: false
                 _: false
-            match gui_font_web_registered_run_next_command_phase_run_owner_free owner:
-                Result::Err _: sub 0 1
-                Result::Ok _: if command_ok then 8 else 0
+            match gui_font_web_registered_run_next_command_phase_run_execute host policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen owner:
+                Result::Err error:
+                    gui_font_web_registered_run_execution_error_free error
+                    0
+                Result::Ok success:
+                    match gui_font_web_registered_run_execution_success_free success:
+                        Result::Err _: sub 0 1
+                        Result::Ok _: add 16 if command_ok then 8 else 0
         GuiFontWebRegisteredRunNextCommandPhaseOwner::BeginFrame owner:
             gui_font_web_registered_run_next_command_phase_begin_frame_owner_free owner
             0
@@ -107,20 +113,20 @@ fn gui_font_web_registered_two_run_supplied_owner_test_run2_evidence %fn GuiFont
             gui_font_web_registered_run_next_command_phase_completed_owner_free owner
             0
 
-fn gui_font_web_registered_two_run_supplied_owner_test_after_run1 %fn GuiFontWebRegisteredRunExecutionSuccess i32 \success:
+fn gui_font_web_registered_two_run_supplied_owner_test_after_run1 %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiFontWebRegisteredRunExecutionSuccess i32 \host\policy\success:
     match gui_font_web_registered_run_execution_success_into_phase success:
         GuiFontWebRegisteredRunSuccessPhaseOwner::Continue owner:
             match gui_font_web_registered_run_success_continue_step_next_command owner:
                 Result::Err error:
                     gui_font_web_registered_run_next_command_error_free error
                     0
-                Result::Ok next: gui_font_web_registered_two_run_supplied_owner_test_run2_evidence next
+                Result::Ok next: gui_font_web_registered_two_run_supplied_owner_test_run2_evidence host policy next
         GuiFontWebRegisteredRunSuccessPhaseOwner::Yield owner:
             match gui_font_web_registered_run_success_yield_resume_and_step_next_command owner:
                 Result::Err error:
                     gui_font_web_registered_run_next_command_error_free error
                     0
-                Result::Ok next: gui_font_web_registered_two_run_supplied_owner_test_run2_evidence next
+                Result::Ok next: gui_font_web_registered_two_run_supplied_owner_test_run2_evidence host policy next
         GuiFontWebRegisteredRunSuccessPhaseOwner::Completed owner:
             gui_font_web_registered_run_success_phase_completed_owner_free owner
             0
@@ -173,5 +179,5 @@ pub fn gui_font_web_registered_two_run_supplied_owner_test_contract %impure fn u
                                                                             gui_font_web_registered_run_execution_error_free error
                                                                             0
                                                                         Result::Ok run_success:
-                                                                            let run2_evidence %i32 gui_font_web_registered_two_run_supplied_owner_test_after_run1 run_success
+                                                                            let run2_evidence %i32 gui_font_web_registered_two_run_supplied_owner_test_after_run1 &host &policy run_success
                                                                             add run2_evidence if eq descriptor_evidence 1 then 7 else 6
