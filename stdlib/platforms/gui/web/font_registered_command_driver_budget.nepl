@@ -65,3 +65,16 @@ pub fn gui_font_web_registered_command_driver_budget_total_remaining %fn &GuiFon
 pub fn gui_font_web_registered_command_driver_budget_slice_remaining %fn &GuiFontWebRegisteredCommandDriverBudgetOwner i32 \owner:
     let proof %&GuiFontWebRegisteredCommandDriverBudgetActiveProof field::get_ref owner "proof"
     *field::get_ref proof "slice_remaining"
+
+pub fn gui_font_web_registered_command_driver_budget_owner_free %fn GuiFontWebRegisteredCommandDriverBudgetOwner unit \owner:
+    let proof %GuiFontWebRegisteredCommandDriverBudgetActiveProof field::get owner "proof"
+    let _total_remaining %i32 field::get proof "total_remaining"
+    let _slice_remaining %i32 field::get proof "slice_remaining"
+    let _slice_limit %i32 field::get proof "slice_limit"
+    unit
+
+pub fn gui_font_web_registered_command_driver_slice_exhausted_owner_free %fn GuiFontWebRegisteredCommandDriverSliceExhaustedOwner unit \owner:
+    let proof %GuiFontWebRegisteredCommandDriverBudgetSliceExhaustedProof field::get owner "proof"
+    let _total_remaining %i32 field::get proof "total_remaining"
+    let _slice_limit %i32 field::get proof "slice_limit"
+    unit

@@ -1,3 +1,9 @@
+# 2026-07-22 GUI font F5oas budgeted Run driver state machine
+
+- F5oar budgetをactual Run前に一度消費し、F5oap handoff、Continue/Yield next-command、Ready/Suspended/TotalExhausted/terminal/failure ownerへ接続するresumable step driverを追加した。直接再帰はcompiler固定点コストを増やすため採用していない。
+- subagent reviewのMajorに従いimport-only runtimeを廃止した。actual replay RunはExecutionFailedとなり、消費済みbudget 0/0をerrorとともに保持し、cleanup後のevidence 48、Web Begin/Run/End 1/1/0を確認した。再reviewはBlocker/Majorなし、Minorはsuccess/Ready、TotalExhausted、Suspendedのactual分岐未検証である。
+- F5oasはfixedだが全体目標は未完了。fresh pre-Run owner producer接続後にsuccess/Ready反復とexhaustion実行試験を追加し、queue/timer loop、fresh entry、native provider、layout/raster/presentationへ進む。`plan.md`は変更していない。
+
 # 2026-07-22 GUI font F5oar command budget cross-module carrier
 
 - F5oaqのbudget owner nominalをpublicにし、後続driver moduleがfield型として保持できるようにした。authoritative counterはmodule-private proofだけに置き、public wrapperにはraw counterを重複保持しない。

@@ -1,0 +1,118 @@
+//: # Web registered budgeted Run driver
+//: checked total/slice budgetの範囲でactual Run handoffを反復し、停止時のauthorityをtyped outcomeへ返します。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_command_driver_budget" as *
+#import "platforms/gui/web/font_registered_run_executor" as *
+#import "platforms/gui/web/font_registered_run_next_command" as *
+#import "platforms/gui/web/font_registered_run_phase_handoff" as *
+#import "platforms/gui/web/font_registered_run_success_phase" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+pub struct GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner:
+    run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner
+    budget %GuiFontWebRegisteredCommandDriverSliceExhaustedOwner
+
+pub struct GuiFontWebRegisteredBudgetedRunDriverReadyOwner:
+    run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner
+    budget %GuiFontWebRegisteredCommandDriverBudgetOwner
+
+pub struct GuiFontWebRegisteredBudgetedRunDriverTotalExhaustedOwner:
+    run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner
+
+pub struct GuiFontWebRegisteredBudgetedRunDriverBeginFrameOwner:
+    phase_owner %GuiFontWebRegisteredRunNextCommandPhaseBeginFrameOwner
+    budget %GuiFontWebRegisteredCommandDriverBudgetOwner
+
+pub struct GuiFontWebRegisteredBudgetedRunDriverEndFrameOwner:
+    phase_owner %GuiFontWebRegisteredRunNextCommandPhaseEndFrameOwner
+    budget %GuiFontWebRegisteredCommandDriverBudgetOwner
+
+pub struct GuiFontWebRegisteredBudgetedRunDriverCursorCompletedOwner:
+    phase_owner %GuiFontWebRegisteredRunNextCommandPhaseCompletedOwner
+    budget %GuiFontWebRegisteredCommandDriverBudgetOwner
+
+pub struct GuiFontWebRegisteredBudgetedRunDriverCompletedOwner:
+    phase_owner %GuiFontWebRegisteredRunSuccessPhaseCompletedOwner
+    budget %GuiFontWebRegisteredCommandDriverBudgetOwner
+
+pub struct GuiFontWebRegisteredBudgetedRunDriverExecutionFailedOwner:
+    lower %GuiFontWebRegisteredRunExecutionError
+    budget %GuiFontWebRegisteredCommandDriverBudgetOwner
+
+pub struct GuiFontWebRegisteredBudgetedRunDriverNextCommandFailedOwner:
+    lower %GuiFontWebRegisteredRunNextCommandError
+    budget %GuiFontWebRegisteredCommandDriverBudgetOwner
+
+pub enum GuiFontWebRegisteredBudgetedRunDriverOutcome:
+    Ready %GuiFontWebRegisteredBudgetedRunDriverReadyOwner
+    Suspended %GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner
+    TotalExhausted %GuiFontWebRegisteredBudgetedRunDriverTotalExhaustedOwner
+    BeginFrame %GuiFontWebRegisteredBudgetedRunDriverBeginFrameOwner
+    EndFrame %GuiFontWebRegisteredBudgetedRunDriverEndFrameOwner
+    CursorCompleted %GuiFontWebRegisteredBudgetedRunDriverCursorCompletedOwner
+    Completed %GuiFontWebRegisteredBudgetedRunDriverCompletedOwner
+    ExecutionFailed %GuiFontWebRegisteredBudgetedRunDriverExecutionFailedOwner
+    NextCommandFailed %GuiFontWebRegisteredBudgetedRunDriverNextCommandFailedOwner
+
+fn gui_font_web_registered_budgeted_run_driver_next %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredRunNextCommandOwner impure fn GuiFontWebRegisteredCommandDriverBudgetOwner GuiFontWebRegisteredBudgetedRunDriverOutcome \host\policy\support\next\budget:
+    match gui_font_web_registered_run_next_command_owner_into_phase next:
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::Run owner: GuiFontWebRegisteredBudgetedRunDriverOutcome::Ready GuiFontWebRegisteredBudgetedRunDriverReadyOwner owner budget
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::BeginFrame owner: GuiFontWebRegisteredBudgetedRunDriverOutcome::BeginFrame GuiFontWebRegisteredBudgetedRunDriverBeginFrameOwner owner budget
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::EndFrame owner: GuiFontWebRegisteredBudgetedRunDriverOutcome::EndFrame GuiFontWebRegisteredBudgetedRunDriverEndFrameOwner owner budget
+        GuiFontWebRegisteredRunNextCommandPhaseOwner::Completed owner: GuiFontWebRegisteredBudgetedRunDriverOutcome::CursorCompleted GuiFontWebRegisteredBudgetedRunDriverCursorCompletedOwner owner budget
+
+fn gui_font_web_registered_budgeted_run_driver_continue %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredRunSuccessPhaseContinueOwner impure fn GuiFontWebRegisteredCommandDriverBudgetOwner GuiFontWebRegisteredBudgetedRunDriverOutcome \host\policy\support\owner\budget:
+    match gui_font_web_registered_run_success_continue_step_next_command owner:
+        Result::Err error: GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed GuiFontWebRegisteredBudgetedRunDriverNextCommandFailedOwner error budget
+        Result::Ok next: gui_font_web_registered_budgeted_run_driver_next host policy support next budget
+
+fn gui_font_web_registered_budgeted_run_driver_yield %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredRunSuccessPhaseYieldOwner impure fn GuiFontWebRegisteredCommandDriverBudgetOwner GuiFontWebRegisteredBudgetedRunDriverOutcome \host\policy\support\owner\budget:
+    match gui_font_web_registered_run_success_yield_resume_and_step_next_command owner:
+        Result::Err error: GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed GuiFontWebRegisteredBudgetedRunDriverNextCommandFailedOwner error budget
+        Result::Ok next: gui_font_web_registered_budgeted_run_driver_next host policy support next budget
+
+//: budgetを先に一度消費し、許可されたRunだけをactual handoffへ渡します。
+pub fn gui_font_web_registered_budgeted_run_driver_execute %impure fn &GuiHost impure fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiFontWebRegisteredRunNextCommandPhaseRunOwner impure fn GuiFontWebRegisteredCommandDriverBudgetOwner GuiFontWebRegisteredBudgetedRunDriverOutcome \host\policy\support\owner\budget:
+    match gui_font_web_registered_command_driver_budget_take budget:
+        GuiFontWebRegisteredCommandDriverBudgetStep::Exhausted: GuiFontWebRegisteredBudgetedRunDriverOutcome::TotalExhausted GuiFontWebRegisteredBudgetedRunDriverTotalExhaustedOwner owner
+        GuiFontWebRegisteredCommandDriverBudgetStep::SliceExhausted exhausted: GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner owner exhausted
+        GuiFontWebRegisteredCommandDriverBudgetStep::Granted next_budget:
+            match gui_font_web_registered_run_phase_handoff_execute host policy support owner:
+                GuiFontWebRegisteredRunPhaseHandoffResult::Failed error: GuiFontWebRegisteredBudgetedRunDriverOutcome::ExecutionFailed GuiFontWebRegisteredBudgetedRunDriverExecutionFailedOwner error next_budget
+                GuiFontWebRegisteredRunPhaseHandoffResult::Continue continuation: gui_font_web_registered_budgeted_run_driver_continue host policy support continuation next_budget
+                GuiFontWebRegisteredRunPhaseHandoffResult::Yield continuation: gui_font_web_registered_budgeted_run_driver_yield host policy support continuation next_budget
+                GuiFontWebRegisteredRunPhaseHandoffResult::Completed completed: GuiFontWebRegisteredBudgetedRunDriverOutcome::Completed GuiFontWebRegisteredBudgetedRunDriverCompletedOwner completed next_budget
+
+pub fn gui_font_web_registered_budgeted_run_driver_outcome_free %fn GuiFontWebRegisteredBudgetedRunDriverOutcome Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \outcome:
+    match outcome:
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::Ready owner:
+            gui_font_web_registered_command_driver_budget_owner_free field::get owner "budget"
+            gui_font_web_registered_run_next_command_phase_run_owner_free field::get owner "run_owner"
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended owner:
+            gui_font_web_registered_command_driver_slice_exhausted_owner_free field::get owner "budget"
+            gui_font_web_registered_run_next_command_phase_run_owner_free field::get owner "run_owner"
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::TotalExhausted owner: gui_font_web_registered_run_next_command_phase_run_owner_free field::get owner "run_owner"
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::BeginFrame owner:
+            gui_font_web_registered_command_driver_budget_owner_free field::get owner "budget"
+            gui_font_web_registered_run_next_command_phase_begin_frame_owner_free field::get owner "phase_owner"
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::EndFrame owner:
+            gui_font_web_registered_command_driver_budget_owner_free field::get owner "budget"
+            gui_font_web_registered_run_next_command_phase_end_frame_owner_free field::get owner "phase_owner"
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::CursorCompleted owner:
+            gui_font_web_registered_command_driver_budget_owner_free field::get owner "budget"
+            gui_font_web_registered_run_next_command_phase_completed_owner_free field::get owner "phase_owner"
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::Completed owner:
+            gui_font_web_registered_command_driver_budget_owner_free field::get owner "budget"
+            gui_font_web_registered_run_success_phase_completed_owner_free field::get owner "phase_owner"
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::ExecutionFailed owner:
+            gui_font_web_registered_command_driver_budget_owner_free field::get owner "budget"
+            gui_font_web_registered_run_execution_error_free field::get owner "lower"
+        GuiFontWebRegisteredBudgetedRunDriverOutcome::NextCommandFailed owner:
+            gui_font_web_registered_command_driver_budget_owner_free field::get owner "budget"
+            gui_font_web_registered_run_next_command_error_free field::get owner "lower"
