@@ -1,0 +1,132 @@
+//: # Web registered budgeted Run queue/timer loop test
+//: actual Web timer requestとinput queue eventを使ってslice再開条件を検査します。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_budgeted_run_loop" as *
+#import "platforms/gui/web/font_registered_command_driver_budget" as *
+#import "platforms/gui/web/font_registered_fresh_run_owner_test" as fixture with tests
+#import "platforms/gui/web/input" as *
+#import "std/gui" as *
+
+fn gui_font_web_registered_budgeted_run_loop_test_poll_wake %impure fn GuiFontWebRegisteredBudgetedRunLoopTimerPending GuiFontWebRegisteredBudgetedRunLoopWake \pending:
+    match gui_web_poll_event_result unit:
+        Result::Err _: GuiFontWebRegisteredBudgetedRunLoopWake::Waiting pending
+        Result::Ok maybe_event:
+            match maybe_event:
+                Option::None: GuiFontWebRegisteredBudgetedRunLoopWake::Waiting pending
+                Option::Some event: gui_font_web_registered_budgeted_run_loop_wake pending &event
+
+pub fn gui_font_web_registered_budgeted_run_loop_test_ready_contract %fn unit i32 \_unit:
+    let run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner fixture::gui_font_web_registered_fresh_run_owner_test_owner _unit
+    match gui_font_web_registered_command_driver_budget_start 2 1:
+        Result::Err _:
+            gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+            0
+        Result::Ok budget:
+            let source %GuiFontWebRegisteredBudgetedRunDriverReadyOwner GuiFontWebRegisteredBudgetedRunDriverReadyOwner run_owner budget
+            let ready %GuiFontWebRegisteredBudgetedRunLoopReady gui_font_web_registered_budgeted_run_loop_enqueue_ready source
+            let total_ok %bool eq gui_font_web_registered_command_driver_budget_total_remaining field::get_ref &ready "budget" 2
+            let slice_ok %bool eq gui_font_web_registered_command_driver_budget_slice_remaining field::get_ref &ready "budget" 1
+            gui_font_web_registered_budgeted_run_loop_ready_free ready
+            if and total_ok slice_ok then 6 else 1
+
+pub fn gui_font_web_registered_budgeted_run_loop_test_schedule_failure_contract %impure fn unit i32 \_unit:
+    let run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner fixture::gui_font_web_registered_fresh_run_owner_test_owner _unit
+    match gui_font_web_registered_command_driver_budget_start 2 1:
+        Result::Err _:
+            gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+            0
+        Result::Ok budget:
+            match gui_font_web_registered_command_driver_budget_take budget:
+                GuiFontWebRegisteredCommandDriverBudgetStep::Granted spent:
+                    match gui_font_web_registered_command_driver_budget_take spent:
+                        GuiFontWebRegisteredCommandDriverBudgetStep::SliceExhausted exhausted:
+                            let suspended %GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner run_owner exhausted
+                            match window_id_result 3:
+                                Result::Err _:
+                                    gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended suspended
+                                    0
+                                Result::Ok window:
+                                    match gui_font_web_registered_budgeted_run_loop_schedule_suspended suspended window (timer_id 7) 1:
+                                        Result::Ok pending:
+                                            gui_font_web_registered_budgeted_run_loop_timer_pending_free pending
+                                            1
+                                        Result::Err error:
+                                            let parts %GuiFontWebRegisteredBudgetedRunLoopScheduleErrorParts gui_font_web_registered_budgeted_run_loop_schedule_error_into_parts error
+                                            let _lower %GuiError field::get parts "lower"
+                                            gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended field::get parts "owner"
+                                            7
+                        _: unreachable
+                _: unreachable
+
+pub fn gui_font_web_registered_budgeted_run_loop_test_contract %impure fn unit i32 \_unit:
+    let run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner fixture::gui_font_web_registered_fresh_run_owner_test_owner _unit
+    match gui_font_web_registered_command_driver_budget_start 2 1:
+        Result::Err _:
+            gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+            0
+        Result::Ok budget:
+            match gui_font_web_registered_command_driver_budget_take budget:
+                GuiFontWebRegisteredCommandDriverBudgetStep::Granted spent:
+                    match gui_font_web_registered_command_driver_budget_take spent:
+                        GuiFontWebRegisteredCommandDriverBudgetStep::SliceExhausted exhausted:
+                            let suspended %GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner run_owner exhausted
+                            match window_id_result 3:
+                                Result::Err _:
+                                    gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended suspended
+                                    0
+                                Result::Ok window:
+                                    match gui_font_web_registered_budgeted_run_loop_schedule_suspended suspended window (timer_id 7) 1:
+                                        Result::Err error:
+                                            let parts %GuiFontWebRegisteredBudgetedRunLoopScheduleErrorParts gui_font_web_registered_budgeted_run_loop_schedule_error_into_parts error
+                                            let _lower %GuiError field::get parts "lower"
+                                            gui_font_web_registered_budgeted_run_driver_outcome_free GuiFontWebRegisteredBudgetedRunDriverOutcome::Suspended field::get parts "owner"
+                                            1
+                                        Result::Ok pending:
+                                            match gui_font_web_registered_budgeted_run_loop_test_poll_wake pending:
+                                                GuiFontWebRegisteredBudgetedRunLoopWake::Ready ready:
+                                                    gui_font_web_registered_budgeted_run_loop_ready_free ready
+                                                    2
+                                                GuiFontWebRegisteredBudgetedRunLoopWake::Waiting pending1:
+                                                    match gui_font_web_registered_budgeted_run_loop_test_poll_wake pending1:
+                                                        GuiFontWebRegisteredBudgetedRunLoopWake::Ready ready:
+                                                            gui_font_web_registered_budgeted_run_loop_ready_free ready
+                                                            3
+                                                        GuiFontWebRegisteredBudgetedRunLoopWake::Waiting pending2:
+                                                            match gui_font_web_registered_budgeted_run_loop_test_poll_wake pending2:
+                                                                GuiFontWebRegisteredBudgetedRunLoopWake::Ready ready:
+                                                                    gui_font_web_registered_budgeted_run_loop_ready_free ready
+                                                                    4
+                                                                GuiFontWebRegisteredBudgetedRunLoopWake::Waiting pending3:
+                                                                    match gui_font_web_registered_budgeted_run_loop_test_poll_wake pending3:
+                                                                        GuiFontWebRegisteredBudgetedRunLoopWake::Ready ready:
+                                                                            gui_font_web_registered_budgeted_run_loop_ready_free ready
+                                                                            5
+                                                                        GuiFontWebRegisteredBudgetedRunLoopWake::Waiting pending4:
+                                                                            match gui_font_web_registered_budgeted_run_loop_test_poll_wake pending4:
+                                                                                GuiFontWebRegisteredBudgetedRunLoopWake::Waiting owner:
+                                                                                    gui_font_web_registered_budgeted_run_loop_timer_pending_free owner
+                                                                                    6
+                                                                                GuiFontWebRegisteredBudgetedRunLoopWake::Ready ready:
+                                                                                    let total_ok %bool eq gui_font_web_registered_command_driver_budget_total_remaining field::get_ref &ready "budget" 1
+                                                                                    let slice_ok %bool eq gui_font_web_registered_command_driver_budget_slice_remaining field::get_ref &ready "budget" 1
+                                                                                    gui_font_web_registered_budgeted_run_loop_ready_free ready
+                                                                                    if and total_ok slice_ok then 9 else 5
+                        GuiFontWebRegisteredCommandDriverBudgetStep::Granted owner:
+                            gui_font_web_registered_command_driver_budget_owner_free owner
+                            gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                            6
+                        GuiFontWebRegisteredCommandDriverBudgetStep::Exhausted:
+                            gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                            7
+                GuiFontWebRegisteredCommandDriverBudgetStep::SliceExhausted exhausted:
+                    gui_font_web_registered_command_driver_slice_exhausted_owner_free exhausted
+                    gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                    8
+                GuiFontWebRegisteredCommandDriverBudgetStep::Exhausted:
+                    gui_font_web_registered_run_next_command_phase_run_owner_free run_owner
+                    8

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-22T03:33:27.432Z",
+  "generated_at": "2026-07-22T03:57:12.790Z",
   "counts": {
-    "total": 1460,
+    "total": 1461,
     "open": 60,
-    "resolved": 1400,
+    "resolved": 1401,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -117,6 +117,11 @@
         "resolved": 3
       },
       "STDLIB-TEST": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
+      },
+      "stdlib/gui": {
         "total": 1,
         "open": 0,
         "resolved": 1
@@ -17793,6 +17798,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260605T020743241Z-GUI-ARENA-APIS-HIDE-ALLOCATOR-SIDE-E-DA65DAB1.md"
+    },
+    {
+      "id": "ISS-20260722T033950230Z-WEB-FONT-BUDGETED-RUN-QUEUE-TIMER-LO-F7744887",
+      "title": "Web font budgeted Run queue timer loop boundary",
+      "area": "stdlib/gui",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_budgeted_run_loop.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T033950230Z-WEB-FONT-BUDGETED-RUN-QUEUE-TIMER-LO-F7744887.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

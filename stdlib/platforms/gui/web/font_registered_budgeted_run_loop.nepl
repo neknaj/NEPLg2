@@ -1,0 +1,81 @@
+//: # Web registered budgeted Run queue/timer loop
+//: font Run driverの即時queue再投入とslice休止後のone-shot timer再開を所有権付きで接続します。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_budgeted_run_driver" as *
+#import "platforms/gui/web/font_registered_command_driver_budget" as *
+#import "platforms/gui/web/input" as *
+#import "platforms/gui/web/timer" as *
+#import "std/gui" as *
+
+pub struct GuiFontWebRegisteredBudgetedRunLoopReady:
+    run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner
+    budget %GuiFontWebRegisteredCommandDriverBudgetOwner
+
+pub struct GuiFontWebRegisteredBudgetedRunLoopTimerPending:
+    run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner
+    budget %GuiFontWebRegisteredCommandDriverSliceExhaustedOwner
+    request %TimerRequest
+
+pub struct GuiFontWebRegisteredBudgetedRunLoopScheduleError:
+    owner %GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner
+    lower %GuiError
+
+pub struct GuiFontWebRegisteredBudgetedRunLoopScheduleErrorParts:
+    owner %GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner
+    lower %GuiError
+
+pub enum GuiFontWebRegisteredBudgetedRunLoopWake:
+    Ready %GuiFontWebRegisteredBudgetedRunLoopReady
+    Waiting %GuiFontWebRegisteredBudgetedRunLoopTimerPending
+
+//: Ready outcomeをspent budgetごと即時queue itemへ移します。
+pub fn gui_font_web_registered_budgeted_run_loop_enqueue_ready %fn GuiFontWebRegisteredBudgetedRunDriverReadyOwner GuiFontWebRegisteredBudgetedRunLoopReady \owner:
+    GuiFontWebRegisteredBudgetedRunLoopReady (field::get owner "run_owner") (field::get owner "budget")
+
+//: one-shot timerのhost受理後だけSuspended outcomeをpending ownerへ封印します。
+pub fn gui_font_web_registered_budgeted_run_loop_schedule_suspended %impure fn GuiFontWebRegisteredBudgetedRunDriverSuspendedOwner impure fn WindowId impure fn TimerId impure fn i32 Result GuiFontWebRegisteredBudgetedRunLoopTimerPending GuiFontWebRegisteredBudgetedRunLoopScheduleError \owner\window\timer\delay_ms:
+    let request %TimerRequest timer_request window timer delay_ms false
+    match gui_web_request_timer &request:
+        Result::Err lower: Result::Err GuiFontWebRegisteredBudgetedRunLoopScheduleError owner lower
+        Result::Ok _:
+            Result::Ok GuiFontWebRegisteredBudgetedRunLoopTimerPending (field::get owner "run_owner") (field::get owner "budget") request
+
+pub fn gui_font_web_registered_budgeted_run_loop_timer_request %fn &GuiFontWebRegisteredBudgetedRunLoopTimerPending TimerRequest \pending:
+    *field::get_ref pending "request"
+
+//: timer登録失敗からSuspended ownerとtyped lower errorを回収します。
+pub fn gui_font_web_registered_budgeted_run_loop_schedule_error_into_parts %fn GuiFontWebRegisteredBudgetedRunLoopScheduleError GuiFontWebRegisteredBudgetedRunLoopScheduleErrorParts \error:
+    GuiFontWebRegisteredBudgetedRunLoopScheduleErrorParts (field::get error "owner") (field::get error "lower")
+
+//: matching windowのvalid timer wakeだけが保持済みslice limitからbudgetを再開します。
+pub fn gui_font_web_registered_budgeted_run_loop_wake %fn GuiFontWebRegisteredBudgetedRunLoopTimerPending fn &GuiWebEvent GuiFontWebRegisteredBudgetedRunLoopWake \pending\event:
+    let request %&TimerRequest field::get_ref &pending "request"
+    let expected_window %WindowId timer_request_window request
+    let actual_window %WindowId gui_web_event_window_id event
+    let timer %TimerId timer_request_timer request
+    match gui_web_event_timer event:
+        Option::None: GuiFontWebRegisteredBudgetedRunLoopWake::Waiting pending
+        Option::Some timer_event:
+            let ids_match %bool and (eq window_id_raw &expected_window window_id_raw &actual_window) (eq timer_id_raw &timer timer_event_timer_id &timer_event)
+            if and ids_match ge (timer_event_tick &timer_event) 0:
+                then:
+                    let run_owner %GuiFontWebRegisteredRunNextCommandPhaseRunOwner field::get pending "run_owner"
+                    let exhausted %GuiFontWebRegisteredCommandDriverSliceExhaustedOwner field::get pending "budget"
+                    let budget %GuiFontWebRegisteredCommandDriverBudgetOwner gui_font_web_registered_command_driver_budget_resume_slice exhausted
+                    GuiFontWebRegisteredBudgetedRunLoopWake::Ready GuiFontWebRegisteredBudgetedRunLoopReady run_owner budget
+                else GuiFontWebRegisteredBudgetedRunLoopWake::Waiting pending
+
+pub fn gui_font_web_registered_budgeted_run_loop_ready_free %fn GuiFontWebRegisteredBudgetedRunLoopReady unit \ready:
+    gui_font_web_registered_command_driver_budget_owner_free field::get ready "budget"
+    gui_font_web_registered_run_next_command_phase_run_owner_free field::get ready "run_owner"
+
+pub fn gui_font_web_registered_budgeted_run_loop_timer_pending_free %fn GuiFontWebRegisteredBudgetedRunLoopTimerPending unit \pending:
+    let _request %TimerRequest field::get pending "request"
+    gui_font_web_registered_command_driver_slice_exhausted_owner_free field::get pending "budget"
+    gui_font_web_registered_run_next_command_phase_run_owner_free field::get pending "run_owner"

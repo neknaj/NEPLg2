@@ -169347,3 +169347,9 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - F5oal typed Run ownerを消費する独立Web phase executorを追加し、provenance、spent budget、dispatch state、exact Run stepをlower Run recordへ一度だけ移した。Run1とRun2は同じproduction record executorを使い、schedule、same-record host request、session、Web executorを順に実行する。
 - 初回reviewで検出したrun executorとnext-command/success-phase間の循環依存は、両者をimportする独立phase executorへadapterを分離して解消した。command、cursor、state、completionは再構築していない。
 - actual WASI runtimeはevidence 31、Begin 1 / Run 2 / End 0、exit 0で完走した。F5oanはfixedとするが、Run handoff executor、任意長command driver、queue/timer actual Web loop、native executor/provider、layout/rasterization/presentationとGUI/font全体は未完成である。`plan.md`は変更していない。
+# 2026-07-22 GUI font F5oax queue/timer owner boundary
+
+- budgeted RunのReadyを消費済みbudgetごと即時queue itemへ移し、Suspendedはformal Web one-shot timer requestのhost受理後だけpending ownerへ封印する境界を追加した。
+- timer wakeは`GuiWebEvent`のwindow、timer id、非負tickを照合し、一致時だけ保持済みslice limitからresumeする。登録失敗はSuspended ownerとGuiErrorをtyped partsで回収できる。
+- subagent reviewのwindow照合、host acceptance、不正tick、failure owner回収のMajorを修正した。`trunk build`とPlayground editor JSON 13/13を通過した。
+- F5oaxはfixedだが全体目標は未完了。次はこのqueue/timer owner境界をbudgeted driverのactual polling loopへ接続し、Ready即時再投入、mismatch保持、timer wake後の再実行を同一runtimeで検証する。その後fresh entry、native provider、layout/raster/presentationへ進む。`plan.md`は変更していない。
