@@ -1,3 +1,10 @@
+# 2026-07-22 GUI font F5oar command budget cross-module carrier
+
+- F5oaqのbudget owner nominalをpublicにし、後続driver moduleがfield型として保持できるようにした。authoritative counterはmodule-private proofだけに置き、public wrapperにはraw counterを重複保持しない。
+- subagent reviewとadversarial fixtureで、単一proof型ではactive ownerをslice-exhausted ownerへ再包装して早期resumeできる欠陥を検出した。active proofとslice-exhausted proofを別nominalへ分け、slice=0遷移だけがexhausted proofを生成するよう根本修正した。
+- cross-module runtimeはcarrier輸送とactive proofの線形再包装後も残量が増えないことを確認し、evidence 32で通過した。raw値による両proof mintとactive-to-exhausted typestate偽装のcompile-fail 3件も通過した。
+- F5oarはfixedだが、F5oap handoffとbudget authorityを接続する任意長driver本体、queue/timer、fresh entry、native provider、layout/raster/presentationとGUI/font全体は未完成である。`plan.md`は変更していない。
+
 # 2026-07-22 GUI font F5oaq command driver budget authority
 
 - 任意長driver用のtotal remaining、slice remaining、slice limitを同じmodule-private ownerへ封印し、positive checked start、actionごとの同時decrement、typed slice exhaustion、保持済みlimitだけを使うslice resume、ownerを返さないtotal exhaustionを追加した。

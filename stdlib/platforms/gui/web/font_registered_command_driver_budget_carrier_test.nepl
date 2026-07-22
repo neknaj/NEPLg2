@@ -1,0 +1,71 @@
+//: # Web registered command budget cross-module carrier test
+//: public nominal ownerを別moduleのfieldとして保持し、checked authorityだけを回収します。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_command_driver_budget" as *
+
+pub struct GuiFontWebRegisteredCommandDriverBudgetCarrierTestOwner:
+    budget %GuiFontWebRegisteredCommandDriverBudgetOwner
+
+//: 外部moduleからactive budget ownerをraw値だけで発行できないことを確認します。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: type.overload.no_match
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "platforms/gui/web/font_registered_command_driver_budget" as *
+//: fn main %fn void i32 \void:
+//:     let _forged %GuiFontWebRegisteredCommandDriverBudgetOwner GuiFontWebRegisteredCommandDriverBudgetOwner 99;
+//:     0
+//: ```
+//:
+//: 外部moduleからslice exhausted ownerをraw値だけで発行できないことを確認します。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: type.overload.no_match
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "platforms/gui/web/font_registered_command_driver_budget" as *
+//: fn main %fn void i32 \void:
+//:     let _forged %GuiFontWebRegisteredCommandDriverSliceExhaustedOwner GuiFontWebRegisteredCommandDriverSliceExhaustedOwner 99;
+//:     0
+//: ```
+//:
+//: active proofをslice exhausted authorityへ再包装して早期resumeできないことを確認します。
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: type.overload.no_match
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/field" as field
+//:| #import "core/result" as *
+//:| #import "platforms/gui/web/font_registered_command_driver_budget" as *
+//: fn main %fn void i32 \void:
+//:     match gui_font_web_registered_command_driver_budget_start 10 5:
+//:         Result::Err _: 0
+//:         Result::Ok budget:
+//:             let proof field::get budget "proof"
+//:             let _forged %GuiFontWebRegisteredCommandDriverSliceExhaustedOwner GuiFontWebRegisteredCommandDriverSliceExhaustedOwner proof;
+//:             0
+//: ```
+
+#test
+pub fn gui_font_web_registered_command_driver_budget_carrier_test_contract %fn unit i32 \_unit:
+    match gui_font_web_registered_command_driver_budget_start 2 1:
+        Result::Err _: 0
+        Result::Ok budget:
+            let carrier %GuiFontWebRegisteredCommandDriverBudgetCarrierTestOwner GuiFontWebRegisteredCommandDriverBudgetCarrierTestOwner budget
+            let recovered %GuiFontWebRegisteredCommandDriverBudgetOwner field::get carrier "budget"
+            let proof field::get recovered "proof"
+            let rewrapped %GuiFontWebRegisteredCommandDriverBudgetOwner GuiFontWebRegisteredCommandDriverBudgetOwner proof
+            match gui_font_web_registered_command_driver_budget_take rewrapped:
+                GuiFontWebRegisteredCommandDriverBudgetStep::Granted next:
+                    if and eq gui_font_web_registered_command_driver_budget_total_remaining &next 1 eq gui_font_web_registered_command_driver_budget_slice_remaining &next 0 then 1 else 0
+                _: 0

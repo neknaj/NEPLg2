@@ -11,18 +11,20 @@ async function run() {
         source: `#entry main
 #indent 4
 #target std
+#import "core/math" as *
 #import "platforms/gui/web/font_registered_command_driver_budget_test" as * with tests
+#import "platforms/gui/web/font_registered_command_driver_budget_carrier_test" as * with tests
 
 fn main %fn void i32 \\void:
-    gui_font_web_registered_command_driver_budget_test_contract unit
+    add gui_font_web_registered_command_driver_budget_test_contract unit gui_font_web_registered_command_driver_budget_carrier_test_contract unit
 `,
         file: path.resolve(__dirname, "..", "tests", "gui_font_web_registered_command_driver_budget.nepl"),
         distHint: path.resolve(__dirname, "..", "web", "dist"),
         forceStdlibVfs: true,
     });
     assert.equal(result.ok, true, result.error);
-    assert.equal(result.return_value, 31);
-    return { ok: true, evidence: 31 };
+    assert.equal(result.return_value, 32);
+    return { ok: true, evidence: 32 };
 }
 
 if (require.main === module) run().then((value) => process.stdout.write(`${JSON.stringify(value)}\n`)).catch((error) => { console.error(error.stack || error); process.exit(1); });

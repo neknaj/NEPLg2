@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-22T00:44:43.178Z",
+  "generated_at": "2026-07-22T01:06:30.981Z",
   "counts": {
-    "total": 1454,
+    "total": 1455,
     "open": 60,
-    "resolved": 1394,
+    "resolved": 1395,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 40,
+        "total": 41,
         "open": 0,
-        "resolved": 40
+        "resolved": 41
       },
       "nodesrc": {
         "total": 16,
@@ -12348,6 +12348,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260722T120000000Z-F5OAQ-WEB-COMMAND-DRIVER-BUDGET-AUTHORITY-3E91B20C.md"
+    },
+    {
+      "id": "ISS-20260722T130000000Z-F5OAR-WEB-COMMAND-BUDGET-CROSS-MODULE-CARRIER-7A219D4E",
+      "title": "F5oar Web command budget cross-module carrier",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_command_driver_budget.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T130000000Z-F5OAR-WEB-COMMAND-BUDGET-CROSS-MODULE-CARRIER-7A219D4E.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
