@@ -1,0 +1,47 @@
+//: # Web registered command driver budget
+//: 任意長driverのtotal/slice残量を同じtyped authorityとして輸送します。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+
+struct GuiFontWebRegisteredCommandDriverBudgetOwner:
+    total_remaining %i32
+    slice_remaining %i32
+    slice_limit %i32
+
+struct GuiFontWebRegisteredCommandDriverSliceExhaustedOwner:
+    total_remaining %i32
+    slice_limit %i32
+
+pub enum GuiFontWebRegisteredCommandDriverBudgetStep:
+    Granted %GuiFontWebRegisteredCommandDriverBudgetOwner
+    SliceExhausted %GuiFontWebRegisteredCommandDriverSliceExhaustedOwner
+    Exhausted
+
+//: positive limitだけを初期authorityへ封印する
+pub fn gui_font_web_registered_command_driver_budget_start %fn i32 fn i32 Result GuiFontWebRegisteredCommandDriverBudgetOwner unit \total_limit\slice_limit:
+    if and gt total_limit 0 gt slice_limit 0 then Result::Ok GuiFontWebRegisteredCommandDriverBudgetOwner total_limit if lt total_limit slice_limit then total_limit else slice_limit slice_limit else Result::Err unit
+
+//: action許可時だけtotal/slice残量を同時に一度減らす
+pub fn gui_font_web_registered_command_driver_budget_take %fn GuiFontWebRegisteredCommandDriverBudgetOwner GuiFontWebRegisteredCommandDriverBudgetStep \owner:
+    let total_remaining %i32 field::get owner "total_remaining"
+    let slice_remaining %i32 field::get owner "slice_remaining"
+    let slice_limit %i32 field::get owner "slice_limit"
+    if le total_remaining 0 then GuiFontWebRegisteredCommandDriverBudgetStep::Exhausted else:
+        if le slice_remaining 0 then GuiFontWebRegisteredCommandDriverBudgetStep::SliceExhausted GuiFontWebRegisteredCommandDriverSliceExhaustedOwner total_remaining slice_limit else:
+            GuiFontWebRegisteredCommandDriverBudgetStep::Granted GuiFontWebRegisteredCommandDriverBudgetOwner sub total_remaining 1 sub slice_remaining 1 slice_limit
+
+//: slice exhaustion authorityだけを保持済みlimitからresumeする
+pub fn gui_font_web_registered_command_driver_budget_resume_slice %fn GuiFontWebRegisteredCommandDriverSliceExhaustedOwner GuiFontWebRegisteredCommandDriverBudgetOwner \owner:
+    let total_remaining %i32 field::get owner "total_remaining"
+    let slice_limit %i32 field::get owner "slice_limit"
+    GuiFontWebRegisteredCommandDriverBudgetOwner total_remaining if lt total_remaining slice_limit then total_remaining else slice_limit slice_limit
+
+pub fn gui_font_web_registered_command_driver_budget_total_remaining %fn &GuiFontWebRegisteredCommandDriverBudgetOwner i32 \owner:
+    *field::get_ref owner "total_remaining"
+
+pub fn gui_font_web_registered_command_driver_budget_slice_remaining %fn &GuiFontWebRegisteredCommandDriverBudgetOwner i32 \owner:
+    *field::get_ref owner "slice_remaining"

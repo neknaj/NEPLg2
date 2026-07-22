@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-22T00:34:37.122Z",
+  "generated_at": "2026-07-22T00:44:43.178Z",
   "counts": {
-    "total": 1453,
+    "total": 1454,
     "open": 60,
-    "resolved": 1393,
+    "resolved": 1394,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 39,
+        "total": 40,
         "open": 0,
-        "resolved": 39
+        "resolved": 40
       },
       "nodesrc": {
         "total": 16,
@@ -12333,6 +12333,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260722T110000000Z-F5OAP-WEB-RUN-PHASE-HANDOFF-EXECUTOR-6C4A298E.md"
+    },
+    {
+      "id": "ISS-20260722T120000000Z-F5OAQ-WEB-COMMAND-DRIVER-BUDGET-AUTHORITY-3E91B20C",
+      "title": "F5oaq Web command driver budget authority",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_command_driver_budget.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T120000000Z-F5OAQ-WEB-COMMAND-DRIVER-BUDGET-AUTHORITY-3E91B20C.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

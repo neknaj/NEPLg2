@@ -1,0 +1,57 @@
+//: # Web registered command driver budget test
+//: total 3 / slice 2のexact transitionと再発行不能なexhaustionを検査します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "platforms/gui/web/font_registered_command_driver_budget" as *
+
+fn gui_font_web_registered_command_driver_budget_test_invalid %fn unit i32 \_unit:
+    let zero_ok %bool match gui_font_web_registered_command_driver_budget_start 0 1:
+        Result::Err _: true
+        Result::Ok _: false
+    let negative_ok %bool match gui_font_web_registered_command_driver_budget_start 1 sub 0 1:
+        Result::Err _: true
+        Result::Ok _: false
+    if and zero_ok negative_ok then 8 else 0
+
+fn gui_font_web_registered_command_driver_budget_test_slice_above_total %fn unit i32 \_unit:
+    match gui_font_web_registered_command_driver_budget_start 1 3:
+        Result::Err _: 0
+        Result::Ok first:
+            match gui_font_web_registered_command_driver_budget_take first:
+                GuiFontWebRegisteredCommandDriverBudgetStep::Granted final:
+                    let exact %bool and eq gui_font_web_registered_command_driver_budget_total_remaining &final 0 eq gui_font_web_registered_command_driver_budget_slice_remaining &final 0
+                    match gui_font_web_registered_command_driver_budget_take final:
+                        GuiFontWebRegisteredCommandDriverBudgetStep::Exhausted: if exact then 16 else 0
+                        _: 0
+                _: 0
+
+#test
+pub fn gui_font_web_registered_command_driver_budget_test_contract %fn unit i32 \_unit:
+    let invalid_evidence %i32 gui_font_web_registered_command_driver_budget_test_invalid _unit
+    let cap_evidence %i32 gui_font_web_registered_command_driver_budget_test_slice_above_total _unit
+    match gui_font_web_registered_command_driver_budget_start 3 2:
+        Result::Err _: 0
+        Result::Ok first:
+            match gui_font_web_registered_command_driver_budget_take first:
+                GuiFontWebRegisteredCommandDriverBudgetStep::Granted second:
+                    let evidence1 %i32 if and eq gui_font_web_registered_command_driver_budget_total_remaining &second 2 eq gui_font_web_registered_command_driver_budget_slice_remaining &second 1 then 1 else 0
+                    match gui_font_web_registered_command_driver_budget_take second:
+                        GuiFontWebRegisteredCommandDriverBudgetStep::Granted third:
+                            let evidence2 %i32 if and eq gui_font_web_registered_command_driver_budget_total_remaining &third 1 eq gui_font_web_registered_command_driver_budget_slice_remaining &third 0 then 2 else 0
+                            match gui_font_web_registered_command_driver_budget_take third:
+                                GuiFontWebRegisteredCommandDriverBudgetStep::SliceExhausted paused:
+                                    let resumed %GuiFontWebRegisteredCommandDriverBudgetOwner gui_font_web_registered_command_driver_budget_resume_slice paused
+                                    match gui_font_web_registered_command_driver_budget_take resumed:
+                                        GuiFontWebRegisteredCommandDriverBudgetStep::Granted final:
+                                            let evidence3 %i32 if and eq gui_font_web_registered_command_driver_budget_total_remaining &final 0 eq gui_font_web_registered_command_driver_budget_slice_remaining &final 0 then 4 else 0
+                                            match gui_font_web_registered_command_driver_budget_take final:
+                                                GuiFontWebRegisteredCommandDriverBudgetStep::Exhausted: add invalid_evidence add cap_evidence add evidence1 add evidence2 evidence3
+                                                GuiFontWebRegisteredCommandDriverBudgetStep::Granted _: 0
+                                                GuiFontWebRegisteredCommandDriverBudgetStep::SliceExhausted _: 0
+                                        _: 0
+                                _: 0
+                        _: 0
+                _: 0

@@ -1,3 +1,9 @@
+# 2026-07-22 GUI font F5oaq command driver budget authority
+
+- 任意長driver用のtotal remaining、slice remaining、slice limitを同じmodule-private ownerへ封印し、positive checked start、actionごとの同時decrement、typed slice exhaustion、保持済みlimitだけを使うslice resume、ownerを返さないtotal exhaustionを追加した。
+- 初回reviewのMajor指摘に従いowner structを非公開化してraw constructorによる任意残量再発行を禁止した。initial sliceはmin(total, slice limit)とし、zero/negative rejection、total 1 / slice 3、total 3 / slice 2の実行遷移を検査した。
+- focused runtimeはevidence 31で通過した。F5oaqはfixedだが、budget authorityとF5oapを接続する任意長driver本体、queue/timer、fresh entry、native provider、layout/raster/presentationとGUI/font全体は未完成である。`plan.md`は変更していない。
+
 # 2026-07-22 GUI font F5oap Web Run phase handoff executor
 
 - F5oal typed Run ownerを既存actual Web phase executorへ一度渡し、成功authorityを既存F5oai classifierへ一度渡すproduction handoffを追加した。失敗は既存owner-bearing Run execution errorを保持する。
