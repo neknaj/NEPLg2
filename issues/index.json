@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-22T02:12:41.212Z",
+  "generated_at": "2026-07-22T02:29:37.366Z",
   "counts": {
-    "total": 1456,
+    "total": 1457,
     "open": 60,
-    "resolved": 1396,
+    "resolved": 1397,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -97,9 +97,9 @@
         "resolved": 39
       },
       "gui-font": {
-        "total": 42,
+        "total": 43,
         "open": 0,
-        "resolved": 42
+        "resolved": 43
       },
       "nodesrc": {
         "total": 16,
@@ -12378,6 +12378,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260722T140000000Z-F5OAS-WEB-BUDGETED-RUN-DRIVER-STATE-MACHINE-5E8C31A4.md"
+    },
+    {
+      "id": "ISS-20260722T150000000Z-F5OAT-WEB-FRESH-PRE-RUN-OWNER-PRODUCER-7A41D2C9",
+      "title": "F5oat Web fresh pre-Run owner producer",
+      "area": "gui-font",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-07-22",
+      "updated": "2026-07-22",
+      "target": "stdlib/platforms/gui/web/font_registered_fresh_run_owner.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260722T150000000Z-F5OAT-WEB-FRESH-PRE-RUN-OWNER-PRODUCER-7A41D2C9.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

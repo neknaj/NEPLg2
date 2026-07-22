@@ -1,3 +1,9 @@
+# 2026-07-22 GUI font F5oat fresh pre-Run owner producer
+
+- retry Yield再開後の未実行next-command authorityをborrowed resultで確認し、Runの場合だけprovenance、state、stepをF5oas driver用Run ownerへ線形移送するproducerを追加した。Run以外は元ownerを保持し、実行済みsuccessからのreplay再構築をactual runtimeから除去した。
+- focused runtimeはEndFrame evidence 3、Web Begin/Run/End 1/1/0で通過した。subagent reviewはBlocker/Majorなし。MinorのNotRun/Completed executable cleanup fixture不足は後続todoへ残した。
+- F5oatはfixedだが全体目標は未完了。次は複数fresh Run fixtureでReady再投入、TotalExhausted、Suspendedを検証し、queue/timer loop、fresh entry、native provider、layout/raster/presentationへ進む。`plan.md`は変更していない。
+
 # 2026-07-22 GUI font F5oas budgeted Run driver state machine
 
 - F5oar budgetをactual Run前に一度消費し、F5oap handoff、Continue/Yield next-command、Ready/Suspended/TotalExhausted/terminal/failure ownerへ接続するresumable step driverを追加した。直接再帰はcompiler固定点コストを増やすため採用していない。

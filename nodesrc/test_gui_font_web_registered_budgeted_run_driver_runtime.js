@@ -40,9 +40,9 @@ fn main %impure fn void i32 \\void:
         },
     });
     assert.equal(result.ok, true, result.error);
-    assert.equal(result.return_value, 48);
+    assert.equal(result.return_value, 3);
     assert.deepEqual(calls, { begin: 1, run: 1, end: 0 });
-    return { ok: true, evidence: 48, calls };
+    return { ok: true, evidence: 3, calls };
 }
 
 if (require.main === module) run().then((value) => process.stdout.write(`${JSON.stringify(value)}\n`)).catch((error) => { console.error(error.stack || error); process.exit(1); });

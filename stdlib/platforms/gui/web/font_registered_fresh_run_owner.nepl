@@ -1,0 +1,28 @@
+//: # Web registered fresh Run owner producer
+//: retry Yield後の未実行next-command authorityをexact Run ownerへ移します。
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_compositor_tile_rle_begin_frame_resumed_next_command" as *
+#import "core/field" as field
+#import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler" as *
+#import "platforms/gui/web/font_registered_run_next_command" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+
+pub enum GuiFontWebRegisteredFreshRunOwnerResult:
+    Run %GuiFontWebRegisteredRunNextCommandPhaseRunOwner
+    NotRun %GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner
+
+//: borrowed resultがRunの場合だけ、provenance、state、stepを分断せずfresh Run ownerへ移します。
+pub fn gui_font_web_registered_fresh_run_owner_produce %fn GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwner GuiFontWebRegisteredFreshRunOwnerResult \owner:
+    let parts_result %GuiRgba8888CompositorTileRlePresentCommandCursorStepResult gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_result field::get_ref &owner "next_owner"
+    match parts_result:
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+            match command:
+                GuiRgba8888CompositorTileRlePresentCommand::Run _:
+                    let parts %GuiFontWebRegisteredBeginFrameRetryYieldNextCommandOwnerParts gui_font_web_registered_begin_frame_retry_yield_next_command_owner_into_parts owner
+                    let next %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwner field::get parts "next_owner"
+                    let next_parts %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeCompositorTileRleBeginFrameResumedNextCommandOwnerParts gui_font_registered_face_simple_glyph_indexed_stroke_compositor_tile_rle_begin_frame_resumed_next_command_owner_into_parts next
+                    GuiFontWebRegisteredFreshRunOwnerResult::Run GuiFontWebRegisteredRunNextCommandPhaseRunOwner field::get parts "previous_category" field::get parts "previous_diagnostic" field::get parts "spent_budget" field::get next_parts "state" field::get next_parts "step"
+                _: GuiFontWebRegisteredFreshRunOwnerResult::NotRun owner
+        _: GuiFontWebRegisteredFreshRunOwnerResult::NotRun owner

@@ -16,6 +16,7 @@
 #import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler" as *
 #import "platforms/gui/web/font_registered_begin_frame_retry_yield_scheduler_test" as fixture with tests
 #import "platforms/gui/web/font_registered_run_executor" as *
+#import "platforms/gui/web/font_registered_fresh_run_owner" as *
 #import "std/gui/compositor_tile_present_command_cursor" as *
 #import "std/gui/compositor_tile_present_dispatch" as *
 #import "std/gui/compositor_tile_present_dispatch_loop" as *
@@ -83,6 +84,26 @@ pub fn gui_font_web_registered_run_executor_test_success_owner %impure fn unit i
                                     match gui_font_web_registered_retry_yield_next_command_execute_run &host &policy GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen next:
                                         Result::Ok success: Result::Ok success
                                         Result::Err error: Result::Err gui_font_web_registered_run_executor_test_error_evidence error
+
+pub fn gui_font_web_registered_run_executor_test_fresh_run_owner %impure fn unit Result GuiFontWebRegisteredRunNextCommandPhaseRunOwner i32 \_unit:
+    match fixture::gui_font_web_registered_begin_frame_retry_yield_scheduler_test_owner _unit:
+        Result::Err evidence: Result::Err evidence
+        Result::Ok yield_owner:
+            match gui_font_web_registered_begin_frame_retry_yield_scheduler_decide yield_owner GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecision::ResumeSlice:
+                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::AbortReady aborted:
+                    gui_font_web_registered_begin_frame_retry_yield_abort_ready_owner_free aborted
+                    Result::Err 0
+                GuiFontWebRegisteredBeginFrameRetryYieldSchedulerDecisionOwner::ResumePending pending:
+                    match gui_font_web_registered_begin_frame_retry_yield_resume_and_step_next_command pending:
+                        Result::Err error:
+                            gui_font_web_registered_begin_frame_retry_yield_next_command_error_free error
+                            Result::Err 0
+                        Result::Ok next:
+                            match gui_font_web_registered_fresh_run_owner_produce next:
+                                GuiFontWebRegisteredFreshRunOwnerResult::Run owner: Result::Ok owner
+                                GuiFontWebRegisteredFreshRunOwnerResult::NotRun unexpected:
+                                    gui_font_web_registered_begin_frame_retry_yield_next_command_owner_free unexpected
+                                    Result::Err 0
 
 #test
 pub fn gui_font_web_registered_run_executor_test_success_contract %impure fn unit i32 \_unit:
